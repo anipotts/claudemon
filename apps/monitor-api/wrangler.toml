@@ -3,6 +3,12 @@ main = "src/index.ts"
 compatibility_date = "2025-04-01"
 account_id = "0f856093bdcd34a7da1bde5ee4385163"
 
+# Production custom domains
+routes = [
+  { pattern = "api.claudemon.com", custom_domain = true },
+  { pattern = "claudemon.com", custom_domain = true },
+]
+
 [durable_objects]
 bindings = [
   { name = "SESSION_ROOM", class_name = "SessionRoom" }
