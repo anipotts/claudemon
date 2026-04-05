@@ -1,7 +1,7 @@
 [package]
-name = "openproof-desktop"
+name = "claudemon-desktop"
 version = "0.1.0"
-description = "OpenProof Multi-Agent Monitor"
+description = "ClaudeMon — Monitor your Claude Code sessions"
 authors = ["anipotts"]
 edition = "2021"
 
