@@ -119,7 +119,7 @@ async function init(keyArg) {
   if (existsSync(settingsPath)) {
     try {
       settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
-    } catch (e) {
+    } catch (_e) {
       console.log(red("  Error: ") + `${settingsPath} contains invalid JSON.`);
       console.log(dim("  Fix the file manually, then re-run claudemon init."));
       process.exit(1);

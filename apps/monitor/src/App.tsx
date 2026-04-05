@@ -258,11 +258,19 @@ const App: Component = () => {
         <div class="h-0.5 bg-suspicious/50 animate-pulse" />
       </Show>
 
-      <Show when={hasAgents()} fallback={
-        <Show when={user()?.has_api_keys && !showOnboarding()} fallback={<Onboarding apiUrl={API_URL} user={user()} authLoading={authLoading()} onSetupComplete={refetchUser} />}>
-          <IdleDashboard connectionStatus={connectionStatus} onShowSetup={() => setShowOnboarding(true)} />
-        </Show>
-      }>
+      <Show
+        when={hasAgents()}
+        fallback={
+          <Show
+            when={user()?.has_api_keys && !showOnboarding()}
+            fallback={
+              <Onboarding apiUrl={API_URL} user={user()} authLoading={authLoading()} onSetupComplete={refetchUser} />
+            }
+          >
+            <IdleDashboard connectionStatus={connectionStatus} onShowSetup={() => setShowOnboarding(true)} />
+          </Show>
+        }
+      >
         <div class="flex flex-1 overflow-hidden">
           {/* Left: Agent Map */}
           <div class="flex-1 min-w-0 flex flex-col border-r border-panel-border">

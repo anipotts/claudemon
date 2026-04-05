@@ -2,8 +2,6 @@ import { type Component, createSignal, Show, For, createMemo } from "solid-js";
 import { ShieldCheck, Copy, Check } from "./Icons";
 import { HOOK_EVENTS } from "../../../../packages/types/monitor";
 
-const API_URL = import.meta.env.VITE_MONITOR_API_URL || "https://api.claudemon.com";
-
 // ── Copy button ─────────────────────────────────────────────────────
 
 function CopyBtn(props: { text: string }) {
@@ -293,7 +291,12 @@ interface User {
   avatar_url: string;
 }
 
-export const Onboarding: Component<{ apiUrl: string; user: User | null; authLoading: boolean; onSetupComplete?: () => void }> = (props) => {
+export const Onboarding: Component<{
+  apiUrl: string;
+  user: User | null;
+  authLoading: boolean;
+  onSetupComplete?: () => void;
+}> = (props) => {
   const [apiKey, _setApiKey] = createSignal<string | null>(
     typeof localStorage !== "undefined" ? localStorage.getItem("claudemon_api_key") : null,
   );

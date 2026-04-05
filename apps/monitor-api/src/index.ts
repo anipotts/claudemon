@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { auth } from "./auth";
+import { auth, hashApiKey } from "./auth";
 import { apiKeyAuth, optionalCookieAuth, wsTokenAuth } from "./middleware";
 import type { Env } from "./env";
 
@@ -225,7 +225,7 @@ app.post("/cloud/register", apiKeyAuth, async (c) => {
 
 // -- Serve hook script (no eval, safe auth header) ------------------------
 
-app.get("/hook.sh", async (c) => {
+app.get("/hook.sh", async (_c) => {
   const script = `#!/usr/bin/env bash
 # ClaudeMon Hook -- batching version (flushes every 2s)
 set -euo pipefail
@@ -308,15 +308,29 @@ const worker = {
       });
     }
 
-    // WebSocket upgrade -- bypass Hono CORS, auth via cookie
+    // WebSocket upgrade -- bypass Hono CORS, auth via cookie or API key
     if (url.pathname === "/ws" && request.headers.get("Upgrade") === "websocket") {
       let userId = "anonymous";
 
+      // Try cookie auth first
       const cookie = request.headers.get("Cookie") || "";
       const match = cookie.match(/claudemon_token=([^;]+)/);
       if (match && env.JWT_SECRET) {
         const result = await wsTokenAuth(match[1], env.JWT_SECRET);
         if (result) userId = result.userId;
+      }
+
+      // Fallback: API key in query param (cross-origin WebSocket may not carry cookies)
+      if (userId === "anonymous") {
+        const token = url.searchParams.get("token");
+        if (token?.startsWith("cm_")) {
+          const hash = await hashApiKey(token);
+          const raw = await env.API_KEYS.get(`key:${hash}`);
+          if (raw) {
+            const data = JSON.parse(raw) as { user_id: string };
+            userId = data.user_id;
+          }
+        }
       }
 
       const room = getRoom(env, userId);
