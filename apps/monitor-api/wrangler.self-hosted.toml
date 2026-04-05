@@ -1,0 +1,15 @@
+name = "claudemon-api"
+main = "src/index.ts"
+compatibility_date = "2026-04-05"
+
+[vars]
+SINGLE_USER = "true"
+
+[durable_objects]
+bindings = [
+  { name = "SESSION_ROOM", class_name = "SessionRoom" }
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["SessionRoom"]
