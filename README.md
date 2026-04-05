@@ -1,5 +1,9 @@
 # ClaudeMon
 
+[![GitHub stars](https://img.shields.io/github/stars/anipotts/claudemon?style=flat&color=a3b18a&labelColor=1a1916)](https://github.com/anipotts/claudemon)
+[![npm](https://img.shields.io/npm/dw/claudemon-cli?style=flat&color=a3b18a&labelColor=1a1916&label=npm)](https://www.npmjs.com/package/claudemon-cli)
+[![CI](https://img.shields.io/github/actions/workflow/status/anipotts/claudemon/ci.yml?style=flat&labelColor=1a1916)](https://github.com/anipotts/claudemon/actions)
+
 Monitor your Claude Code sessions in real time.
 
 See what every session is doing across machines, branches, and projects. Detect file conflicts. Know when Claude needs your input.

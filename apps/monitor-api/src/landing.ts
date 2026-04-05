@@ -952,9 +952,12 @@ footer .sep { color: var(--panel-border); }
       </div>
       <p class="tagline fade-in fade-in-d1">Monitor your Claude Code sessions in real time</p>
       <p class="subtitle fade-in fade-in-d2">See what every agent is doing across machines and branches. Detect file conflicts before they happen. Know when Claude needs your input.</p>
-      <div style="display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:24px;" class="fade-in fade-in-d2">
-        <a href="https://github.com/anipotts/claudemon"><img src="https://img.shields.io/github/stars/anipotts/claudemon?style=flat&color=a3b18a&labelColor=1a1916&label=stars" alt="GitHub Stars" height="20"></a>
-        <a href="https://www.npmjs.com/package/claudemon-cli"><img src="https://img.shields.io/npm/dm/claudemon-cli?style=flat&color=a3b18a&labelColor=1a1916&label=npm" alt="npm downloads" height="20"></a>
+      <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:24px; font-size:11px; color:#6b6560;" class="fade-in fade-in-d2">
+        <span>Open source</span>
+        <span style="color:#3d3a34;">|</span>
+        <span>Self-hostable</span>
+        <span style="color:#3d3a34;">|</span>
+        <span>Zero persistent storage</span>
       </div>
       <div class="cta-row fade-in fade-in-d3">
         <a href="https://app.claudemon.com" class="btn btn-primary">
