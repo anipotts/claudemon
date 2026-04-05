@@ -1,99 +1,152 @@
-import { type Component, createSignal, Show, createEffect } from "solid-js";
+import { type Component, createSignal, Show, For, createMemo } from "solid-js";
 import { ShieldCheck, Copy, Check, Eye, Lightning, TreeStructure } from "./Icons";
 
 const API_URL = import.meta.env.VITE_MONITOR_API_URL || "https://api.claudemon.com";
 
-// ── Syntax-highlighted JSON ─────────────────────────────────────────
+// ── Copy button ─────────────────────────────────────────────────────
 
-function JsonBlock(props: { json: string; label?: string }) {
+function CopyBtn(props: { text: string; class?: string }) {
   const [copied, setCopied] = createSignal(false);
-  let preRef: HTMLPreElement | undefined;
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(props.json);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  // Build highlighted HTML with proper spans
-  const highlight = (json: string): string => {
-    const escaped = json
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-
-    return escaped
-      // keys: "key":
-      .replace(/(&quot;|")([^"&]*?)(&quot;|")(\s*:)/g,
-        '<span style="color:#e06c75">"$2"</span>$4')
-      // strings (remaining quoted values)
-      .replace(/(&quot;|")([^"&]*?)(&quot;|")/g,
-        '<span style="color:#98c379">"$2"</span>')
-      // booleans
-      .replace(/\b(true|false)\b/g, '<span style="color:#d19a66">$1</span>')
-      // numbers
-      .replace(/:(\s*)(\d+)/g, ':$1<span style="color:#d19a66">$2</span>')
-      // braces and brackets
-      .replace(/([{}[\]])/g, '<span style="color:#5c6370">$1</span>')
-      // commas and colons
-      .replace(/([,:])/g, '<span style="color:#5c6370">$1</span>');
-  };
-
-  createEffect(() => {
-    if (preRef) {
-      preRef.innerHTML = highlight(props.json);
-    }
-  });
-
-  return (
-    <div class="group relative">
-      <Show when={props.label}>
-        <div class="text-[11px] text-text-sub uppercase tracking-wider mb-1.5">{props.label}</div>
-      </Show>
-      <div class="relative bg-[#0e0d0c] border border-panel-border/50 rounded overflow-hidden">
-        <pre
-          ref={preRef}
-          class="px-4 py-3 text-[13px] leading-[1.65] overflow-x-auto font-mono"
-        />
-        <button
-          onClick={handleCopy}
-          class="absolute top-2.5 right-2.5 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity bg-panel-border/30 hover:bg-panel-border/50"
-        >
-          {copied() ? <Check size={14} class="text-safe" /> : <Copy size={14} class="text-text-sub" />}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ── Copy block for terminal commands ────────────────────────────────
-
-function CmdBlock(props: { text: string; label?: string }) {
-  const [copied, setCopied] = createSignal(false);
-
   const handleCopy = () => {
     navigator.clipboard.writeText(props.text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+  return (
+    <button
+      onClick={handleCopy}
+      class={`p-1.5 rounded transition-all ${props.class || ""}`}
+      title="Copy"
+    >
+      {copied() ? <Check size={14} class="text-safe" /> : <Copy size={14} class="text-text-sub hover:text-text-primary" />}
+    </button>
+  );
+}
+
+// ── Code block with copy ────────────────────────────────────────────
+
+function CodeBlock(props: { code: string; label?: string; lang?: "bash" | "json" }) {
+  // SolidJS-safe syntax highlighting: build DOM nodes, not innerHTML
+  const lines = () => props.code.split("\n");
+
+  const colorize = (line: string): Array<{ text: string; color?: string }> => {
+    if (props.lang === "json") {
+      return colorizeJson(line);
+    }
+    // bash: just highlight comments
+    if (line.trimStart().startsWith("#")) {
+      return [{ text: line, color: "#5c6370" }];
+    }
+    return [{ text: line }];
+  };
 
   return (
     <div class="group relative">
       <Show when={props.label}>
         <div class="text-[11px] text-text-sub uppercase tracking-wider mb-1.5">{props.label}</div>
       </Show>
-      <div class="relative bg-[#0e0d0c] border border-panel-border/50 rounded">
-        <pre class="px-4 py-3 text-[13px] text-text-primary leading-[1.6] whitespace-pre-wrap break-all font-mono">{props.text}</pre>
-        <button
-          onClick={handleCopy}
-          class="absolute top-2.5 right-2.5 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity bg-panel-border/30 hover:bg-panel-border/50"
-        >
-          {copied() ? <Check size={14} class="text-safe" /> : <Copy size={14} class="text-text-sub" />}
-        </button>
+      <div class="relative bg-[#0e0d0c] border border-panel-border/50 rounded overflow-x-auto">
+        <pre class="px-4 py-3 text-[13px] leading-[1.65] font-mono whitespace-pre">
+          <For each={lines()}>
+            {(line, i) => (
+              <>
+                <For each={colorize(line)}>
+                  {(tok) => (
+                    <span style={tok.color ? { color: tok.color } : {}}>{tok.text}</span>
+                  )}
+                </For>
+                {i() < lines().length - 1 ? "\n" : ""}
+              </>
+            )}
+          </For>
+        </pre>
+        <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <CopyBtn text={props.code} />
+        </div>
       </div>
     </div>
   );
 }
+
+// Simple JSON tokenizer for one line
+function colorizeJson(line: string): Array<{ text: string; color?: string }> {
+  const tokens: Array<{ text: string; color?: string }> = [];
+  let i = 0;
+  const s = line;
+
+  while (i < s.length) {
+    // whitespace
+    if (s[i] === " " || s[i] === "\t") {
+      let j = i;
+      while (j < s.length && (s[j] === " " || s[j] === "\t")) j++;
+      tokens.push({ text: s.slice(i, j) });
+      i = j;
+      continue;
+    }
+    // string
+    if (s[i] === '"') {
+      let j = i + 1;
+      while (j < s.length && s[j] !== '"') { if (s[j] === "\\") j++; j++; }
+      j++; // closing quote
+      const str = s.slice(i, j);
+      // check if it's a key (followed by :)
+      let k = j;
+      while (k < s.length && s[k] === " ") k++;
+      const isKey = s[k] === ":";
+      tokens.push({ text: str, color: isKey ? "#e06c75" : "#98c379" });
+      i = j;
+      continue;
+    }
+    // boolean/null
+    if (s.slice(i).match(/^(true|false|null)/)) {
+      const m = s.slice(i).match(/^(true|false|null)/)!;
+      tokens.push({ text: m[0], color: "#d19a66" });
+      i += m[0].length;
+      continue;
+    }
+    // number
+    if (s[i] >= "0" && s[i] <= "9") {
+      let j = i;
+      while (j < s.length && s[j] >= "0" && s[j] <= "9") j++;
+      tokens.push({ text: s.slice(i, j), color: "#d19a66" });
+      i = j;
+      continue;
+    }
+    // punctuation
+    if ("{}[]:,".includes(s[i])) {
+      tokens.push({ text: s[i], color: "#5c6370" });
+      i++;
+      continue;
+    }
+    // anything else
+    tokens.push({ text: s[i] });
+    i++;
+  }
+  return tokens;
+}
+
+// ── Data field toggles ──────────────────────────────────────────────
+
+interface FieldConfig {
+  id: string;
+  label: string;
+  desc: string;
+  required?: boolean; // can't be toggled off
+  default: boolean;
+  jqField: string; // jq expression
+}
+
+const FIELDS: FieldConfig[] = [
+  { id: "session_id", label: "session_id", desc: "which session", required: true, default: true, jqField: "session_id: .session_id" },
+  { id: "machine_id", label: "machine_id", desc: "which machine", required: true, default: true, jqField: "machine_id: $mid" },
+  { id: "project_path", label: "project_path", desc: "project directory", default: true, jqField: "project_path: $pp" },
+  { id: "branch", label: "branch", desc: "git branch", default: true, jqField: "branch: $br" },
+  { id: "hook_event_name", label: "hook_event_name", desc: "event type", required: true, default: true, jqField: "hook_event_name: .hook_event_name" },
+  { id: "tool_name", label: "tool_name", desc: "which tool", default: true, jqField: "tool_name: .tool_name" },
+  { id: "tool_input", label: "tool_input", desc: "tool arguments", default: true, jqField: "tool_input: .tool_input" },
+  { id: "tool_response", label: "tool_response", desc: "tool output", default: false, jqField: "tool_response: (.tool_response // null)" },
+  { id: "model", label: "model", desc: "model name", default: true, jqField: "model: (.model // null)" },
+];
 
 // ── Main onboarding ─────────────────────────────────────────────────
 
@@ -107,8 +160,17 @@ interface User {
 export const Onboarding: Component<{ apiUrl: string; user: User | null; authLoading: boolean }> = (props) => {
   const [apiKey, setApiKey] = createSignal<string | null>(null);
   const [apiKeyLoading, setApiKeyLoading] = createSignal(false);
-  const [showSource, setShowSource] = createSignal(false);
-  const [hookSrc, setHookSrc] = createSignal<string | null>(null);
+
+  // Field toggles — initialized from defaults
+  const [enabledFields, setEnabledFields] = createSignal<Record<string, boolean>>(
+    Object.fromEntries(FIELDS.map(f => [f.id, f.default]))
+  );
+
+  const toggleField = (id: string) => {
+    const field = FIELDS.find(f => f.id === id);
+    if (field?.required) return;
+    setEnabledFields(prev => ({ ...prev, [id]: !prev[id] }));
+  };
 
   const createApiKey = async () => {
     setApiKeyLoading(true);
@@ -127,25 +189,51 @@ export const Onboarding: Component<{ apiUrl: string; user: User | null; authLoad
     setApiKeyLoading(false);
   };
 
-  const loadSource = async () => {
-    if (hookSrc()) { setShowSource(!showSource()); return; }
-    try {
-      const res = await fetch(`${props.apiUrl}/hook.sh`);
-      setHookSrc(await res.text());
-      setShowSource(true);
-    } catch {}
-  };
+  // Generate the hook script dynamically based on toggled fields
+  const hookScript = createMemo(() => {
+    const enabled = enabledFields();
+    const jqFields = FIELDS
+      .filter(f => enabled[f.id])
+      .map(f => f.jqField);
 
-  const installCmd = () => {
-    const key = apiKey();
-    if (key) {
-      return `curl -fsSL ${props.apiUrl}/hook.sh -o ~/.claudemon-hook.sh && chmod +x ~/.claudemon-hook.sh\n\n# Add to ~/.zshrc or ~/.bashrc\nexport CLAUDEMON_API_KEY="${key}"`;
-    }
-    return `curl -fsSL ${props.apiUrl}/hook.sh -o ~/.claudemon-hook.sh && chmod +x ~/.claudemon-hook.sh`;
-  };
+    const key = apiKey() || "${CLAUDEMON_API_KEY:-}";
 
-  // Compact hook config — one entry shown, comment explains the rest
-  const settingsJson = () => {
+    return `#!/usr/bin/env bash
+# ClaudeMon Hook — generated at app.claudemon.com
+# Every field below is one you opted in to. Nothing else is sent.
+set -euo pipefail
+
+API_URL="\${CLAUDEMON_API_URL:-https://api.claudemon.com}"
+API_KEY="${key}"
+MACHINE_ID="$(hostname -s | tr '[:upper:]' '[:lower:]')"
+TIMESTAMP="$(date +%s)000"
+INPUT="$(cat)"
+
+BRANCH=""; PROJECT_PATH="$PWD"
+if git rev-parse --is-inside-work-tree &>/dev/null 2>&1; then
+  BRANCH="$(git branch --show-current 2>/dev/null || true)"
+  PROJECT_PATH="$(git rev-parse --show-toplevel 2>/dev/null || echo "$PWD")"
+fi
+
+PAYLOAD="$(echo "$INPUT" | jq -c \\
+  --arg mid "$MACHINE_ID" \\
+  --argjson ts "$TIMESTAMP" \\
+  --arg pp "$PROJECT_PATH" \\
+  --arg br "$BRANCH" \\
+  '{${jqFields.join(", ")}, timestamp: $ts}' \\
+  | jq -c 'with_entries(select(.value != null))'
+)"
+
+curl -sf -X POST "$API_URL/events" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer $API_KEY" \\
+  -d "$PAYLOAD" \\
+  --max-time 2 >/dev/null 2>&1 || true
+
+exit 0`;
+  });
+
+  const settingsJson = createMemo(() => {
     const hook = { type: "command", command: "bash ~/.claudemon-hook.sh", async: true };
     const entry = [{ matcher: "", hooks: [hook] }];
     return JSON.stringify({
@@ -156,85 +244,90 @@ export const Onboarding: Component<{ apiUrl: string; user: User | null; authLoad
         Stop: entry,
       }
     }, null, 2);
-  };
+  });
 
   const ready = () => !!apiKey();
 
   return (
     <div class="flex-1 overflow-y-auto smooth-scroll">
-      {/* ── Two-column desktop layout ──────────────────────── */}
-      <div class="max-w-[960px] mx-auto px-8 py-12 flex gap-12">
+      <div class="w-full max-w-[1100px] mx-auto px-6 py-10 flex gap-10">
 
-        {/* ── LEFT: Trust + Auth ──────────────────────────────── */}
-        <div class="flex-1 min-w-0">
+        {/* ── LEFT COLUMN: Trust + Auth ─────────────────────── */}
+        <div class="w-[380px] shrink-0">
           {/* Hero */}
-          <div class="mb-8">
-            <div class="flex items-center gap-3 mb-3">
-              <div class="w-10 h-10 rounded-full bg-safe/10 border border-safe/20 flex items-center justify-center">
-                <ShieldCheck size={20} class="text-safe" />
-              </div>
-              <div>
-                <h1 class="text-lg font-bold tracking-wide">ClaudeMon</h1>
-                <p class="text-[13px] text-text-dim">Monitor your Claude Code sessions in real time</p>
-              </div>
+          <div class="flex items-center gap-3 mb-6">
+            <div class="w-9 h-9 rounded-full bg-safe/10 border border-safe/20 flex items-center justify-center">
+              <ShieldCheck size={18} class="text-safe" />
             </div>
-            <div class="flex gap-5 mt-3 text-[12px]">
-              <span class="flex items-center gap-1.5 text-text-sub">
-                <TreeStructure size={13} class="text-safe" /> Agent Map
-              </span>
-              <span class="flex items-center gap-1.5 text-text-sub">
-                <Eye size={13} class="text-suspicious" /> Live Activity
-              </span>
-              <span class="flex items-center gap-1.5 text-text-sub">
-                <Lightning size={13} class="text-attack" /> Conflicts
-              </span>
+            <div>
+              <h1 class="text-base font-bold tracking-wide">ClaudeMon</h1>
+              <p class="text-[13px] text-text-dim">Real-time session monitor</p>
             </div>
           </div>
 
-          {/* What the hook sends */}
-          <div class="mb-8">
-            <h2 class="text-[13px] font-bold uppercase tracking-wider text-text-label mb-3">What the hook sends</h2>
+          {/* Feature pills */}
+          <div class="flex gap-4 mb-6 text-[12px]">
+            <span class="flex items-center gap-1.5 text-text-sub"><TreeStructure size={12} class="text-safe" /> Agent Map</span>
+            <span class="flex items-center gap-1.5 text-text-sub"><Eye size={12} class="text-suspicious" /> Live Activity</span>
+            <span class="flex items-center gap-1.5 text-text-sub"><Lightning size={12} class="text-attack" /> Conflicts</span>
+          </div>
 
-            <div class="bg-card/50 border border-panel-border/40 rounded p-4 mb-3">
-              <div class="grid grid-cols-[1fr_1fr] gap-x-6 gap-y-1.5 text-[13px]">
-                <span class="text-text-primary">session_id, machine_id</span>
-                <span class="text-text-sub">identify session + machine</span>
-                <span class="text-text-primary">project_path, branch</span>
-                <span class="text-text-sub">which repo and branch</span>
-                <span class="text-text-primary">tool_name, tool_input</span>
-                <span class="text-text-sub">which tool + its arguments</span>
-                <span class="text-text-primary">tool_response</span>
-                <span class="text-text-sub">what the tool returned</span>
-                <span class="text-text-primary">hook_event_name, model</span>
-                <span class="text-text-sub">event type + model name</span>
-              </div>
-            </div>
-
+          {/* Data toggles */}
+          <div class="mb-5">
+            <h2 class="text-[13px] font-bold uppercase tracking-wider text-text-label mb-3">Choose what to send</h2>
             <p class="text-[13px] text-text-dim mb-3">
-              <span class="text-attack font-bold">Never sent:</span>{" "}
-              file contents, API keys, env vars, your conversation with Claude.
+              Toggle each field on or off. The hook script on the right updates live.
             </p>
 
-            <div class="flex flex-wrap gap-x-5 gap-y-1.5 text-[12px] text-text-dim mb-3">
-              <span class="flex items-center gap-1.5"><ShieldCheck size={12} class="text-safe" /> Ephemeral — auto-purges after 1hr</span>
-              <span class="flex items-center gap-1.5"><ShieldCheck size={12} class="text-safe" /> Open source</span>
-              <span class="flex items-center gap-1.5"><ShieldCheck size={12} class="text-safe" /> Self-hostable</span>
+            <div class="space-y-1">
+              <For each={FIELDS}>
+                {(field) => {
+                  const on = () => enabledFields()[field.id];
+                  return (
+                    <button
+                      onClick={() => toggleField(field.id)}
+                      class={`w-full flex items-center gap-3 px-3 py-1.5 rounded text-left transition-colors ${
+                        field.required ? "cursor-default" : "cursor-pointer hover:bg-card/80"
+                      }`}
+                    >
+                      <div class={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                        on() ? "bg-safe/20 border-safe/50" : "border-panel-border/60"
+                      }`}>
+                        <Show when={on()}>
+                          <Check size={10} class="text-safe" />
+                        </Show>
+                      </div>
+                      <span class={`text-[13px] font-mono ${on() ? "text-text-primary" : "text-text-sub line-through"}`}>
+                        {field.label}
+                      </span>
+                      <span class="text-[12px] text-text-sub ml-auto">{field.desc}</span>
+                      <Show when={field.required}>
+                        <span class="text-[9px] text-text-sub uppercase tracking-wider">required</span>
+                      </Show>
+                    </button>
+                  );
+                }}
+              </For>
             </div>
-
-            <button
-              onClick={loadSource}
-              class="text-[12px] text-safe/70 hover:text-safe transition-colors cursor-pointer"
-            >
-              {showSource() ? "Hide hook source" : "Read the full hook source code"}
-            </button>
-            <Show when={showSource() && hookSrc()}>
-              <div class="mt-2 bg-[#0e0d0c] border border-panel-border/40 rounded p-3 max-h-[300px] overflow-y-auto smooth-scroll">
-                <pre class="text-[12px] text-text-dim leading-[1.5] whitespace-pre-wrap break-all">{hookSrc()}</pre>
-              </div>
-            </Show>
           </div>
 
-          {/* Sign in + API key */}
+          {/* Never sent */}
+          <p class="text-[13px] text-text-dim mb-4">
+            <span class="text-attack font-bold">Never sent:</span>{" "}
+            file contents, API keys, env vars, your conversation.
+          </p>
+
+          {/* Privacy badges */}
+          <div class="flex flex-wrap gap-x-4 gap-y-1.5 text-[12px] text-text-dim mb-6">
+            <span class="flex items-center gap-1.5"><ShieldCheck size={12} class="text-safe" /> Ephemeral (1hr purge)</span>
+            <span class="flex items-center gap-1.5"><ShieldCheck size={12} class="text-safe" /> Open source</span>
+            <span class="flex items-center gap-1.5"><ShieldCheck size={12} class="text-safe" /> Self-hostable</span>
+          </div>
+
+          {/* Divider */}
+          <div class="border-t border-panel-border/30 my-6" />
+
+          {/* Auth + API key */}
           <div>
             <h2 class="text-[13px] font-bold uppercase tracking-wider text-text-label mb-3">
               {props.user ? "API Key" : "Sign in"}
@@ -243,9 +336,7 @@ export const Onboarding: Component<{ apiUrl: string; user: User | null; authLoad
             <Show when={!props.authLoading}>
               <Show when={props.user} fallback={
                 <div>
-                  <p class="text-[13px] text-text-dim mb-3">
-                    Sign in to create an API key. Events without a valid key are rejected.
-                  </p>
+                  <p class="text-[13px] text-text-dim mb-3">Sign in to get an API key. Events without one are rejected.</p>
                   <a
                     href={`${props.apiUrl}/auth/login?redirect=${encodeURIComponent(window.location.href)}`}
                     class="inline-flex items-center gap-2 bg-[#161b22] border border-[#30363d] rounded px-5 py-2.5 text-[13px] text-white hover:bg-[#1c2128] transition-colors"
@@ -262,11 +353,10 @@ export const Onboarding: Component<{ apiUrl: string; user: User | null; authLoad
                       <span class="text-text-label">{u().login}</span>
                       <Check size={13} class="text-safe" />
                     </div>
-
                     <Show when={!apiKey()} fallback={
-                      <div>
-                        <div class="text-[11px] text-safe font-bold uppercase tracking-wider mb-1.5">Your key (shown once — copy now)</div>
-                        <CmdBlock text={apiKey()!} />
+                      <div class="flex items-center gap-2 bg-[#0e0d0c] border border-panel-border/50 rounded px-3 py-2">
+                        <code class="text-[13px] text-safe flex-1 truncate">{apiKey()}</code>
+                        <CopyBtn text={apiKey()!} />
                       </div>
                     }>
                       <button
@@ -284,28 +374,33 @@ export const Onboarding: Component<{ apiUrl: string; user: User | null; authLoad
           </div>
         </div>
 
-        {/* ── RIGHT: Install + Verify ─────────────────────────── */}
-        <div class={`flex-1 min-w-0 transition-opacity ${ready() ? "" : "opacity-25 pointer-events-none select-none"}`}>
-          <div class="sticky top-12">
-            <h2 class="text-[13px] font-bold uppercase tracking-wider text-text-label mb-4">Install</h2>
-
-            <div class="space-y-5">
-              <CmdBlock label="1. Download hook + set API key" text={installCmd()} />
-              <JsonBlock label="2. Add to ~/.claude/settings.json" json={settingsJson()} />
+        {/* ── RIGHT COLUMN: Generated script + Install ──────── */}
+        <div class="flex-1 min-w-0">
+          <div class="sticky top-10 space-y-6">
+            {/* Hook script — always visible, updates live */}
+            <div>
+              <h2 class="text-[13px] font-bold uppercase tracking-wider text-text-label mb-2">
+                Your hook script
+                <span class="text-[11px] text-text-sub font-normal ml-2">updates as you toggle fields</span>
+              </h2>
+              <CodeBlock code={hookScript()} lang="bash" />
+              <p class="text-[11px] text-text-sub mt-2">
+                Save as <code class="text-[12px] text-text-dim bg-card px-1.5 py-0.5 rounded">~/.claudemon-hook.sh</code> and
+                run <code class="text-[12px] text-text-dim bg-card px-1.5 py-0.5 rounded">chmod +x ~/.claudemon-hook.sh</code>
+              </p>
             </div>
 
-            <p class="text-[12px] text-text-sub mt-3 mb-8">
-              The hook runs async on each tool call. Non-blocking, under 50ms.
-            </p>
+            {/* Settings JSON */}
+            <div>
+              <h2 class="text-[13px] font-bold uppercase tracking-wider text-text-label mb-2">Add to ~/.claude/settings.json</h2>
+              <CodeBlock code={settingsJson()} lang="json" />
+            </div>
 
-            <div class="border-t border-panel-border/30 pt-6">
-              <h2 class="text-[13px] font-bold uppercase tracking-wider text-text-label mb-2">Verify</h2>
-              <p class="text-[13px] text-text-dim mb-3">
-                Start any Claude Code session. It appears here automatically.
-              </p>
+            {/* Verify */}
+            <div class="border-t border-panel-border/30 pt-5">
               <div class="flex items-center gap-2.5 text-[13px]">
                 <span class="w-2.5 h-2.5 rounded-full bg-safe animate-pulse" />
-                <span class="text-text-dim">Listening via WebSocket...</span>
+                <span class="text-text-dim">Listening for sessions via WebSocket...</span>
               </div>
             </div>
           </div>
