@@ -142,13 +142,49 @@ const App: Component = () => {
     fetch(`${API_URL}/sessions/purge`, { method: "POST", credentials: "include" }).catch(() => {});
   };
 
-  const [activeTabId, setActiveTabId] = createSignal<string | null>(null);
+  // Tab persistence: restore from localStorage
+  const savedTabs = typeof localStorage !== "undefined" ? localStorage.getItem("claudemon_tabs") : null;
+  const savedActive = typeof localStorage !== "undefined" ? localStorage.getItem("claudemon_active_tab") : null;
+  const [activeTabId, setActiveTabId] = createSignal<string | null>(savedActive);
   const [viewMode, setViewMode] = createSignal<"tabs" | "columns">("tabs");
+  const [pinnedTabs, setPinnedTabs] = createSignal<Set<string>>(new Set());
+  const [contextMenu, setContextMenu] = createSignal<{ x: number; y: number; tabId: string } | null>(null);
+
+  // Restore saved tabs once sessions load
+  createEffect(() => {
+    if (savedTabs && Object.keys(sessions).length > 0 && selectedSessionIds().length === 0) {
+      try {
+        const ids = JSON.parse(savedTabs) as string[];
+        const valid = ids.filter((id) => sessions[id]);
+        if (valid.length > 0) {
+          setSelectedSessionIds(valid);
+          if (!savedActive || !sessions[savedActive]) setActiveTabId(valid[valid.length - 1]);
+        }
+      } catch {}
+    }
+  });
+
+  // Persist tabs to localStorage
+  createEffect(() => {
+    if (typeof localStorage === "undefined") return;
+    const ids = selectedSessionIds();
+    if (ids.length > 0) {
+      localStorage.setItem("claudemon_tabs", JSON.stringify(ids));
+    } else {
+      localStorage.removeItem("claudemon_tabs");
+    }
+    const active = activeTabId();
+    if (active) {
+      localStorage.setItem("claudemon_active_tab", active);
+    } else {
+      localStorage.removeItem("claudemon_active_tab");
+    }
+  });
 
   const handleSelectSession = (id: string) => {
     setSelectedSessionIds((prev) => {
       if (prev.includes(id)) {
-        // Deselect — if it was the active tab, activate the previous one
+        if (pinnedTabs().has(id)) return prev; // Can't deselect pinned
         const remaining = prev.filter((x) => x !== id);
         if (activeTabId() === id) setActiveTabId(remaining.length > 0 ? remaining[remaining.length - 1] : null);
         return remaining;
@@ -163,6 +199,7 @@ const App: Component = () => {
   };
 
   const handleCloseSession = (id: string) => {
+    if (pinnedTabs().has(id)) return; // Can't close pinned
     setSelectedSessionIds((prev) => {
       const remaining = prev.filter((x) => x !== id);
       if (activeTabId() === id) setActiveTabId(remaining.length > 0 ? remaining[remaining.length - 1] : null);
@@ -170,10 +207,44 @@ const App: Component = () => {
     });
   };
 
+  const handleCloseOthers = (keepId: string) => {
+    const pinned = pinnedTabs();
+    setSelectedSessionIds((prev) => prev.filter((id) => id === keepId || pinned.has(id)));
+    setActiveTabId(keepId);
+    setContextMenu(null);
+  };
+
+  const handleCloseAll = () => {
+    const pinned = pinnedTabs();
+    if (pinned.size > 0) {
+      setSelectedSessionIds((prev) => prev.filter((id) => pinned.has(id)));
+      setActiveTabId(Array.from(pinned)[0] || null);
+    } else {
+      setSelectedSessionIds([]);
+      setActiveTabId(null);
+    }
+    setContextMenu(null);
+  };
+
+  const togglePin = (id: string) => {
+    setPinnedTabs((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    setContextMenu(null);
+  };
+
   const activeSession = createMemo(() => {
     const id = activeTabId();
     return id ? sessions[id] : selectedSessions().length > 0 ? selectedSessions()[0] : undefined;
   });
+
+  // Close context menu on click outside
+  const handleGlobalClick = () => setContextMenu(null);
+  onMount(() => document.addEventListener("click", handleGlobalClick));
+  onCleanup(() => document.removeEventListener("click", handleGlobalClick));
 
   return (
     <div class="flex flex-col h-screen bg-bg text-text-primary font-mono overflow-hidden">
@@ -390,11 +461,19 @@ const App: Component = () => {
                                 return (
                                   <Show when={s()}>
                                     <div
-                                      class={`flex items-center gap-1 px-2 py-1 rounded-sm mx-0.5 shrink-0 transition-colors cursor-pointer ${
+                                      class={`flex items-center gap-1 px-2 py-1 rounded-sm mx-0.5 shrink-0 cursor-pointer ${
                                         isActive() ? "bg-bg border border-panel-border" : "hover:bg-panel/20"
                                       }`}
+                                      style={{ transition: "all 0.15s ease" }}
                                       onClick={() => setActiveTabId(id)}
+                                      onContextMenu={(e: MouseEvent) => {
+                                        e.preventDefault();
+                                        setContextMenu({ x: e.clientX, y: e.clientY, tabId: id });
+                                      }}
                                     >
+                                      <Show when={pinnedTabs().has(id)}>
+                                        <span class="text-[7px] text-safe shrink-0">*</span>
+                                      </Show>
                                       <span
                                         class="w-1.5 h-1.5 rounded-full shrink-0"
                                         style={{
@@ -405,23 +484,28 @@ const App: Component = () => {
                                                 ? "#7b9fbf"
                                                 : s()!.status === "waiting"
                                                   ? "#c9a96e"
-                                                  : "#4a4640",
+                                                  : s()!.status === "error"
+                                                    ? "#b85c4a"
+                                                    : "#4a4640",
                                           "box-shadow":
                                             s()!.status === "working" || s()!.status === "thinking"
                                               ? `0 0 4px ${s()!.status === "working" ? "#a3b18a" : "#7b9fbf"}`
                                               : "none",
+                                          transition: "background 0.3s ease, box-shadow 0.3s ease",
                                         }}
                                       />
                                       <span class="text-[9px] font-mono text-text-dim">{id.slice(0, 8)}</span>
-                                      <span
-                                        class="text-text-sub hover:text-text-primary text-[9px] ml-0.5"
-                                        onClick={(e: MouseEvent) => {
-                                          e.stopPropagation();
-                                          handleCloseSession(id);
-                                        }}
-                                      >
-                                        x
-                                      </span>
+                                      <Show when={!pinnedTabs().has(id)}>
+                                        <span
+                                          class="text-text-sub hover:text-text-primary text-[9px] ml-0.5"
+                                          onClick={(e: MouseEvent) => {
+                                            e.stopPropagation();
+                                            handleCloseSession(id);
+                                          }}
+                                        >
+                                          x
+                                        </span>
+                                      </Show>
                                     </div>
                                   </Show>
                                 );
@@ -559,6 +643,46 @@ const App: Component = () => {
             </div>
           </Show>
         </div>
+      </Show>
+
+      {/* Tab context menu */}
+      <Show when={contextMenu()}>
+        {(menu) => (
+          <div
+            class="fixed z-[200] bg-card border border-panel-border rounded shadow-lg py-1 min-w-[160px]"
+            style={{ left: `${menu().x}px`, top: `${menu().y}px` }}
+            onClick={(e: MouseEvent) => e.stopPropagation()}
+          >
+            <button
+              class="w-full text-left px-3 py-1.5 text-[10px] text-text-primary hover:bg-panel/30 transition-colors"
+              onClick={() => togglePin(menu().tabId)}
+            >
+              {pinnedTabs().has(menu().tabId) ? "Unpin" : "Pin"}
+            </button>
+            <button
+              class="w-full text-left px-3 py-1.5 text-[10px] text-text-primary hover:bg-panel/30 transition-colors"
+              onClick={() => {
+                handleCloseSession(menu().tabId);
+                setContextMenu(null);
+              }}
+            >
+              Close
+            </button>
+            <button
+              class="w-full text-left px-3 py-1.5 text-[10px] text-text-primary hover:bg-panel/30 transition-colors"
+              onClick={() => handleCloseOthers(menu().tabId)}
+            >
+              Close Others
+            </button>
+            <div class="h-px bg-panel-border mx-2 my-1" />
+            <button
+              class="w-full text-left px-3 py-1.5 text-[10px] text-attack hover:bg-panel/30 transition-colors"
+              onClick={handleCloseAll}
+            >
+              Close All
+            </button>
+          </div>
+        )}
       </Show>
 
       {/* Settings panel */}

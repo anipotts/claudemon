@@ -234,7 +234,7 @@ body {
 
 /* Status color transition */
 .status-transition {
-  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: background-color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease, color 0.4s ease;
 }
 
 /* Tool call collapsible — near-instant */
