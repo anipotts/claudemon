@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ClaudeMon - Onboarding Screenshot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  width: 1200px;
+  height: 750px;
+  overflow: hidden;
+  margin: 0;
+  background: #0a0a0a;
+  font-family: 'Geist Mono', monospace;
+  color: #e8e0d4;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.header {
+  height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background: #12110f;
+  border-bottom: 1px solid #3d3a34;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+.header-left { display: flex; align-items: center; gap: 12px; }
+.logo { font-size: 18px; font-weight: 700; letter-spacing: 2px; display: flex; align-items: center; gap: 6px; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.live-dot { width: 10px; height: 10px; border-radius: 50%; background: #c9a96e; box-shadow: 0 0 4px #c9a96e; }
+.live-text { font-size: 10px; color: #6b6560; }
+.avatar { width: 20px; height: 20px; border-radius: 50%; border: 1px solid #3d3a34; background: linear-gradient(135deg,#2d333b,#1a1916); display: flex; align-items: center; justify-content: center; }
+.avatar-name { font-size: 10px; color: #6b6560; }
+
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+/* Main 3-col */
+.main { display: flex; flex: 1; min-height: 0; }
+
+/* Column */
+.col {
+  flex: 1;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+.col + .col { border-left: 1px solid rgba(61,58,52,0.3); }
+
+.col-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 16px; }
+.col-num { font-size: 13px; font-weight: 700; color: #8a8478; }
+.col-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: #8a8478; }
+
+/* Col 1: Auth */
+.user-row { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; font-size: 13px; }
+.user-avatar { width: 20px; height: 20px; border-radius: 50%; border: 1px solid #3d3a34; }
+.user-name { color: #8a8478; }
+.check-icon { color: #a3b18a; }
+
+.api-key-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #0e0d0c;
+  border: 1px solid rgba(163,177,138,0.3);
+  border-radius: 4px;
+  padding: 8px 12px;
+  margin-bottom: 16px;
+}
+.api-key-text { font-size: 12px; color: #a3b18a; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.copy-btn {
+  background: none;
+  border: none;
+  color: #4a4640;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 2px;
+}
+
+.divider { border-top: 1px solid rgba(61,58,52,0.3); margin: 16px 0; }
+
+.badges { display: flex; flex-wrap: wrap; gap: 8px 12px; font-size: 11px; color: #6b6560; margin-bottom: 12px; }
+.badge { display: flex; align-items: center; gap: 4px; }
+.badge svg { color: #a3b18a; }
+.privacy-note { font-size: 12px; color: #6b6560; }
+.privacy-note .red { color: #b85c4a; font-weight: 700; }
+
+/* Col 2: Fields */
+.http-note {
+  background: rgba(163,177,138,0.05);
+  border: 1px solid rgba(163,177,138,0.13);
+  border-radius: 4px;
+  padding: 8px 12px;
+  margin-bottom: 16px;
+  font-size: 11px;
+  color: #a3b18a;
+}
+
+.field-cat {
+  font-size: 9px;
+  color: #6b6560;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  padding: 0 10px;
+}
+.field-group { margin-bottom: 12px; }
+
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 10px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+.checkbox {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.checkbox.on { background: rgba(163,177,138,0.12); border-color: rgba(163,177,138,0.5); }
+.checkbox.off { border-color: rgba(61,58,52,0.6); }
+.checkbox .check { color: #a3b18a; font-size: 9px; }
+
+.field-label { }
+.field-label.on { color: #e8e0d4; }
+.field-label.off { color: #4a4640; text-decoration: line-through; }
+.field-req { font-size: 9px; color: #4a4640; text-transform: uppercase; letter-spacing: 1px; margin-left: auto; }
+.field-privacy {
+  font-size: 9px;
+  background: rgba(184,92,74,0.12);
+  color: #b85c4a;
+  border: 1px solid rgba(184,92,74,0.2);
+  border-radius: 3px;
+  padding: 2px 6px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-left: auto;
+}
+/* Make fields section semi-transparent as if bash not selected */
+.fields-dimmed { opacity: 0.3; pointer-events: none; }
+
+/* Col 3: Install */
+.toggle-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: #0e0d0c;
+  border: 1px solid rgba(61,58,52,0.5);
+  border-radius: 4px;
+  padding: 2px;
+  width: fit-content;
+  margin-bottom: 16px;
+}
+.toggle-btn {
+  padding: 4px 12px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  color: #4a4640;
+}
+.toggle-btn.active-npm { background: rgba(203,56,55,0.12); color: #cb3837; }
+.toggle-btn.active-http { background: rgba(163,177,138,0.12); color: #a3b18a; }
+
+.npm-note { font-size: 10px; color: #cb3837; display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+
+.step-label { font-size: 10px; color: #4a4640; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+
+.code-box {
+  position: relative;
+  background: #0e0d0c;
+  border: 1px solid rgba(61,58,52,0.5);
+  border-radius: 4px;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+}
+.code-box.highlight { border-color: rgba(203,56,55,0.3); }
+.code-text { font-size: 11.5px; line-height: 1.6; white-space: pre; }
+.code-text.npm-red { color: #cb3837; }
+.code-note { font-size: 9px; color: #6b6560; margin-top: 6px; }
+
+.steps { margin-top: 8px; }
+.step { display: flex; align-items: flex-start; gap: 8px; font-size: 11px; color: #6b6560; margin-bottom: 6px; }
+.step-num { color: #a3b18a; flex-shrink: 0; }
+
+.listening {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: #6b6560;
+  margin-top: auto;
+  padding-top: 12px;
+}
+.listen-dot { width: 8px; height: 8px; border-radius: 50%; background: #a3b18a; animation: pulse 2s ease-in-out infinite; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div class="header-left">
+    <span class="logo">
+      <svg width="20" height="20" viewBox="0 0 256 256" fill="#a3b18a"><path d="M208,40H48A16,16,0,0,0,32,56v58.77c0,89.62,75.82,119.34,91,124.39a15.53,15.53,0,0,0,10,0c15.2-5.05,91-34.77,91-124.39V56A16,16,0,0,0,208,40Zm-30.46,90.81-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L116,170.06l50.34-50.34a8,8,0,0,1,11.32,11.32Z"/></svg>
+      ClaudeMon
+    </span>
+  </div>
+  <div class="header-right">
+    <span class="live-text">CONNECTING</span>
+    <span class="live-dot"></span>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div class="avatar">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="#6b6560"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      </div>
+      <span class="avatar-name">anipotts</span>
+    </div>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- Col 1: Get API key -->
+  <div class="col">
+    <div class="col-header">
+      <span class="col-num">1</span>
+      <span class="col-title">Get API key</span>
+    </div>
+
+    <div class="user-row">
+      <div class="avatar" style="width:20px;height:20px;">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="#6b6560"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      </div>
+      <span class="user-name">anipotts</span>
+      <svg class="check-icon" width="12" height="12" viewBox="0 0 256 256" fill="#a3b18a"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>
+    </div>
+
+    <div class="api-key-box">
+      <span class="api-key-text">cm_k8x2f9a1b3c7d5e4g6h0j</span>
+      <button class="copy-btn" title="Copy">
+        <svg width="13" height="13" viewBox="0 0 256 256" fill="currentColor"><path d="M216,32H88a8,8,0,0,0-8,8V80H40a8,8,0,0,0-8,8V216a8,8,0,0,0,8,8H168a8,8,0,0,0,8-8V176h40a8,8,0,0,0,8-8V40A8,8,0,0,0,216,32ZM160,208H48V96H160Zm48-48H176V88a8,8,0,0,0-8-8H96V48H208Z"/></svg>
+      </button>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="badges">
+      <span class="badge">
+        <svg width="10" height="10" viewBox="0 0 256 256" fill="#a3b18a"><path d="M208,40H48A16,16,0,0,0,32,56v58.77c0,89.62,75.82,119.34,91,124.39a15.53,15.53,0,0,0,10,0c15.2-5.05,91-34.77,91-124.39V56A16,16,0,0,0,208,40Zm-30.46,90.81-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L116,170.06l50.34-50.34a8,8,0,0,1,11.32,11.32Z"/></svg>
+        Ephemeral
+      </span>
+      <span class="badge">
+        <svg width="10" height="10" viewBox="0 0 256 256" fill="#a3b18a"><path d="M208,40H48A16,16,0,0,0,32,56v58.77c0,89.62,75.82,119.34,91,124.39a15.53,15.53,0,0,0,10,0c15.2-5.05,91-34.77,91-124.39V56A16,16,0,0,0,208,40Zm-30.46,90.81-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L116,170.06l50.34-50.34a8,8,0,0,1,11.32,11.32Z"/></svg>
+        Open source
+      </span>
+      <span class="badge">
+        <svg width="10" height="10" viewBox="0 0 256 256" fill="#a3b18a"><path d="M208,40H48A16,16,0,0,0,32,56v58.77c0,89.62,75.82,119.34,91,124.39a15.53,15.53,0,0,0,10,0c15.2-5.05,91-34.77,91-124.39V56A16,16,0,0,0,208,40Zm-30.46,90.81-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L116,170.06l50.34-50.34a8,8,0,0,1,11.32,11.32Z"/></svg>
+        Self-hostable
+      </span>
+    </div>
+    <p class="privacy-note"><span class="red">Never sent:</span> file contents, API keys, env vars, your conversation.</p>
+  </div>
+
+  <!-- Col 2: Choose fields -->
+  <div class="col">
+    <div class="col-header">
+      <span class="col-num">2</span>
+      <span class="col-title">Choose fields</span>
+    </div>
+
+    <div class="http-note">HTTP hooks send all fields automatically. No script needed.</div>
+
+    <div class="fields-dimmed">
+      <!-- Identity -->
+      <div class="field-group">
+        <div class="field-cat">Identity</div>
+        <div class="field-row"><div class="checkbox on"><span class="check">&#10003;</span></div><span class="field-label on">session_id</span><span class="field-req">req</span></div>
+        <div class="field-row"><div class="checkbox on"><span class="check">&#10003;</span></div><span class="field-label on">machine_id</span><span class="field-req">req</span></div>
+        <div class="field-row"><div class="checkbox on"><span class="check">&#10003;</span></div><span class="field-label on">project_path</span></div>
+        <div class="field-row"><div class="checkbox on"><span class="check">&#10003;</span></div><span class="field-label on">branch</span></div>
+      </div>
+
+      <!-- Event -->
+      <div class="field-group">
+        <div class="field-cat">Event</div>
+        <div class="field-row"><div class="checkbox on"><span class="check">&#10003;</span></div><span class="field-label on">hook_event_name</span><span class="field-req">req</span></div>
+      </div>
+
+      <!-- Tool -->
+      <div class="field-group">
+        <div class="field-cat">Tool</div>
+        <div class="field-row"><div class="checkbox on"><span class="check">&#10003;</span></div><span class="field-label on">tool_name</span></div>
+        <div class="field-row"><div class="checkbox on"><span class="check">&#10003;</span></div><span class="field-label on">tool_input</span></div>
+        <div class="field-row"><div class="checkbox off"></div><span class="field-label off">tool_response</span></div>
+        <div class="field-row"><div class="checkbox on"><span class="check">&#10003;</span></div><span class="field-label on">tool_use_id</span></div>
+      </div>
+
+      <!-- Session -->
+      <div class="field-group">
+        <div class="field-cat">Session</div>
+        <div class="field-row"><div class="checkbox on"><span class="check">&#10003;</span></div><span class="field-label on">model</span></div>
+        <div class="field-row"><div class="checkbox on"><span class="check">&#10003;</span></div><span class="field-label on">permission_mode</span></div>
+        <div class="field-row"><div class="checkbox off"></div><span class="field-label off">transcript_path</span></div>
+      </div>
+
+      <!-- Agent -->
+      <div class="field-group">
+        <div class="field-cat">Agent</div>
+        <div class="field-row"><div class="checkbox on"><span class="check">&#10003;</span></div><span class="field-label on">agent_id</span></div>
+        <div class="field-row"><div class="checkbox on"><span class="check">&#10003;</span></div><span class="field-label on">agent_type</span></div>
+      </div>
+
+      <!-- Stop/Error -->
+      <div class="field-group">
+        <div class="field-cat">Stop/Error</div>
+        <div class="field-row"><div class="checkbox off"></div><span class="field-label off">last_assistant_message</span><span class="field-privacy">Contains your messages</span></div>
+        <div class="field-row"><div class="checkbox on"><span class="check">&#10003;</span></div><span class="field-label on">error</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Col 3: Install -->
+  <div class="col">
+    <div class="col-header">
+      <span class="col-num">3</span>
+      <span class="col-title">Install</span>
+    </div>
+
+    <div class="toggle-bar">
+      <button class="toggle-btn active-npm">npm</button>
+      <button class="toggle-btn">HTTP</button>
+      <button class="toggle-btn">Bash</button>
+    </div>
+
+    <div class="npm-note">
+      <svg width="10" height="10" viewBox="0 0 256 256" fill="#cb3837"><path d="M208,40H48A16,16,0,0,0,32,56v58.77c0,89.62,75.82,119.34,91,124.39a15.53,15.53,0,0,0,10,0c15.2-5.05,91-34.77,91-124.39V56A16,16,0,0,0,208,40Zm-30.46,90.81-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L116,170.06l50.34-50.34a8,8,0,0,1,11.32,11.32Z"/></svg>
+      Recommended -- two commands, zero config
+    </div>
+
+    <div class="step-label">Step 1 -- Install</div>
+    <div class="code-box">
+      <span class="code-text">npm install -g claudemon-cli</span>
+    </div>
+
+    <div class="step-label">Step 2 -- Connect</div>
+    <div class="code-box highlight">
+      <span class="code-text npm-red">claudemon-cli init --key cm_k8x2f9a1b3c7d5e4g6h0j</span>
+    </div>
+    <div style="font-size:9px;color:#6b6560;margin-top:-10px;margin-bottom:16px;">Adds hooks to ~/.claude/settings.json and saves your key. Preserves existing hooks.</div>
+
+    <div class="steps">
+      <div class="step"><span class="step-num">1.</span> Registers all 27 Claude Code hook events</div>
+      <div class="step"><span class="step-num">2.</span> Saves API key to your shell profile</div>
+      <div class="step"><span class="step-num">3.</span> Idempotent -- safe to run again</div>
+    </div>
+
+    <div class="listening">
+      <span class="listen-dot"></span>
+      Listening for sessions...
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

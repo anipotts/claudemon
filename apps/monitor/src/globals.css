@@ -370,3 +370,66 @@ body {
 .json-punc {
   color: #5c6370;
 }
+
+/* ── Mobile responsive ──────────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Header */
+  .mobile-header {
+    height: auto;
+    min-height: 44px;
+    padding: 8px 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* Agent map session cards: full width, touch-friendly */
+  .mobile-header + * .space-y-2 > div button,
+  .mobile-header + * .space-y-1\.5 > div {
+    min-height: 44px;
+  }
+
+  /* Terminal blocks on mobile */
+  .terminal-block {
+    font-size: 10px;
+    max-height: 120px;
+  }
+
+  /* Onboarding: stack columns vertically */
+  .onboarding-grid {
+    flex-direction: column !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  .onboarding-grid > div {
+    flex: none !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--panel-border);
+    overflow-y: visible !important;
+    overflow: visible !important;
+    min-height: auto !important;
+    padding: 20px 16px !important;
+  }
+  .onboarding-grid > div:last-child {
+    border-bottom: none;
+    padding-bottom: 40px !important;
+  }
+
+  /* Collapsible fields section */
+  .fields-collapsible-body {
+    overflow: hidden;
+    transition: max-height 0.2s ease-out, opacity 0.15s ease-out;
+  }
+  .fields-collapsed {
+    max-height: 0;
+    opacity: 0;
+  }
+  .fields-expanded {
+    max-height: 2000px;
+    opacity: 1;
+  }
+
+  /* Idle dashboard mobile padding */
+  .flex-1.flex.flex-col.items-center.justify-center.bg-bg {
+    padding: 24px 16px;
+  }
+}

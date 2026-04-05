@@ -215,6 +215,7 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean })
 export const SessionDetail: Component<{
   session: SessionState;
   onClose: () => void;
+  isMobile?: boolean;
 }> = (props) => {
   const s = () => props.session;
   let scrollRef: HTMLDivElement | undefined;
@@ -272,10 +273,13 @@ export const SessionDetail: Component<{
   const isWaiting = () => s().status === "waiting";
 
   return (
-    <div class="w-[440px] shrink-0 flex flex-col overflow-hidden border-l border-panel-border bg-bg">
+    <div class={`${props.isMobile ? "w-full flex-1" : "w-[440px] shrink-0"} flex flex-col overflow-hidden border-l border-panel-border bg-bg`}>
       {/* Header — aligned with ACTIVITY header */}
       <div class="px-3 py-2 border-b border-panel-border flex items-center gap-2 shrink-0 h-[33px]">
-        <button onClick={props.onClose} class="text-text-sub hover:text-text-primary transition-colors text-[11px] w-4">
+        <button
+          onClick={props.onClose}
+          class={`text-text-sub hover:text-text-primary transition-colors ${props.isMobile ? "text-[14px] w-11 h-11 flex items-center justify-center -ml-2" : "text-[11px] w-4"}`}
+        >
           x
         </button>
         <span class="text-[10px] font-bold text-text-primary font-mono">{s().session_id.slice(0, 8)}</span>
@@ -425,7 +429,7 @@ export const SessionDetail: Component<{
       </Show>
 
       {/* Session info bar — fixed at bottom, aligned with CONFLICTS */}
-      <div class="shrink-0 border-t border-panel-border px-3 py-2 bg-item">
+      <div class={`shrink-0 border-t border-panel-border px-3 py-2 bg-item ${props.isMobile ? "sticky bottom-0 z-10" : ""}`}>
         <div class="flex items-center gap-2 text-[10px]">
           <span
             class={`w-2 h-2 rounded-full shrink-0 status-transition ${s().status === "working" || s().status === "thinking" ? "animate-pulse" : ""}`}

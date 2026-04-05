@@ -8,6 +8,8 @@ export const LANDING_HTML = `<!DOCTYPE html>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300..800&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" sizes="32x32" href="https://app.claudemon.com/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="https://app.claudemon.com/favicon-16.png">
   <style>
 :root {
   --bg: #0a0a0a;
@@ -24,14 +26,14 @@ export const LANDING_HTML = `<!DOCTYPE html>
   --safe-dim: rgba(163, 177, 138, 0.15);
   --suspicious: #c9a96e;
   --attack: #b85c4a;
-  --thinking: #7b9dba;
+  --thinking: #7b9fbf;
   --done: #5a5650;
+  --agent: #b07bac;
   --glow-green: rgba(163, 177, 138, 0.08);
   --glow-term: rgba(163, 177, 138, 0.03);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
-
 html { scroll-behavior: smooth; }
 
 body {
@@ -44,33 +46,25 @@ body {
   overflow-x: hidden;
 }
 
-.container {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 0 24px;
-}
+.container { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+.wide-container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
 
 a { color: var(--safe); text-decoration: none; }
 a:hover { text-decoration: underline; }
 code { background: var(--panel); padding: 2px 8px; border-radius: 4px; font-size: 13px; font-family: inherit; }
 
-/* Fade-in on scroll */
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(24px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
+/* ── Fade-in on scroll ──────────────────────────────────── */
 .fade-in {
   opacity: 0;
-  transform: translateY(24px);
-  transition: opacity 0.6s ease, transform 0.6s ease;
+  transform: translateY(28px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.fade-in.visible {
-  opacity: 1;
-  transform: translateY(0);
-}
+.fade-in.visible { opacity: 1; transform: translateY(0); }
+.fade-in-d1 { transition-delay: 0.1s; }
+.fade-in-d2 { transition-delay: 0.2s; }
+.fade-in-d3 { transition-delay: 0.3s; }
 
-/* Hero */
+/* ── Hero ───────────────────────────────────────────────── */
 .hero {
   padding: 100px 0 0;
   text-align: center;
@@ -79,12 +73,12 @@ code { background: var(--panel); padding: 2px 8px; border-radius: 4px; font-size
 .hero::before {
   content: '';
   position: absolute;
-  top: 0;
+  top: -100px;
   left: 50%;
   transform: translateX(-50%);
-  width: 600px;
-  height: 400px;
-  background: radial-gradient(ellipse, var(--glow-green), transparent 70%);
+  width: 800px;
+  height: 600px;
+  background: radial-gradient(ellipse, rgba(163,177,138,0.1), transparent 70%);
   pointer-events: none;
   z-index: 0;
 }
@@ -98,16 +92,17 @@ code { background: var(--panel); padding: 2px 8px; border-radius: 4px; font-size
   margin-bottom: 20px;
 }
 .logo-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
   background: var(--safe);
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 0 20px rgba(163,177,138,0.3);
 }
 .logo h1 {
-  font-size: 36px;
+  font-size: 38px;
   font-weight: 700;
   letter-spacing: 1.5px;
   color: var(--text-primary);
@@ -121,7 +116,7 @@ code { background: var(--panel); padding: 2px 8px; border-radius: 4px; font-size
 .subtitle {
   font-size: 13px;
   color: var(--text-dim);
-  max-width: 520px;
+  max-width: 540px;
   margin: 0 auto 36px;
   line-height: 1.8;
 }
@@ -136,31 +131,32 @@ code { background: var(--panel); padding: 2px 8px; border-radius: 4px; font-size
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 11px 28px;
+  padding: 12px 28px;
   border-radius: 8px;
   font-family: inherit;
   font-size: 13px;
   font-weight: 600;
   text-decoration: none;
-  transition: all 0.2s;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   border: none;
   cursor: pointer;
 }
 .btn-primary {
   background: var(--safe);
   color: var(--bg);
+  box-shadow: 0 0 20px rgba(163,177,138,0.2);
 }
-.btn-primary:hover { background: #b5c49c; text-decoration: none; transform: translateY(-1px); }
+.btn-primary:hover { background: #b5c49c; text-decoration: none; transform: translateY(-2px); box-shadow: 0 4px 24px rgba(163,177,138,0.3); }
 .btn-secondary {
   background: transparent;
   color: var(--text-label);
   border: 1px solid var(--panel-border);
 }
-.btn-secondary:hover { border-color: var(--text-dim); color: var(--text-primary); text-decoration: none; transform: translateY(-1px); }
+.btn-secondary:hover { border-color: var(--text-dim); color: var(--text-primary); text-decoration: none; transform: translateY(-2px); }
 .install-cmd {
   background: var(--panel);
   border: 1px solid var(--panel-border);
-  padding: 11px 20px;
+  padding: 12px 20px;
   border-radius: 8px;
   font-size: 13px;
   font-family: inherit;
@@ -170,17 +166,33 @@ code { background: var(--panel); padding: 2px 8px; border-radius: 4px; font-size
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  transition: border-color 0.2s;
+  transition: all 0.2s;
+  position: relative;
 }
-.install-cmd:hover { border-color: var(--safe); }
+.install-cmd:hover { border-color: var(--safe); box-shadow: 0 0 12px rgba(163,177,138,0.1); }
 .install-cmd svg { color: var(--text-dim); flex-shrink: 0; }
-
-/* Terminal mockup */
-.terminal-section {
-  padding: 64px 0 80px;
+.install-cmd .copied-toast {
+  position: absolute;
+  top: -32px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--safe);
+  color: var(--bg);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
 }
+.install-cmd .copied-toast.show { opacity: 1; }
+
+/* ── Animated Terminal ──────────────────────────────────── */
+.terminal-section { padding: 56px 0 80px; }
+
 .terminal {
-  max-width: 640px;
+  max-width: 760px;
   margin: 0 auto;
   border-radius: 12px;
   border: 1px solid var(--panel-border);
@@ -188,23 +200,26 @@ code { background: var(--panel); padding: 2px 8px; border-radius: 4px; font-size
   overflow: hidden;
   position: relative;
   box-shadow:
-    0 0 60px rgba(163, 177, 138, 0.06),
-    0 0 120px rgba(163, 177, 138, 0.03),
-    0 24px 48px rgba(0, 0, 0, 0.4);
+    0 0 80px rgba(163,177,138,0.06),
+    0 0 160px rgba(163,177,138,0.03),
+    0 32px 64px rgba(0,0,0,0.5);
 }
 .terminal::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(163, 177, 138, 0.008) 2px,
-    rgba(163, 177, 138, 0.008) 4px
-  );
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(163,177,138,0.006) 2px, rgba(163,177,138,0.006) 4px);
   pointer-events: none;
   z-index: 2;
+  border-radius: 12px;
+}
+.terminal::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 0%, rgba(163,177,138,0.04), transparent 60%);
+  pointer-events: none;
+  z-index: 1;
   border-radius: 12px;
 }
 .terminal-bar {
@@ -215,16 +230,8 @@ code { background: var(--panel); padding: 2px 8px; border-radius: 4px; font-size
   border-bottom: 1px solid var(--panel-border);
   gap: 8px;
 }
-.terminal-dots {
-  display: flex;
-  gap: 6px;
-}
-.terminal-dots span {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--panel-border);
-}
+.terminal-dots { display: flex; gap: 6px; }
+.terminal-dots span { width: 10px; height: 10px; border-radius: 50%; }
 .terminal-dots span:first-child { background: #b85c4a; }
 .terminal-dots span:nth-child(2) { background: var(--suspicious); }
 .terminal-dots span:last-child { background: var(--safe); }
@@ -236,74 +243,423 @@ code { background: var(--panel); padding: 2px 8px; border-radius: 4px; font-size
   letter-spacing: 0.5px;
 }
 .terminal-body {
-  padding: 20px;
+  padding: 16px 20px;
   font-size: 13px;
-  line-height: 1.8;
+  line-height: 1.7;
   position: relative;
-  z-index: 1;
+  z-index: 3;
+  min-height: 320px;
 }
-.term-line {
+
+/* Terminal event rows */
+.t-event {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0;
   white-space: nowrap;
   overflow: hidden;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 4px 0;
 }
-.term-line + .term-line { margin-top: 2px; }
-.term-sub {
-  padding-left: 26px;
-  color: var(--text-dim);
-  font-size: 12px;
-}
-.term-spacer { height: 12px; }
-.term-dot {
+.t-event.active { opacity: 1; transform: translateY(0); }
+.t-event + .t-event { margin-top: 1px; }
+
+.t-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   display: inline-block;
   margin-right: 10px;
   flex-shrink: 0;
+}
+.t-dot.working { background: var(--safe); box-shadow: 0 0 8px rgba(163,177,138,0.6); }
+.t-dot.thinking { background: var(--thinking); box-shadow: 0 0 8px rgba(123,159,191,0.6); }
+.t-dot.waiting { background: var(--suspicious); box-shadow: 0 0 8px rgba(201,169,110,0.6); }
+
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+.t-dot.pulse { animation: dot-pulse 2s ease-in-out infinite; }
+
+.t-project { color: var(--text-primary); font-weight: 600; min-width: 120px; display: inline-block; }
+.t-branch { color: var(--suspicious); min-width: 100px; display: inline-block; font-size: 12px; }
+.t-status { min-width: 80px; display: inline-block; font-size: 12px; }
+.t-status.s-working { color: var(--safe); }
+.t-status.s-thinking { color: var(--thinking); }
+.t-status.s-waiting { color: var(--suspicious); }
+.t-time { color: var(--text-sub); margin-left: auto; padding-left: 12px; font-size: 12px; }
+
+/* Tool call sub-rows */
+.t-tool {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 2px 0 2px 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  font-size: 12px;
+}
+.t-tool.active { opacity: 1; transform: translateX(0); }
+
+.t-tool-icon { color: var(--text-sub); width: 18px; text-align: center; flex-shrink: 0; font-size: 11px; }
+.t-tool-name { color: var(--text-label); font-weight: 700; margin-right: 8px; }
+.t-file-badge {
+  display: inline-flex;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  margin-right: 6px;
+}
+.t-file-badge.src { background: rgba(123,159,191,0.15); color: var(--thinking); }
+.t-file-badge.config { background: rgba(176,123,172,0.15); color: var(--agent); }
+.t-file-badge.test { background: rgba(163,177,138,0.15); color: var(--safe); }
+.t-diff { font-size: 10px; margin-left: 4px; }
+.t-diff-add { color: var(--safe); }
+.t-diff-del { color: var(--attack); }
+.t-pill {
+  display: inline-flex;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  margin-left: 6px;
+}
+.t-pill.lines { background: rgba(107,101,96,0.2); color: var(--text-dim); }
+
+/* Conflict warning */
+.t-conflict {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  margin: 6px 0;
+  background: rgba(184,92,74,0.08);
+  border: 1px solid rgba(184,92,74,0.25);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--attack);
+  font-weight: 600;
+  opacity: 0;
+  transform: scale(0.95);
+  transition: opacity 0.4s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.t-conflict.active { opacity: 1; transform: scale(1); }
+@keyframes conflict-flash {
+  0%, 100% { border-color: rgba(184,92,74,0.25); }
+  50% { border-color: rgba(184,92,74,0.6); box-shadow: 0 0 12px rgba(184,92,74,0.15); }
+}
+.t-conflict.active { animation: conflict-flash 1.5s ease-in-out infinite; }
+.t-conflict svg { flex-shrink: 0; }
+
+/* Notification banner */
+.t-notif {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  margin: 6px 0;
+  background: rgba(201,169,110,0.08);
+  border: 1px solid rgba(201,169,110,0.25);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--suspicious);
+  font-weight: 600;
+  opacity: 0;
+  transform: scale(0.95);
+  transition: opacity 0.4s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.t-notif.active { opacity: 1; transform: scale(1); }
+@keyframes notif-glow {
+  0%, 100% { border-color: rgba(201,169,110,0.25); }
+  50% { border-color: rgba(201,169,110,0.6); box-shadow: 0 0 12px rgba(201,169,110,0.15); }
+}
+.t-notif.active { animation: notif-glow 1.5s ease-in-out infinite; }
+
+/* Terminal time counter */
+.t-time-counter { font-variant-numeric: tabular-nums; }
+
+/* ── Transparency ───────────────────────────────────────── */
+.transparency {
+  padding: 0 0 64px;
+}
+.transp-box {
+  max-width: 640px;
+  margin: 0 auto;
+  background: var(--card);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 28px 32px;
+}
+.transp-box h3 {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+}
+.transp-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.transp-col h4 {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+.transp-col.yes h4 { color: var(--safe); }
+.transp-col.no h4 { color: var(--attack); }
+.transp-col ul {
+  list-style: none;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 2;
+}
+.transp-col ul li::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 8px;
   position: relative;
   top: -1px;
 }
-.term-dot.working {
-  background: var(--safe);
-  box-shadow: 0 0 8px rgba(163, 177, 138, 0.5);
-  animation: pulse 2s ease-in-out infinite;
+.transp-col.yes ul li::before { background: var(--safe); }
+.transp-col.no ul li::before { background: var(--attack); }
+
+/* ── FAQ ────────────────────────────────────────────────── */
+.faq-section {
+  padding: 80px 0;
+  border-bottom: 1px solid var(--panel-border);
 }
-.term-dot.thinking {
-  background: var(--thinking);
-  box-shadow: 0 0 8px rgba(123, 157, 186, 0.5);
-  animation: pulse 2s ease-in-out infinite 0.5s;
+.faq-item {
+  border-bottom: 1px solid var(--panel-border);
 }
-.term-dot.done {
-  background: var(--done);
+.faq-item:first-child { border-top: 1px solid var(--panel-border); }
+.faq-q {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 18px 0;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
 }
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+.faq-q:hover { color: var(--safe); }
+.faq-q .faq-arrow {
+  margin-left: auto;
+  transition: transform 0.2s;
+  color: var(--text-sub);
 }
-.term-project { color: var(--text-primary); font-weight: 600; min-width: 110px; display: inline-block; }
-.term-branch { color: var(--suspicious); min-width: 90px; display: inline-block; }
-.term-status { min-width: 80px; display: inline-block; }
-.term-status.working { color: var(--safe); }
-.term-status.thinking { color: var(--thinking); }
-.term-status.done { color: var(--text-dim); }
-.term-time { color: var(--text-sub); margin-left: auto; padding-left: 12px; }
-.term-tool { color: var(--text-label); }
-.term-file { color: var(--suspicious); }
-.term-diff-add { color: var(--safe); }
-.term-diff-del { color: var(--attack); }
-.term-border-top {
-  border-top: 1px solid var(--panel-border);
-  margin: 0 -20px;
-  padding: 0 20px;
+.faq-q.open .faq-arrow { transform: rotate(180deg); }
+.faq-a {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.8;
+}
+.faq-a.open {
+  max-height: 200px;
+  padding-bottom: 18px;
 }
 
-/* Stats bar */
+/* ── Dashboard Preview ──────────────────────────────────── */
+.dashboard-section {
+  padding: 0 0 80px;
+}
+.dashboard-label {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-sub);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 24px;
+}
+.browser-frame {
+  border-radius: 12px;
+  border: 1px solid var(--panel-border);
+  background: var(--bg);
+  overflow: hidden;
+  box-shadow: 0 32px 64px rgba(0,0,0,0.4);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.browser-bar {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--panel-border);
+  gap: 8px;
+}
+.browser-dots { display: flex; gap: 6px; }
+.browser-dots span { width: 10px; height: 10px; border-radius: 50%; }
+.browser-dots span:first-child { background: #b85c4a; }
+.browser-dots span:nth-child(2) { background: var(--suspicious); }
+.browser-dots span:last-child { background: var(--safe); }
+.browser-url {
+  flex: 1;
+  background: var(--card);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 11px;
+  color: var(--text-dim);
+  text-align: center;
+}
+.browser-content {
+  display: grid;
+  grid-template-columns: 220px 1fr 200px;
+  min-height: 340px;
+  font-size: 10px;
+}
+
+/* Dashboard: Agent Map column */
+.dash-agents {
+  border-right: 1px solid var(--panel-border);
+  padding: 0;
+}
+.dash-col-header {
+  padding: 8px 12px;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-sub);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  border-bottom: 1px solid var(--panel-border);
+}
+.dash-session {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(61,58,52,0.3);
+  transition: background 0.15s;
+}
+.dash-session:hover { background: rgba(163,177,138,0.03); }
+.dash-session-row1 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dash-session .s-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.dash-session .s-id {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.dash-session .s-badge {
+  font-size: 7px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  margin-left: auto;
+}
+.dash-session .s-meta {
+  font-size: 8px;
+  color: var(--text-sub);
+  margin-top: 3px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.dash-session .s-tool {
+  font-size: 8px;
+  color: var(--text-dim);
+  margin-top: 2px;
+  padding-top: 3px;
+  border-top: 1px solid rgba(61,58,52,0.2);
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.dash-session .s-tool-name { font-weight: 700; color: var(--text-label); }
+
+/* Dashboard: Session Detail column */
+.dash-detail {
+  border-right: 1px solid var(--panel-border);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.dash-detail-header {
+  padding: 8px 12px;
+  font-size: 9px;
+  border-bottom: 1px solid var(--panel-border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dash-detail-header .d-id { font-weight: 700; color: var(--text-primary); font-size: 10px; }
+.dash-detail-header .d-project { color: var(--text-dim); }
+.dash-tool-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-bottom: 1px solid rgba(61,58,52,0.15);
+  font-size: 9px;
+}
+.dash-tool-row:hover { background: rgba(26,25,22,0.3); }
+.dash-tool-row .d-icon { color: var(--text-sub); width: 14px; text-align: center; font-size: 9px; }
+.dash-tool-row .d-name { font-weight: 700; color: var(--text-label); }
+.dash-tool-row .d-file {
+  padding: 0 4px;
+  border-radius: 2px;
+  font-weight: 600;
+  font-size: 9px;
+}
+.dash-tool-row .d-file.src { background: rgba(123,159,191,0.12); color: var(--thinking); }
+.dash-tool-row .d-file.config { background: rgba(176,123,172,0.12); color: var(--agent); }
+.dash-tool-row .d-file.test { background: rgba(163,177,138,0.12); color: var(--safe); }
+.dash-tool-row .d-time { color: var(--text-sub); margin-left: auto; font-size: 8px; }
+.dash-tool-row .d-diff { font-size: 8px; }
+
+/* Dashboard: Activity Timeline column */
+.dash-activity { padding: 0; }
+.dash-evt {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 5px 8px;
+  border-bottom: 1px solid rgba(61,58,52,0.15);
+  font-size: 9px;
+}
+.dash-evt:hover { background: rgba(26,25,22,0.3); }
+.dash-evt .e-sid {
+  font-size: 7px;
+  font-weight: 700;
+  padding: 1px 3px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.dash-evt .e-icon { font-size: 8px; width: 12px; text-align: center; flex-shrink: 0; }
+.dash-evt .e-name { font-weight: 700; text-transform: uppercase; font-size: 9px; }
+.dash-evt .e-detail { color: var(--text-dim); font-size: 9px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dash-evt .e-time { color: var(--text-sub); margin-left: auto; font-size: 8px; flex-shrink: 0; }
+
+/* ── Stats bar ──────────────────────────────────────────── */
 .stats-section {
   padding: 0 0 80px;
-  border-bottom: 1px solid var(--panel-border);
 }
 .stats-grid {
   display: grid;
@@ -319,10 +675,11 @@ code { background: var(--panel); padding: 2px 8px; border-radius: 4px; font-size
   text-align: center;
 }
 .stat-value {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 6px;
+  font-variant-numeric: tabular-nums;
 }
 .stat-label {
   font-size: 11px;
@@ -331,7 +688,7 @@ code { background: var(--panel); padding: 2px 8px; border-radius: 4px; font-size
   letter-spacing: 1px;
 }
 
-/* Section headings */
+/* ── Section headings ───────────────────────────────────── */
 .section-heading {
   font-size: 22px;
   font-weight: 700;
@@ -345,9 +702,10 @@ code { background: var(--panel); padding: 2px 8px; border-radius: 4px; font-size
   max-width: 480px;
 }
 
-/* Features */
+/* ── Features ───────────────────────────────────────────── */
 .features {
   padding: 80px 0;
+  border-top: 1px solid var(--panel-border);
   border-bottom: 1px solid var(--panel-border);
 }
 .feature-grid {
@@ -360,11 +718,13 @@ code { background: var(--panel); padding: 2px 8px; border-radius: 4px; font-size
   background: var(--card);
   border: 1px solid var(--panel-border);
   border-radius: 10px;
-  transition: border-color 0.2s, background 0.2s;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .feature:hover {
   border-color: var(--text-sub);
   background: var(--card-hover);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 24px rgba(0,0,0,0.3);
 }
 .feature-icon {
   width: 40px;
@@ -376,21 +736,12 @@ code { background: var(--panel); padding: 2px 8px; border-radius: 4px; font-size
   margin-bottom: 20px;
 }
 .feature-icon.green { background: var(--safe-dim); color: var(--safe); }
-.feature-icon.yellow { background: rgba(201, 169, 110, 0.15); color: var(--suspicious); }
-.feature-icon.red { background: rgba(184, 92, 74, 0.15); color: var(--attack); }
-.feature h3 {
-  font-size: 14px;
-  font-weight: 700;
-  margin-bottom: 10px;
-  letter-spacing: 0.3px;
-}
-.feature p {
-  font-size: 12px;
-  color: var(--text-dim);
-  line-height: 1.8;
-}
+.feature-icon.yellow { background: rgba(201,169,110,0.15); color: var(--suspicious); }
+.feature-icon.red { background: rgba(184,92,74,0.15); color: var(--attack); }
+.feature h3 { font-size: 14px; font-weight: 700; margin-bottom: 10px; }
+.feature p { font-size: 12px; color: var(--text-dim); line-height: 1.8; }
 
-/* How it works */
+/* ── How it works ───────────────────────────────────────── */
 .how-it-works {
   padding: 80px 0;
   border-bottom: 1px solid var(--panel-border);
@@ -399,6 +750,7 @@ code { background: var(--panel); padding: 2px 8px; border-radius: 4px; font-size
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 20px;
+  position: relative;
 }
 .step {
   padding: 28px;
@@ -420,18 +772,10 @@ code { background: var(--panel); padding: 2px 8px; border-radius: 4px; font-size
   font-size: 12px;
   margin-bottom: 16px;
 }
-.step h4 {
-  font-size: 14px;
-  font-weight: 700;
-  margin-bottom: 8px;
-}
-.step p {
-  font-size: 12px;
-  color: var(--text-dim);
-  line-height: 1.8;
-}
+.step h4 { font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+.step p { font-size: 12px; color: var(--text-dim); line-height: 1.8; }
 
-/* Privacy */
+/* ── Privacy ────────────────────────────────────────────── */
 .privacy {
   padding: 80px 0;
   border-bottom: 1px solid var(--panel-border);
@@ -449,7 +793,9 @@ code { background: var(--panel); padding: 2px 8px; border-radius: 4px; font-size
   display: flex;
   gap: 16px;
   align-items: flex-start;
+  transition: border-color 0.2s;
 }
+.privacy-item:hover { border-color: var(--text-sub); }
 .privacy-icon {
   width: 36px;
   height: 36px;
@@ -461,19 +807,10 @@ code { background: var(--panel); padding: 2px 8px; border-radius: 4px; font-size
   flex-shrink: 0;
   color: var(--safe);
 }
-.privacy-item strong {
-  display: block;
-  font-size: 13px;
-  margin-bottom: 6px;
-  color: var(--text-primary);
-}
-.privacy-item p {
-  font-size: 12px;
-  color: var(--text-dim);
-  line-height: 1.7;
-}
+.privacy-item strong { display: block; font-size: 13px; margin-bottom: 6px; }
+.privacy-item p { font-size: 12px; color: var(--text-dim); line-height: 1.7; }
 
-/* Final CTA */
+/* ── Final CTA ──────────────────────────────────────────── */
 .final-cta {
   padding: 100px 0;
   text-align: center;
@@ -485,46 +822,39 @@ code { background: var(--panel); padding: 2px 8px; border-radius: 4px; font-size
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: 500px;
-  height: 300px;
-  background: radial-gradient(ellipse, var(--glow-green), transparent 70%);
+  width: 600px;
+  height: 400px;
+  background: radial-gradient(ellipse, rgba(163,177,138,0.08), transparent 70%);
   pointer-events: none;
 }
 .final-cta .container { position: relative; }
-.final-cta h2 {
-  font-size: 28px;
-  margin-bottom: 12px;
-  font-weight: 700;
-}
-.final-cta p {
-  font-size: 13px;
-  color: var(--text-dim);
-  margin-bottom: 36px;
-}
+.final-cta h2 { font-size: 28px; margin-bottom: 12px; font-weight: 700; }
+.final-cta p { font-size: 13px; color: var(--text-dim); margin-bottom: 36px; }
 
-/* Footer */
+/* ── Footer ─────────────────────────────────────────────── */
 footer {
   padding: 24px 0;
   border-top: 1px solid var(--panel-border);
   font-size: 11px;
   color: var(--text-sub);
 }
-footer .container {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
+footer .container { display: flex; align-items: center; gap: 8px; }
 footer .sep { color: var(--panel-border); }
 
-/* Responsive */
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .browser-content { grid-template-columns: 1fr; min-height: auto; }
+  .dash-agents, .dash-detail { border-right: none; border-bottom: 1px solid var(--panel-border); }
+  .dash-activity { display: none; }
+}
 @media (max-width: 768px) {
   .hero { padding: 72px 0 0; }
   .logo h1 { font-size: 28px; }
   .tagline { font-size: 15px; }
-  .terminal-body { padding: 16px; font-size: 11px; overflow-x: auto; }
-  .term-project { min-width: 80px; }
-  .term-branch { min-width: 70px; }
-  .term-status { min-width: 64px; }
+  .terminal-body { padding: 12px; font-size: 11px; min-height: 260px; }
+  .t-project { min-width: 80px; }
+  .t-branch { min-width: 70px; }
+  .t-status { min-width: 60px; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .feature-grid { grid-template-columns: 1fr; }
   .steps { grid-template-columns: 1fr; }
@@ -532,97 +862,355 @@ footer .sep { color: var(--panel-border); }
   .section-heading { font-size: 18px; }
   .final-cta h2 { font-size: 22px; }
   .final-cta { padding: 64px 0; }
+  .browser-content { grid-template-columns: 1fr; }
+  .dash-detail, .dash-activity { display: none; }
 }
 @media (max-width: 480px) {
   .stats-grid { grid-template-columns: 1fr 1fr; }
   .cta-row { flex-direction: column; }
   .install-cmd { width: 100%; justify-content: center; }
+  .t-time { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
   </style>
 </head>
 <body>
-  <!-- Hero -->
+
+  <!-- ═══ Hero ═══ -->
   <section class="hero">
     <div class="container">
-      <div class="logo">
+      <div class="logo fade-in">
         <div class="logo-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         </div>
         <h1>ClaudeMon</h1>
       </div>
-      <p class="tagline">Monitor your Claude Code sessions in real time</p>
-      <p class="subtitle">See what every agent is doing across machines and branches. Detect file conflicts before they happen. Know when Claude needs your input.</p>
-      <div class="cta-row">
+      <p class="tagline fade-in fade-in-d1">Monitor your Claude Code sessions in real time</p>
+      <p class="subtitle fade-in fade-in-d2">See what every agent is doing across machines and branches. Detect file conflicts before they happen. Know when Claude needs your input.</p>
+      <div style="display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:24px;" class="fade-in fade-in-d2">
+        <a href="https://github.com/anipotts/claudemon"><img src="https://img.shields.io/github/stars/anipotts/claudemon?style=flat&color=a3b18a&labelColor=1a1916&label=stars" alt="GitHub Stars" height="20"></a>
+        <a href="https://www.npmjs.com/package/claudemon-cli"><img src="https://img.shields.io/npm/dm/claudemon-cli?style=flat&color=a3b18a&labelColor=1a1916&label=npm" alt="npm downloads" height="20"></a>
+      </div>
+      <div class="cta-row fade-in fade-in-d3">
         <a href="https://app.claudemon.com" class="btn btn-primary">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="M14 9l3 3-3 3"/></svg>
           Open Dashboard
         </a>
-        <span class="install-cmd" title="Click to select">
+        <span class="install-cmd" id="installCmd" title="Click to copy">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
           npx claudemon-cli init
+          <span class="copied-toast" id="copiedToast">Copied</span>
         </span>
       </div>
     </div>
   </section>
 
-  <!-- Terminal mockup -->
+  <!-- ═══ Animated Terminal ═══ -->
   <section class="terminal-section fade-in">
     <div class="container">
-      <div class="terminal">
+      <div class="terminal" id="animTerminal">
         <div class="terminal-bar">
           <div class="terminal-dots"><span></span><span></span><span></span></div>
           <span class="terminal-title">ClaudeMon</span>
           <div style="width: 52px;"></div>
         </div>
-        <div class="terminal-body">
-          <div class="term-line">
-            <span class="term-dot working"></span>
-            <span class="term-project">claudemon</span>
-            <span class="term-branch">main</span>
-            <span class="term-status working">working</span>
-            <span class="term-time">3m 12s</span>
-          </div>
-          <div class="term-line term-sub">
-            <span class="term-tool">Edit</span>&nbsp;&nbsp;<span class="term-file">src/index.ts</span>&nbsp;&nbsp;<span class="term-diff-add">+5</span> <span class="term-diff-del">-2</span>
+        <div class="terminal-body" id="termBody">
+          <!-- Session 1: claudemon -->
+          <div class="t-event" id="te0">
+            <span class="t-dot working pulse"></span>
+            <span class="t-project">claudemon</span>
+            <span class="t-branch">main</span>
+            <span class="t-status s-working">working</span>
+            <span class="t-time t-time-counter" id="t0time">0s</span>
           </div>
 
-          <div class="term-spacer"></div>
-
-          <div class="term-line">
-            <span class="term-dot thinking"></span>
-            <span class="term-project">vector-seo</span>
-            <span class="term-branch">feat/api</span>
-            <span class="term-status thinking">thinking</span>
-            <span class="term-time">1m 45s</span>
-          </div>
-          <div class="term-line term-sub">
-            <span class="term-tool">Bash</span>&nbsp;&nbsp;<span class="term-file">npm run test</span>
+          <!-- Tool 1: Read -->
+          <div class="t-tool" id="te1">
+            <span class="t-tool-icon">.</span>
+            <span class="t-tool-name">Read</span>
+            <span class="t-file-badge src">src/index.ts</span>
+            <span class="t-pill lines">142 lines</span>
           </div>
 
-          <div class="term-spacer"></div>
+          <!-- Tool 2: Edit -->
+          <div class="t-tool" id="te2">
+            <span class="t-tool-icon">~</span>
+            <span class="t-tool-name">Edit</span>
+            <span class="t-file-badge src">src/index.ts</span>
+            <span class="t-diff"><span class="t-diff-add">+3</span> <span class="t-diff-del">-1</span></span>
+          </div>
 
-          <div class="term-line">
-            <span class="term-dot done"></span>
-            <span class="term-project">data-sync</span>
-            <span class="term-branch">main</span>
-            <span class="term-status done">done</span>
-            <span class="term-time">15m 22s</span>
+          <!-- Session 2: vector-seo -->
+          <div class="t-event" id="te3" style="margin-top:10px;">
+            <span class="t-dot thinking pulse"></span>
+            <span class="t-project">vector-seo</span>
+            <span class="t-branch">feat/api</span>
+            <span class="t-status s-thinking">thinking</span>
+            <span class="t-time t-time-counter" id="t3time">0s</span>
+          </div>
+
+          <!-- Tool 3: Bash -->
+          <div class="t-tool" id="te4">
+            <span class="t-tool-icon">>_</span>
+            <span class="t-tool-name">Bash</span>
+            <span style="color:var(--text-dim);">npm test</span>
+            <span class="t-pill lines" style="background:rgba(163,177,138,0.12);color:var(--safe);">passed</span>
+          </div>
+
+          <!-- Conflict warning -->
+          <div class="t-conflict" id="te5">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            2 sessions editing src/index.ts
+          </div>
+
+          <!-- Notification -->
+          <div class="t-notif" id="te6">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+            Claude needs your input
+          </div>
+
+          <!-- Tool 4: Edit on vector-seo -->
+          <div class="t-tool" id="te7">
+            <span class="t-tool-icon">~</span>
+            <span class="t-tool-name">Edit</span>
+            <span class="t-file-badge config">package.json</span>
+            <span class="t-diff"><span class="t-diff-add">+1</span> <span class="t-diff-del">-1</span></span>
           </div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Stats bar -->
-  <section class="stats-section fade-in">
+  <!-- ═══ What Gets Sent ═══ -->
+  <section class="transparency fade-in">
+    <div class="container">
+      <div class="transp-box">
+        <h3>What gets sent to ClaudeMon</h3>
+        <div class="transp-cols">
+          <div class="transp-col yes">
+            <h4>Sent</h4>
+            <ul>
+              <li>Tool names (Read, Edit, Bash)</li>
+              <li>File paths</li>
+              <li>Session IDs</li>
+              <li>Timestamps</li>
+            </ul>
+          </div>
+          <div class="transp-col no">
+            <h4>Never sent</h4>
+            <ul>
+              <li>File contents</li>
+              <li>Conversations</li>
+              <li>API keys</li>
+              <li>Environment variables</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Dashboard Preview ═══ -->
+  <section class="dashboard-section fade-in">
+    <div class="wide-container">
+      <div class="dashboard-label">The actual dashboard</div>
+      <div class="browser-frame" id="dashFrame">
+        <div class="browser-bar">
+          <div class="browser-dots"><span></span><span></span><span></span></div>
+          <div class="browser-url">app.claudemon.com</div>
+        </div>
+        <div class="browser-content">
+          <!-- Agent Map -->
+          <div class="dash-agents">
+            <div class="dash-col-header">Agents</div>
+
+            <div class="dash-session" style="background:rgba(163,177,138,0.03); border-left: 2px solid var(--safe);">
+              <div class="dash-session-row1">
+                <span class="s-dot" style="background:var(--safe); box-shadow: 0 0 4px var(--safe);"></span>
+                <span class="s-id">a1f3c8e2</span>
+                <span class="s-badge" style="color:var(--safe); background:rgba(163,177,138,0.15);">Working</span>
+              </div>
+              <div class="s-meta">
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3v12"/><path d="M18 9a3 3 0 01-3 3H6"/></svg>
+                main
+                <span>3 edits</span>
+              </div>
+              <div class="s-tool">
+                <span class="s-tool-name">Edit</span>
+                <span style="color:var(--thinking);">src/index.ts</span>
+              </div>
+            </div>
+
+            <div class="dash-session">
+              <div class="dash-session-row1">
+                <span class="s-dot" style="background:var(--thinking); box-shadow: 0 0 4px var(--thinking);"></span>
+                <span class="s-id">b7d2e914</span>
+                <span class="s-badge" style="color:var(--thinking); background:rgba(123,159,191,0.15);">Thinking</span>
+              </div>
+              <div class="s-meta">
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3v12"/><path d="M18 9a3 3 0 01-3 3H6"/></svg>
+                feat/api
+                <span>1 cmd</span>
+              </div>
+              <div class="s-tool">
+                <span class="s-tool-name">Bash</span>
+                <span>npm test</span>
+              </div>
+            </div>
+
+            <div class="dash-session">
+              <div class="dash-session-row1">
+                <span class="s-dot" style="background:var(--suspicious); box-shadow: 0 0 4px var(--suspicious);"></span>
+                <span class="s-id">c4e9a1f0</span>
+                <span class="s-badge" style="color:var(--suspicious); background:rgba(201,169,110,0.15);">Waiting</span>
+              </div>
+              <div class="s-meta">
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3v12"/><path d="M18 9a3 3 0 01-3 3H6"/></svg>
+                fix/auth
+                <span>5 edits</span>
+              </div>
+              <div class="s-tool">
+                <span class="s-tool-name" style="color:var(--suspicious);">Waiting</span>
+                <span>needs input</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Session Detail -->
+          <div class="dash-detail">
+            <div class="dash-detail-header">
+              <span class="d-id">a1f3c8e2</span>
+              <span class="d-project">claudemon</span>
+              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="var(--text-sub)" stroke-width="2"><path d="M6 3v12"/><path d="M18 9a3 3 0 01-3 3H6"/></svg>
+              <span style="color:var(--text-sub);">main</span>
+              <span style="margin-left:auto; color:var(--text-sub);">3m 12s</span>
+            </div>
+
+            <div class="dash-tool-row">
+              <span class="d-icon">.</span>
+              <span class="d-name">Read</span>
+              <span class="d-file src">src/store.ts</span>
+              <span style="font-size:7px;color:var(--text-sub);background:rgba(74,70,64,0.2);padding:0 3px;border-radius:2px;">82 lines</span>
+              <span class="d-time">3m ago</span>
+            </div>
+            <div class="dash-tool-row">
+              <span class="d-icon">~</span>
+              <span class="d-name">Edit</span>
+              <span class="d-file src">src/index.ts</span>
+              <span class="d-diff"><span style="color:var(--safe);">+5</span> <span style="color:var(--attack);">-2</span></span>
+              <span class="d-time">2m ago</span>
+            </div>
+            <div class="dash-tool-row">
+              <span class="d-icon">>_</span>
+              <span class="d-name">Bash</span>
+              <span style="color:var(--text-dim);">npm run build</span>
+              <span class="d-time">1m ago</span>
+            </div>
+            <div class="dash-tool-row">
+              <span class="d-icon">?</span>
+              <span class="d-name">Grep</span>
+              <span style="color:var(--text-dim);">/handleEvent/</span>
+              <span class="d-time">45s ago</span>
+            </div>
+            <div class="dash-tool-row">
+              <span class="d-icon">~</span>
+              <span class="d-name">Edit</span>
+              <span class="d-file config">wrangler.toml</span>
+              <span class="d-diff"><span style="color:var(--safe);">+1</span> <span style="color:var(--attack);">-1</span></span>
+              <span class="d-time">20s ago</span>
+            </div>
+            <div class="dash-tool-row">
+              <span class="d-icon">.</span>
+              <span class="d-name">Read</span>
+              <span class="d-file test">test/relay.test.ts</span>
+              <span style="font-size:7px;color:var(--text-sub);background:rgba(74,70,64,0.2);padding:0 3px;border-radius:2px;">210 lines</span>
+              <span class="d-time">just now</span>
+            </div>
+
+            <div style="margin-top:auto;padding:8px 12px;border-top:1px solid var(--panel-border);display:flex;align-items:center;gap:6px;font-size:9px;">
+              <span style="width:6px;height:6px;border-radius:50%;background:var(--safe);box-shadow:0 0 4px var(--safe);"></span>
+              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="var(--text-sub)" stroke-width="2"><path d="M6 3v12"/><path d="M18 9a3 3 0 01-3 3H6"/></svg>
+              <span style="color:var(--text-sub);">main</span>
+              <span style="color:var(--text-sub);margin-left:auto;">3 edits &middot; 1 cmd &middot; 2 reads</span>
+            </div>
+          </div>
+
+          <!-- Activity Timeline -->
+          <div class="dash-activity">
+            <div class="dash-col-header">Activity</div>
+
+            <div class="dash-evt">
+              <span class="e-sid" style="color:var(--safe);background:rgba(163,177,138,0.12);">a1f3c8</span>
+              <span class="e-icon" style="color:var(--text-sub);">.</span>
+              <span class="e-name" style="color:var(--text-label);">Read</span>
+              <span class="e-detail" style="color:var(--thinking);">test/relay.test.ts</span>
+              <span class="e-time">2s</span>
+            </div>
+            <div class="dash-evt">
+              <span class="e-sid" style="color:var(--thinking);background:rgba(123,159,191,0.12);">b7d2e9</span>
+              <span class="e-icon" style="color:var(--thinking);">>_</span>
+              <span class="e-name" style="color:var(--thinking);">Bash</span>
+              <span class="e-detail">npm test</span>
+              <span class="e-time">5s</span>
+            </div>
+            <div class="dash-evt">
+              <span class="e-sid" style="color:var(--safe);background:rgba(163,177,138,0.12);">a1f3c8</span>
+              <span class="e-icon" style="color:var(--suspicious);">~</span>
+              <span class="e-name" style="color:var(--suspicious);">Edit</span>
+              <span class="e-detail" style="color:var(--agent);">wrangler.toml</span>
+              <span class="e-time">20s</span>
+            </div>
+            <div class="dash-evt">
+              <span class="e-sid" style="color:var(--suspicious);background:rgba(201,169,110,0.12);">c4e9a1</span>
+              <span class="e-icon" style="color:var(--suspicious);">?!</span>
+              <span class="e-name" style="color:var(--suspicious);">Notify</span>
+              <span class="e-detail">needs input</span>
+              <span class="e-time">30s</span>
+            </div>
+            <div class="dash-evt">
+              <span class="e-sid" style="color:var(--safe);background:rgba(163,177,138,0.12);">a1f3c8</span>
+              <span class="e-icon" style="color:var(--text-sub);">?</span>
+              <span class="e-name" style="color:var(--text-label);">Grep</span>
+              <span class="e-detail">/handleEvent/</span>
+              <span class="e-time">1m</span>
+            </div>
+            <div class="dash-evt">
+              <span class="e-sid" style="color:var(--thinking);background:rgba(123,159,191,0.12);">b7d2e9</span>
+              <span class="e-icon" style="color:var(--safe);">>></span>
+              <span class="e-name" style="color:var(--safe);">Start</span>
+              <span class="e-detail">session started</span>
+              <span class="e-time">2m</span>
+            </div>
+            <div class="dash-evt">
+              <span class="e-sid" style="color:var(--safe);background:rgba(163,177,138,0.12);">a1f3c8</span>
+              <span class="e-icon" style="color:var(--suspicious);">~</span>
+              <span class="e-name" style="color:var(--suspicious);">Edit</span>
+              <span class="e-detail" style="color:var(--thinking);">src/index.ts</span>
+              <span class="e-time">2m</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Stats ═══ -->
+  <section class="stats-section fade-in" style="padding-top:80px;">
     <div class="container">
       <div class="stats-grid">
         <div class="stat-card">
-          <div class="stat-value">27</div>
+          <div class="stat-value" data-count="27">0</div>
           <div class="stat-label">Hook Events</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value">&lt; 50ms</div>
+          <div class="stat-value" data-prefix="< " data-count="50" data-suffix="ms">0</div>
           <div class="stat-label">Overhead</div>
         </div>
         <div class="stat-card">
@@ -637,7 +1225,7 @@ footer .sep { color: var(--panel-border); }
     </div>
   </section>
 
-  <!-- Features -->
+  <!-- ═══ Features ═══ -->
   <section class="features">
     <div class="container">
       <h2 class="section-heading fade-in">What you get</h2>
@@ -650,14 +1238,14 @@ footer .sep { color: var(--panel-border); }
           <h3>Agent Map</h3>
           <p>Live topology of all Claude Code sessions. See status, branch, project, and current tool call at a glance. Sessions across machines, worktrees, and cloud instances.</p>
         </div>
-        <div class="feature fade-in">
+        <div class="feature fade-in fade-in-d1">
           <div class="feature-icon yellow">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
           </div>
           <h3>Live Activity</h3>
           <p>Real-time stream of every tool call, edit, bash command, and search. Click into any session for the full timeline with inline diffs and syntax-highlighted output.</p>
         </div>
-        <div class="feature fade-in">
+        <div class="feature fade-in fade-in-d2">
           <div class="feature-icon red">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           </div>
@@ -668,7 +1256,7 @@ footer .sep { color: var(--panel-border); }
     </div>
   </section>
 
-  <!-- How it works -->
+  <!-- ═══ How it works ═══ -->
   <section class="how-it-works">
     <div class="container">
       <h2 class="section-heading fade-in">How it works</h2>
@@ -679,12 +1267,12 @@ footer .sep { color: var(--panel-border); }
           <h4>Install the hook</h4>
           <p>Run <code>npx claudemon-cli init</code>. It adds a lightweight async hook to your Claude Code settings. Under 50ms overhead, non-blocking.</p>
         </div>
-        <div class="step fade-in">
+        <div class="step fade-in fade-in-d1">
           <span class="step-num">2</span>
           <h4>Use Claude Code normally</h4>
-          <p>Every tool call, edit, and command fires an event to the ClaudeMon relay. Events are ephemeral — no persistent database, no data retention.</p>
+          <p>Every tool call, edit, and command fires an event to the ClaudeMon relay. Events are ephemeral -- no persistent database, no data retention.</p>
         </div>
-        <div class="step fade-in">
+        <div class="step fade-in fade-in-d2">
           <span class="step-num">3</span>
           <h4>Watch the dashboard</h4>
           <p>Open <a href="https://app.claudemon.com">app.claudemon.com</a> to see all your sessions in real time. WebSocket-powered, instant updates.</p>
@@ -693,7 +1281,7 @@ footer .sep { color: var(--panel-border); }
     </div>
   </section>
 
-  <!-- Privacy -->
+  <!-- ═══ Privacy ═══ -->
   <section class="privacy">
     <div class="container">
       <h2 class="section-heading fade-in">Privacy-first architecture</h2>
@@ -708,7 +1296,7 @@ footer .sep { color: var(--panel-border); }
             <p>No persistent database. Events live in Durable Object memory and auto-purge after 1 hour of inactivity.</p>
           </div>
         </div>
-        <div class="privacy-item fade-in">
+        <div class="privacy-item fade-in fade-in-d1">
           <div class="privacy-icon">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
           </div>
@@ -726,7 +1314,7 @@ footer .sep { color: var(--panel-border); }
             <p>Run your own ClaudeMon instance on Cloudflare Workers. One command deploy, zero ongoing cost on the free tier.</p>
           </div>
         </div>
-        <div class="privacy-item fade-in">
+        <div class="privacy-item fade-in fade-in-d1">
           <div class="privacy-icon">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 00-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0020 4.77 5.07 5.07 0 0019.91 1S18.73.65 16 2.48a13.38 13.38 0 00-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 005 4.77a5.44 5.44 0 00-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 009 18.13V22"/></svg>
           </div>
@@ -739,12 +1327,49 @@ footer .sep { color: var(--panel-border); }
     </div>
   </section>
 
-  <!-- Final CTA -->
+  <!-- ═══ FAQ ═══ -->
+  <section class="faq-section">
+    <div class="container">
+      <h2 class="section-heading fade-in">FAQ</h2>
+      <div class="fade-in">
+        <div class="faq-item">
+          <button class="faq-q" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">
+            Is my code sent to ClaudeMon?
+            <svg class="faq-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-a">No. ClaudeMon only receives tool metadata: tool names, file paths, session IDs, and timestamps. File contents, conversations, and environment variables are never sent.</div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">
+            Can I self-host ClaudeMon?
+            <svg class="faq-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-a">Yes. ClaudeMon runs on Cloudflare Workers with Durable Objects. Clone the repo, run <code>wrangler deploy</code>, and point the CLI at your own instance. It fits within Cloudflare's free tier.</div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">
+            Does it slow down Claude Code?
+            <svg class="faq-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-a">No. The hook fires asynchronously and adds under 50ms of non-blocking overhead. Claude Code never waits for ClaudeMon to respond.</div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">
+            What events are tracked?
+            <svg class="faq-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-a">All 27 Claude Code hook events: SessionStart, SessionEnd, tool use events (PreToolUse, PostToolUse), notifications, permission requests, context compaction, subagent lifecycle, and more.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Final CTA ═══ -->
   <section class="final-cta">
     <div class="container">
       <h2 class="fade-in">Start monitoring</h2>
-      <p class="fade-in">Set up in 30 seconds. No account required.</p>
-      <div class="cta-row fade-in">
+      <p class="fade-in fade-in-d1">Set up in 30 seconds. No account required.</p>
+      <div class="cta-row fade-in fade-in-d2">
         <a href="https://app.claudemon.com" class="btn btn-primary">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="M14 9l3 3-3 3"/></svg>
           Open Dashboard
@@ -767,20 +1392,139 @@ footer .sep { color: var(--panel-border); }
 
   <script>
   (function(){
-    var els = document.querySelectorAll('.fade-in');
-    if (!('IntersectionObserver' in window)) {
-      for (var i = 0; i < els.length; i++) els[i].classList.add('visible');
-      return;
+    // ── Intersection Observer for fade-ins ──
+    var fadeEls = document.querySelectorAll('.fade-in');
+    if ('IntersectionObserver' in window) {
+      var obs = new IntersectionObserver(function(entries) {
+        entries.forEach(function(e) {
+          if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }
+        });
+      }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+      fadeEls.forEach(function(el) { obs.observe(el); });
+    } else {
+      fadeEls.forEach(function(el) { el.classList.add('visible'); });
     }
-    var obs = new IntersectionObserver(function(entries) {
-      entries.forEach(function(e) {
-        if (e.isIntersecting) {
-          e.target.classList.add('visible');
-          obs.unobserve(e.target);
-        }
+
+    // ── Copy install command ──
+    var cmd = document.getElementById('installCmd');
+    var toast = document.getElementById('copiedToast');
+    if (cmd) {
+      cmd.addEventListener('click', function() {
+        navigator.clipboard.writeText('npx claudemon-cli init').then(function() {
+          toast.classList.add('show');
+          setTimeout(function() { toast.classList.remove('show'); }, 1500);
+        });
       });
-    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
-    els.forEach(function(el) { obs.observe(el); });
+    }
+
+    // ── Terminal animation ──
+    var ids = ['te0','te1','te2','te3','te4','te5','te6','te7'];
+    var delays = [0, 1000, 2000, 2800, 3600, 4500, 5500, 6500];
+    var loopDuration = 9000;
+    var timers = [];
+
+    function runTerminalLoop() {
+      // Reset all
+      ids.forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.classList.remove('active');
+      });
+
+      // Schedule each event
+      ids.forEach(function(id, i) {
+        timers.push(setTimeout(function() {
+          var el = document.getElementById(id);
+          if (el) el.classList.add('active');
+        }, delays[i]));
+      });
+
+      // Time counters for sessions
+      var t0Start = Date.now();
+      var t3Start = Date.now() + 2800;
+      function updateTimes() {
+        var now = Date.now();
+        var t0el = document.getElementById('t0time');
+        var t3el = document.getElementById('t3time');
+        if (t0el) {
+          var s0 = Math.floor((now - t0Start) / 1000);
+          t0el.textContent = s0 + 's';
+        }
+        if (t3el && now > t3Start) {
+          var s3 = Math.floor((now - t3Start) / 1000);
+          t3el.textContent = s3 + 's';
+        }
+      }
+      var timeInterval = setInterval(updateTimes, 1000);
+      timers.push(timeInterval);
+
+      // Loop
+      timers.push(setTimeout(function() {
+        clearInterval(timeInterval);
+        timers = [];
+        t0Start = Date.now();
+        t3Start = Date.now() + 2800;
+        runTerminalLoop();
+      }, loopDuration));
+    }
+
+    // Only run when terminal is visible
+    var termEl = document.getElementById('animTerminal');
+    if (termEl && 'IntersectionObserver' in window) {
+      var termObs = new IntersectionObserver(function(entries) {
+        if (entries[0].isIntersecting) {
+          termObs.unobserve(termEl);
+          runTerminalLoop();
+        }
+      }, { threshold: 0.3 });
+      termObs.observe(termEl);
+    } else {
+      runTerminalLoop();
+    }
+
+    // ── Stats count-up ──
+    var counted = false;
+    var statEls = document.querySelectorAll('[data-count]');
+    function countUp() {
+      if (counted) return;
+      counted = true;
+      statEls.forEach(function(el) {
+        var target = parseInt(el.getAttribute('data-count'));
+        var prefix = el.getAttribute('data-prefix') || '';
+        var suffix = el.getAttribute('data-suffix') || '';
+        var start = 0;
+        var duration = 1200;
+        var startTime = null;
+        function step(ts) {
+          if (!startTime) startTime = ts;
+          var progress = Math.min((ts - startTime) / duration, 1);
+          var eased = 1 - Math.pow(1 - progress, 3);
+          var current = Math.round(start + (target - start) * eased);
+          el.textContent = prefix + current + suffix;
+          if (progress < 1) requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+      });
+    }
+    if (statEls.length > 0 && 'IntersectionObserver' in window) {
+      var statObs = new IntersectionObserver(function(entries) {
+        if (entries[0].isIntersecting) { countUp(); statObs.disconnect(); }
+      }, { threshold: 0.5 });
+      statEls.forEach(function(el) { statObs.observe(el); });
+    }
+
+    // ── Dashboard parallax ──
+    var dashFrame = document.getElementById('dashFrame');
+    if (dashFrame) {
+      window.addEventListener('scroll', function() {
+        var rect = dashFrame.getBoundingClientRect();
+        var vh = window.innerHeight;
+        if (rect.top < vh && rect.bottom > 0) {
+          var ratio = (vh - rect.top) / (vh + rect.height);
+          var offset = (ratio - 0.5) * 20;
+          dashFrame.style.transform = 'translateY(' + offset + 'px)';
+        }
+      }, { passive: true });
+    }
   })();
   </script>
 </body>

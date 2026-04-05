@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ClaudeMon - Dashboard Screenshot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  width: 1200px;
+  height: 750px;
+  overflow: hidden;
+  margin: 0;
+  background: #0a0a0a;
+  font-family: 'Geist Mono', monospace;
+  color: #e8e0d4;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #3d3a34; border-radius: 2px; }
+
+/* ── Header ── */
+.header {
+  height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background: #12110f;
+  border-bottom: 1px solid #3d3a34;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+.header-left { display: flex; align-items: center; gap: 12px; }
+.logo { font-size: 18px; font-weight: 700; letter-spacing: 2px; display: flex; align-items: center; gap: 6px; }
+.logo svg { color: #a3b18a; }
+.header-sep { color: #4a4640; }
+.header-tagline { font-size: 11px; color: #6b6560; letter-spacing: 1px; }
+.header-right { display: flex; align-items: center; gap: 16px; }
+.stat { display: flex; align-items: center; gap: 4px; font-size: 10px; }
+.stat-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.live-indicator { display: flex; align-items: center; gap: 8px; }
+.live-text { font-size: 10px; color: #6b6560; }
+.live-dot { width: 10px; height: 10px; border-radius: 50%; background: #a3b18a; box-shadow: 0 0 6px #a3b18a; animation: pulse 2s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+.avatar { width: 20px; height: 20px; border-radius: 50%; border: 1px solid #3d3a34; background: #1a1916; }
+.avatar-name { font-size: 10px; color: #6b6560; }
+
+/* ── Main layout ── */
+.main { display: flex; flex: 1; overflow: hidden; }
+
+/* ── Left panel (Agent Map) ── */
+.left-panel {
+  width: 300px;
+  flex-shrink: 0;
+  border-right: 1px solid #3d3a34;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+.panel-header {
+  height: 33px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border-bottom: 1px solid #3d3a34;
+  font-size: 10px;
+  font-weight: 700;
+  color: #8a8478;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  flex-shrink: 0;
+}
+.panel-body { padding: 8px; flex: 1; overflow-y: auto; }
+
+/* Environment group */
+.env-group { margin-bottom: 8px; }
+.env-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: default;
+}
+.env-badge { font-size: 9px; color: #4a4640; text-transform: uppercase; letter-spacing: 1px; }
+.env-count { margin-left: auto; display: flex; align-items: center; gap: 4px; font-size: 9px; color: #8a8478; }
+.env-count-dot { color: #a3b18a; }
+
+/* Project group */
+.project-group {
+  border: 1px solid #3d3a34;
+  border-radius: 2px;
+  background: #141210;
+  margin-bottom: 6px;
+}
+.project-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 11px;
+}
+.project-header .caret { font-size: 8px; color: #4a4640; }
+.project-header .folder-icon { color: #6b6560; }
+.project-name { font-weight: 700; }
+.project-branch { font-size: 9px; color: #4a4640; display: flex; align-items: center; gap: 3px; }
+.project-count { margin-left: auto; font-size: 9px; color: #4a4640; }
+
+/* Session cards */
+.sessions { padding: 0 8px 8px; }
+.session-card {
+  border: 1px solid;
+  border-radius: 2px;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  cursor: default;
+  transition: all 0.15s;
+}
+.session-card.working {
+  border-color: rgba(163,177,138,0.3);
+  background: rgba(163,177,138,0.03);
+  box-shadow: 0 0 12px rgba(163,177,138,0.12), inset 0 0 12px rgba(163,177,138,0.04);
+}
+.session-card.selected {
+  border-color: #a3b18a;
+  background: rgba(163,177,138,0.03);
+  ring: 1px solid rgba(163,177,138,0.5);
+  box-shadow: 0 0 12px rgba(163,177,138,0.15);
+}
+.session-card.thinking {
+  border-color: rgba(123,159,191,0.15);
+  background: rgba(123,159,191,0.03);
+}
+.session-card.waiting {
+  background: linear-gradient(135deg, rgba(201,169,110,0.08), rgba(201,169,110,0.03));
+  border-color: rgba(201,169,110,0.25);
+  animation: waiting-pulse 2s ease-in-out infinite;
+}
+@keyframes waiting-pulse {
+  0%,100% { border-color: rgba(201,169,110,0.25); box-shadow: none; }
+  50% { border-color: rgba(201,169,110,0.5); box-shadow: 0 0 12px rgba(201,169,110,0.08); }
+}
+.session-card.done {
+  border-color: rgba(102,102,102,0.15);
+  background: rgba(102,102,102,0.03);
+}
+
+.session-row1 { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.s-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.s-id { font-size: 11px; font-weight: 700; }
+.s-duration { font-size: 9px; color: #4a4640; margin-left: auto; }
+.s-status {
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 2px 6px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.session-row2 { display: flex; align-items: center; gap: 8px; font-size: 9px; color: #6b6560; }
+.branch-icon { display: flex; align-items: center; gap: 3px; }
+.counters { color: #4a4640; }
+
+.session-row3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  color: #6b6560;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(61,58,52,0.2);
+}
+.tool-label { color: #8a8478; font-weight: 700; }
+.tool-time { color: #4a4640; margin-left: auto; flex-shrink: 0; }
+
+/* Waiting banner on card */
+.waiting-notice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  color: #c9a96e;
+  font-weight: 700;
+  margin-top: 4px;
+}
+.waiting-notice .w-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: #c9a96e;
+  box-shadow: 0 0 6px #c9a96e; animation: pulse 2s ease-in-out infinite;
+}
+
+/* ── Middle panel (Session Detail) ── */
+.middle-panel {
+  width: 440px;
+  flex-shrink: 0;
+  border-right: 1px solid #3d3a34;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #0a0a0a;
+}
+.detail-header {
+  height: 33px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-bottom: 1px solid #3d3a34;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+.close-btn { color: #4a4640; font-size: 11px; cursor: pointer; background: none; border: none; font-family: inherit; }
+.detail-id { font-weight: 700; }
+.detail-mode { color: #4a4640; font-size: 9px; }
+.detail-project { color: #6b6560; font-size: 9px; }
+.detail-model { color: #6b6560; font-size: 9px; margin-left: auto; }
+
+.timeline { flex: 1; overflow-y: auto; }
+
+/* Tool call row */
+.tool-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-bottom: 1px solid rgba(61,58,52,0.2);
+  font-size: 10px;
+}
+.tool-row:hover { background: rgba(26,25,22,0.2); }
+.tool-icon { width: 16px; text-align: center; color: #6b6560; font-size: 11px; flex-shrink: 0; }
+.tool-name { font-weight: 700; color: #8a8478; font-size: 10px; flex-shrink: 0; }
+
+/* File badges */
+.file-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+}
+.file-badge.src { background: rgba(123,159,191,0.12); color: #7b9fbf; }
+.file-badge.config { background: rgba(176,123,172,0.12); color: #b07bac; }
+.file-badge.default { background: rgba(74,70,64,0.12); color: #8a8478; }
+
+.diff-stat { font-size: 8px; flex-shrink: 0; }
+.diff-add { color: #a3b18a; }
+.diff-rm { color: #b85c4a; }
+
+.info-pill { font-size: 8px; color: #4a4640; background: rgba(61,58,52,0.2); padding: 1px 4px; border-radius: 2px; }
+.done-label { font-size: 7px; color: rgba(163,177,138,0.5); text-transform: uppercase; letter-spacing: 1px; }
+.tool-ts { font-size: 9px; color: #4a4640; margin-left: auto; flex-shrink: 0; }
+.tool-caret { color: #4a4640; font-size: 8px; margin-left: 4px; }
+
+/* Expanded tool call body */
+.tool-body {
+  padding: 4px 12px 8px 34px;
+  border-bottom: 1px solid rgba(61,58,52,0.2);
+}
+.cmd-line { font-size: 10px; color: #6b6560; margin-bottom: 4px; }
+.cmd-prefix { color: #4a4640; }
+
+.terminal-block {
+  background: #0c0c0c;
+  border: 1px solid #3d3a34;
+  border-radius: 3px;
+  padding: 6px 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #6b6560;
+}
+
+.diff-block {
+  border: 1px solid rgba(61,58,52,0.3);
+  border-radius: 2px;
+  overflow: hidden;
+  font-size: 10px;
+  line-height: 1.6;
+  margin-top: 4px;
+}
+.diff-line-add { background: #1a3a1a; color: #a3b18a; padding: 1px 4px; }
+.diff-line-rm { background: #3a1a1a; color: #b85c4a; padding: 1px 4px; text-decoration: line-through; }
+
+/* Session event rows (non-tool) */
+.event-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid rgba(61,58,52,0.2);
+  font-size: 10px;
+}
+.event-label { font-weight: 700; text-transform: uppercase; }
+.event-label.start { color: #4a4640; }
+.event-label.agent { color: #b07bac; }
+
+/* Session info bar */
+.session-bar {
+  flex-shrink: 0;
+  border-top: 1px solid #3d3a34;
+  padding: 8px 12px;
+  background: #12110f;
+}
+.bar-row1 { display: flex; align-items: center; gap: 8px; font-size: 10px; }
+.bar-dot { width: 8px; height: 8px; border-radius: 50%; background: #a3b18a; box-shadow: 0 0 6px #a3b18a; animation: pulse 2s infinite; }
+.bar-branch { color: #4a4640; display: flex; align-items: center; gap: 3px; }
+.bar-duration { color: #4a4640; margin-left: auto; }
+.bar-row2 { display: flex; gap: 8px; font-size: 9px; color: #6b6560; margin-top: 2px; }
+
+/* ── Right panel ── */
+.right-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Activity section */
+.activity-section { flex: 1; display: flex; flex-direction: column; overflow: hidden; border-bottom: 1px solid #3d3a34; }
+.activity-body { flex: 1; overflow-y: auto; padding: 4px; }
+
+/* Activity event row */
+.act-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 2px;
+  cursor: default;
+}
+.act-row:hover { background: rgba(26,25,22,0.3); }
+.act-content { flex: 1; min-width: 0; }
+.act-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.act-session-badge {
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+.act-tool-icon { font-size: 9px; width: 14px; text-align: center; flex-shrink: 0; }
+.act-tool-name { font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.act-detail { font-size: 10px; color: #6b6560; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.act-ts { font-size: 9px; color: #4a4640; flex-shrink: 0; margin-top: 4px; }
+
+/* Conflicts section */
+.conflicts-section { flex-shrink: 0; height: 80px; display: flex; flex-direction: column; }
+.conflict-body { padding: 8px 12px; }
+.conflict-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(184,92,74,0.05);
+  border: 1px solid rgba(184,92,74,0.2);
+  border-radius: 3px;
+  font-size: 10px;
+}
+.conflict-icon { color: #b85c4a; font-size: 14px; }
+.conflict-file { color: #b85c4a; font-weight: 700; }
+.conflict-info { color: #6b6560; font-size: 9px; }
+
+/* SVG icons inline */
+.icon-branch { display: inline-flex; align-items: center; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div class="header-left">
+    <span class="logo">
+      <svg width="20" height="20" viewBox="0 0 256 256" fill="#a3b18a"><path d="M208,40H48A16,16,0,0,0,32,56v58.77c0,89.62,75.82,119.34,91,124.39a15.53,15.53,0,0,0,10,0c15.2-5.05,91-34.77,91-124.39V56A16,16,0,0,0,208,40Zm-30.46,90.81-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L116,170.06l50.34-50.34a8,8,0,0,1,11.32,11.32Z"/></svg>
+      ClaudeMon
+    </span>
+    <span class="header-sep">|</span>
+    <span class="header-tagline">Monitor your Claude Code sessions in real time</span>
+  </div>
+  <div class="header-right">
+    <div style="display:flex;align-items:center;gap:12px;font-size:10px;">
+      <span class="stat" style="color:#a3b18a;"><span class="stat-dot" style="background:#a3b18a;box-shadow:0 0 4px #a3b18a;width:6px;height:6px;border-radius:50%;animation:pulse 2s infinite;"></span> 2 active</span>
+      <span class="stat" style="color:#c9a96e;font-weight:700;"><span class="stat-dot" style="background:#c9a96e;box-shadow:0 0 6px #c9a96e;width:6px;height:6px;border-radius:50%;animation:pulse 2s infinite;"></span> 1 waiting</span>
+      <span class="stat" style="color:#4a4640;"><span class="stat-dot" style="background:#4a4640;width:6px;height:6px;border-radius:50%;"></span> 1 off</span>
+    </div>
+    <div class="live-indicator">
+      <span class="live-text">LIVE</span>
+      <span class="live-dot"></span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div class="avatar" style="background:linear-gradient(135deg,#2d333b,#1a1916);display:flex;align-items:center;justify-content:center;">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="#6b6560"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      </div>
+      <span class="avatar-name">anipotts</span>
+    </div>
+  </div>
+</header>
+
+<div class="main">
+  <!-- Left Panel: Agent Map -->
+  <div class="left-panel">
+    <div class="panel-header">Agent Map</div>
+    <div class="panel-body">
+
+      <!-- Machine: anipotts-mbp -->
+      <div class="env-group">
+        <div class="env-header">
+          <span style="color:#4a4640;font-size:8px;">&#9660;</span>
+          <svg width="14" height="14" viewBox="0 0 256 256" fill="#8a8478"><path d="M208,40H48A16,16,0,0,0,32,56V176a16,16,0,0,0,16,16H96v16H72a8,8,0,0,0,0,16H184a8,8,0,0,0,0-16H160V192h48a16,16,0,0,0,16-16V56A16,16,0,0,0,208,40ZM144,208H112V192h32Zm64-32H48V56H208Z"/></svg>
+          <span>anipotts-mbp</span>
+          <span class="env-badge">local</span>
+          <span class="env-count"><span class="env-count-dot">~</span> 3</span>
+        </div>
+
+        <!-- Project: claudemon -->
+        <div class="project-group">
+          <div class="project-header">
+            <span class="caret">&#9660;</span>
+            <svg width="12" height="12" viewBox="0 0 256 256" fill="#6b6560"><path d="M216,72H131.31L104,44.69A15.86,15.86,0,0,0,92.69,40H40A16,16,0,0,0,24,56V200.62A15.4,15.4,0,0,0,39.38,216H216.89A15.13,15.13,0,0,0,232,200.89V88A16,16,0,0,0,216,72ZM40,56H92.69l16,16H40Z"/></svg>
+            <span class="project-name">claudemon</span>
+            <span class="project-branch">
+              <svg width="9" height="9" viewBox="0 0 256 256" fill="#4a4640"><path d="M224,64a32,32,0,1,0-40,31v17a8,8,0,0,1-8,8H80a8,8,0,0,1-8-8V95A32,32,0,1,0,56,64v.7V112a24,24,0,0,0,24,24h96a24,24,0,0,0,24-24V95A32.06,32.06,0,0,0,224,64ZM80,48A16,16,0,1,1,64,64,16,16,0,0,1,80,48Zm96,32a16,16,0,1,1,16-16A16,16,0,0,1,176,80Z"/></svg>
+              main
+            </span>
+            <span class="project-count">2 sessions</span>
+          </div>
+          <div class="sessions">
+            <!-- Session: working (selected) -->
+            <div class="session-card selected">
+              <div class="session-row1">
+                <div class="s-dot" style="background:#a3b18a;box-shadow:0 0 6px #a3b18a;animation:pulse 2s infinite;"></div>
+                <span class="s-id">a3f2b8c1</span>
+                <span class="s-duration">12m 3s</span>
+                <span class="s-status" style="color:#a3b18a;background:rgba(163,177,138,0.12);">Working</span>
+              </div>
+              <div class="session-row2">
+                <span class="branch-icon">
+                  <svg width="9" height="9" viewBox="0 0 256 256" fill="#4a4640"><path d="M224,64a32,32,0,1,0-40,31v17a8,8,0,0,1-8,8H80a8,8,0,0,1-8-8V95A32,32,0,1,0,56,64v.7V112a24,24,0,0,0,24,24h96a24,24,0,0,0,24-24V95A32.06,32.06,0,0,0,224,64ZM80,48A16,16,0,1,1,64,64,16,16,0,0,1,80,48Zm96,32a16,16,0,1,1,16-16A16,16,0,0,1,176,80Z"/></svg>
+                  main
+                </span>
+                <span class="counters">4 edits &middot; 8 cmds &middot; 12 reads</span>
+              </div>
+              <div class="session-row3">
+                <span class="tool-label">Edit</span>
+                <span>src/index.ts</span>
+                <span class="tool-time">2s ago</span>
+              </div>
+            </div>
+
+            <!-- Session: thinking -->
+            <div class="session-card thinking">
+              <div class="session-row1">
+                <div class="s-dot" style="background:#7b9fbf;box-shadow:0 0 6px #7b9fbf;animation:pulse 2s infinite;"></div>
+                <span class="s-id">7d9e4f2a</span>
+                <span class="s-duration">3m 45s</span>
+                <span class="s-status" style="color:#7b9fbf;background:rgba(123,159,191,0.12);">Thinking</span>
+              </div>
+              <div class="session-row2">
+                <span class="branch-icon">
+                  <svg width="9" height="9" viewBox="0 0 256 256" fill="#4a4640"><path d="M224,64a32,32,0,1,0-40,31v17a8,8,0,0,1-8,8H80a8,8,0,0,1-8-8V95A32,32,0,1,0,56,64v.7V112a24,24,0,0,0,24,24h96a24,24,0,0,0,24-24V95A32.06,32.06,0,0,0,224,64ZM80,48A16,16,0,1,1,64,64,16,16,0,0,1,80,48Zm96,32a16,16,0,1,1,16-16A16,16,0,0,1,176,80Z"/></svg>
+                  feat/api
+                </span>
+                <span class="counters">2 edits &middot; 3 cmds</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Project: vector-seo -->
+        <div class="project-group">
+          <div class="project-header">
+            <span class="caret">&#9660;</span>
+            <svg width="12" height="12" viewBox="0 0 256 256" fill="#6b6560"><path d="M216,72H131.31L104,44.69A15.86,15.86,0,0,0,92.69,40H40A16,16,0,0,0,24,56V200.62A15.4,15.4,0,0,0,39.38,216H216.89A15.13,15.13,0,0,0,232,200.89V88A16,16,0,0,0,216,72ZM40,56H92.69l16,16H40Z"/></svg>
+            <span class="project-name">vector-seo</span>
+            <span class="project-branch">
+              <svg width="9" height="9" viewBox="0 0 256 256" fill="#4a4640"><path d="M224,64a32,32,0,1,0-40,31v17a8,8,0,0,1-8,8H80a8,8,0,0,1-8-8V95A32,32,0,1,0,56,64v.7V112a24,24,0,0,0,24,24h96a24,24,0,0,0,24-24V95A32.06,32.06,0,0,0,224,64ZM80,48A16,16,0,1,1,64,64,16,16,0,0,1,80,48Zm96,32a16,16,0,1,1,16-16A16,16,0,0,1,176,80Z"/></svg>
+              main
+            </span>
+            <span class="project-count">1 session</span>
+          </div>
+          <div class="sessions">
+            <div class="session-card waiting">
+              <div class="session-row1">
+                <div class="s-dot" style="background:#c9a96e;box-shadow:0 0 8px #c9a96e;animation:pulse 2s infinite;"></div>
+                <span class="s-id">b1c3d5e7</span>
+                <span class="s-duration">1m 22s</span>
+                <span class="s-status" style="color:#c9a96e;background:rgba(201,169,110,0.12);font-size:9px;padding:2px 8px;">Waiting</span>
+              </div>
+              <div class="session-row2">
+                <span class="branch-icon">
+                  <svg width="9" height="9" viewBox="0 0 256 256" fill="#4a4640"><path d="M224,64a32,32,0,1,0-40,31v17a8,8,0,0,1-8,8H80a8,8,0,0,1-8-8V95A32,32,0,1,0,56,64v.7V112a24,24,0,0,0,24,24h96a24,24,0,0,0,24-24V95A32.06,32.06,0,0,0,224,64ZM80,48A16,16,0,1,1,64,64,16,16,0,0,1,80,48Zm96,32a16,16,0,1,1,16-16A16,16,0,0,1,176,80Z"/></svg>
+                  main
+                </span>
+              </div>
+              <div class="waiting-notice">
+                <span class="w-dot"></span>
+                Claude needs your input
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Machine: cloud -->
+      <div class="env-group">
+        <div class="env-header">
+          <span style="color:#4a4640;font-size:8px;">&#9660;</span>
+          <svg width="14" height="14" viewBox="0 0 256 256" fill="#8a8478"><path d="M160,40A88.09,88.09,0,0,0,81.29,88.68,64,64,0,1,0,72,216h88a88,88,0,0,0,0-176Zm0,160H72a48,48,0,0,1-2.64-96A88.55,88.55,0,0,0,72,128a8,8,0,0,0,16,0,72,72,0,1,1,72,72Z"/></svg>
+          <span>cloud</span>
+          <span class="env-badge">cloud</span>
+          <span class="env-count"><span class="env-count-dot">~</span> 1</span>
+        </div>
+        <div class="project-group">
+          <div class="project-header">
+            <span class="caret">&#9660;</span>
+            <svg width="12" height="12" viewBox="0 0 256 256" fill="#6b6560"><path d="M216,72H131.31L104,44.69A15.86,15.86,0,0,0,92.69,40H40A16,16,0,0,0,24,56V200.62A15.4,15.4,0,0,0,39.38,216H216.89A15.13,15.13,0,0,0,232,200.89V88A16,16,0,0,0,216,72ZM40,56H92.69l16,16H40Z"/></svg>
+            <span class="project-name">claudemon</span>
+            <span class="project-count">1 session</span>
+          </div>
+          <div class="sessions">
+            <div class="session-card done">
+              <div class="session-row1">
+                <div class="s-dot" style="background:#666;"></div>
+                <span class="s-id">f8a2c4d6</span>
+                <span class="s-duration">45m 12s</span>
+                <span class="s-status" style="color:#666;background:rgba(102,102,102,0.12);">Done</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Middle Panel: Session Detail -->
+  <div class="middle-panel">
+    <div class="detail-header">
+      <button class="close-btn">x</button>
+      <span class="detail-id">a3f2b8c1</span>
+      <span class="detail-mode">bypass</span>
+      <span class="detail-project">claudemon</span>
+      <span class="detail-model">opus-4-6</span>
+    </div>
+
+    <div class="timeline">
+      <!-- SessionStart -->
+      <div class="event-row">
+        <span class="event-label start">SessionStart</span>
+        <span style="font-size:9px;color:#6b6560;">local</span>
+        <span class="tool-ts" style="margin-left:auto;">12:01:03</span>
+      </div>
+
+      <!-- Read src/index.ts -->
+      <div class="tool-row">
+        <span class="tool-icon">.</span>
+        <span class="tool-name">Read</span>
+        <span class="file-badge src">src/index.ts</span>
+        <span class="info-pill">142 lines</span>
+        <span class="done-label">done</span>
+        <span class="tool-ts">12:01:08</span>
+        <span class="tool-caret">&#9654;</span>
+      </div>
+
+      <!-- Edit src/index.ts (expanded) -->
+      <div class="tool-row">
+        <span class="tool-icon">~</span>
+        <span class="tool-name">Edit</span>
+        <span class="file-badge src">src/index.ts</span>
+        <span class="diff-stat"><span class="diff-add">+5</span> <span class="diff-rm">-2</span></span>
+        <span class="done-label">done</span>
+        <span class="tool-ts">12:01:15</span>
+        <span class="tool-caret">&#9660;</span>
+      </div>
+      <div class="tool-body">
+        <div class="diff-block">
+          <div class="diff-line-rm">- const handler = async (req) => {</div>
+          <div class="diff-line-rm">-   return new Response("ok");</div>
+          <div class="diff-line-add">+ const handler = async (req: Request) => {</div>
+          <div class="diff-line-add">+   const data = await req.json();</div>
+          <div class="diff-line-add">+   if (!data.session_id) {</div>
+          <div class="diff-line-add">+     return new Response("missing session_id", { status: 400 });</div>
+          <div class="diff-line-add">+   }</div>
+        </div>
+      </div>
+
+      <!-- Bash npm run typecheck (expanded) -->
+      <div class="tool-row">
+        <span class="tool-icon">&gt;_</span>
+        <span class="tool-name">Bash</span>
+        <span style="font-size:9px;color:#6b6560;">npm run typecheck</span>
+        <span class="done-label">done</span>
+        <span class="tool-ts">12:01:22</span>
+        <span class="tool-caret">&#9660;</span>
+      </div>
+      <div class="tool-body">
+        <div class="cmd-line"><span class="cmd-prefix">$ </span>npm run typecheck</div>
+        <div class="terminal-block">0 errors found.</div>
+      </div>
+
+      <!-- Read App.tsx -->
+      <div class="tool-row">
+        <span class="tool-icon">.</span>
+        <span class="tool-name">Read</span>
+        <span class="file-badge src">apps/monitor/src/App.tsx</span>
+        <span class="info-pill">280 lines</span>
+        <span class="done-label">done</span>
+        <span class="tool-ts">12:01:30</span>
+        <span class="tool-caret">&#9654;</span>
+      </div>
+
+      <!-- Edit App.tsx -->
+      <div class="tool-row">
+        <span class="tool-icon">~</span>
+        <span class="tool-name">Edit</span>
+        <span class="file-badge src">apps/monitor/src/App.tsx</span>
+        <span class="diff-stat"><span class="diff-add">+12</span> <span class="diff-rm">-3</span></span>
+        <span class="done-label">done</span>
+        <span class="tool-ts">12:01:38</span>
+        <span class="tool-caret">&#9654;</span>
+      </div>
+
+      <!-- Agent -->
+      <div class="tool-row">
+        <span class="tool-icon" style="color:#b07bac;">@</span>
+        <span class="tool-name" style="color:#b07bac;">Agent</span>
+        <span style="font-size:9px;color:#6b6560;">Explore codebase</span>
+        <span style="font-size:8px;color:#b07bac;background:rgba(176,123,172,0.12);padding:1px 4px;border-radius:2px;">subagent</span>
+        <span class="tool-ts">12:01:45</span>
+        <span class="tool-caret">&#9654;</span>
+      </div>
+    </div>
+
+    <div class="session-bar">
+      <div class="bar-row1">
+        <div class="bar-dot"></div>
+        <span class="bar-branch">
+          <svg width="9" height="9" viewBox="0 0 256 256" fill="#4a4640"><path d="M224,64a32,32,0,1,0-40,31v17a8,8,0,0,1-8,8H80a8,8,0,0,1-8-8V95A32,32,0,1,0,56,64v.7V112a24,24,0,0,0,24,24h96a24,24,0,0,0,24-24V95A32.06,32.06,0,0,0,224,64ZM80,48A16,16,0,1,1,64,64,16,16,0,0,1,80,48Zm96,32a16,16,0,1,1,16-16A16,16,0,0,1,176,80Z"/></svg>
+          main
+        </span>
+        <span class="bar-duration">12m 3s</span>
+      </div>
+      <div class="bar-row2">
+        <span>4 edits</span>
+        <span>8 cmds</span>
+        <span>12 reads</span>
+        <span>3 searches</span>
+        <span>&middot;</span>
+        <span>3.2 tools/min</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Panel -->
+  <div class="right-panel">
+
+    <!-- Activity Timeline -->
+    <div class="activity-section">
+      <div class="panel-header">Activity</div>
+      <div class="activity-body">
+
+        <div class="act-row">
+          <div class="act-content">
+            <div class="act-top">
+              <span class="act-session-badge" style="color:#a3b18a;background:rgba(163,177,138,0.08);">a3f2b8</span>
+              <span class="act-tool-icon" style="color:#b07bac;">@</span>
+              <span class="act-tool-name" style="color:#b07bac;">Agent</span>
+            </div>
+            <div class="act-detail">Explore codebase</div>
+          </div>
+          <span class="act-ts">2s</span>
+        </div>
+
+        <div class="act-row">
+          <div class="act-content">
+            <div class="act-top">
+              <span class="act-session-badge" style="color:#a3b18a;background:rgba(163,177,138,0.08);">a3f2b8</span>
+              <span class="act-tool-icon" style="color:#c9a96e;">~</span>
+              <span class="act-tool-name" style="color:#c9a96e;">Edit</span>
+            </div>
+            <div class="act-detail"><span class="file-badge src" style="font-size:9px;">apps/monitor/src/App.tsx</span></div>
+          </div>
+          <span class="act-ts">8s</span>
+        </div>
+
+        <div class="act-row">
+          <div class="act-content">
+            <div class="act-top">
+              <span class="act-session-badge" style="color:#a3b18a;background:rgba(163,177,138,0.08);">a3f2b8</span>
+              <span class="act-tool-icon" style="color:#6b6560;">.</span>
+              <span class="act-tool-name" style="color:#6b6560;">Read</span>
+            </div>
+            <div class="act-detail"><span class="file-badge src" style="font-size:9px;">apps/monitor/src/App.tsx</span></div>
+          </div>
+          <span class="act-ts">16s</span>
+        </div>
+
+        <div class="act-row">
+          <div class="act-content">
+            <div class="act-top">
+              <span class="act-session-badge" style="color:#c9a96e;background:rgba(201,169,110,0.08);">b1c3d5</span>
+              <span class="act-tool-icon" style="color:#c9a96e;">?!</span>
+              <span class="act-tool-name" style="color:#c9a96e;">Notification</span>
+            </div>
+            <div class="act-detail">Claude needs your input</div>
+          </div>
+          <span class="act-ts">22s</span>
+        </div>
+
+        <div class="act-row">
+          <div class="act-content">
+            <div class="act-top">
+              <span class="act-session-badge" style="color:#a3b18a;background:rgba(163,177,138,0.08);">a3f2b8</span>
+              <span class="act-tool-icon" style="color:#7ea8be;">&gt;_</span>
+              <span class="act-tool-name" style="color:#7ea8be;">Bash</span>
+            </div>
+            <div class="act-detail">npm run typecheck</div>
+          </div>
+          <span class="act-ts">24s</span>
+        </div>
+
+        <div class="act-row">
+          <div class="act-content">
+            <div class="act-top">
+              <span class="act-session-badge" style="color:#a3b18a;background:rgba(163,177,138,0.08);">a3f2b8</span>
+              <span class="act-tool-icon" style="color:#c9a96e;">~</span>
+              <span class="act-tool-name" style="color:#c9a96e;">Edit</span>
+            </div>
+            <div class="act-detail"><span class="file-badge src" style="font-size:9px;">src/index.ts</span></div>
+          </div>
+          <span class="act-ts">31s</span>
+        </div>
+
+        <div class="act-row">
+          <div class="act-content">
+            <div class="act-top">
+              <span class="act-session-badge" style="color:#7ea8be;background:rgba(126,168,190,0.08);">7d9e4f</span>
+              <span class="act-tool-icon" style="color:#6b6560;">.</span>
+              <span class="act-tool-name" style="color:#6b6560;">Read</span>
+            </div>
+            <div class="act-detail"><span class="file-badge config" style="font-size:9px;">tsconfig.json</span></div>
+          </div>
+          <span class="act-ts">38s</span>
+        </div>
+
+        <div class="act-row">
+          <div class="act-content">
+            <div class="act-top">
+              <span class="act-session-badge" style="color:#a3b18a;background:rgba(163,177,138,0.08);">a3f2b8</span>
+              <span class="act-tool-icon" style="color:#6b6560;">.</span>
+              <span class="act-tool-name" style="color:#6b6560;">Read</span>
+            </div>
+            <div class="act-detail"><span class="file-badge src" style="font-size:9px;">src/index.ts</span></div>
+          </div>
+          <span class="act-ts">43s</span>
+        </div>
+
+        <div class="act-row">
+          <div class="act-content">
+            <div class="act-top">
+              <span class="act-session-badge" style="color:#a3b18a;background:rgba(163,177,138,0.08);">a3f2b8</span>
+              <span class="act-tool-icon" style="color:#a3b18a;">&gt;&gt;</span>
+              <span class="act-tool-name" style="color:#a3b18a;">SessionStart</span>
+            </div>
+            <div class="act-detail">local</div>
+          </div>
+          <span class="act-ts">12m</span>
+        </div>
+
+        <div class="act-row">
+          <div class="act-content">
+            <div class="act-top">
+              <span class="act-session-badge" style="color:#8a8478;background:rgba(138,132,120,0.08);">f8a2c4</span>
+              <span class="act-tool-icon" style="color:#666;">||</span>
+              <span class="act-tool-name" style="color:#666;">Stop</span>
+            </div>
+            <div class="act-detail">completed</div>
+          </div>
+          <span class="act-ts">45m</span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Conflicts -->
+    <div class="conflicts-section">
+      <div class="panel-header" style="gap:6px;">
+        <svg width="12" height="12" viewBox="0 0 256 256" fill="#b85c4a"><path d="M215.79,118.17a8,8,0,0,0-5-5.66L153.18,90.9l14.66-73.33a8,8,0,0,0-13.69-7l-112,120a8,8,0,0,0,3,13l57.63,21.61L88.16,238.43a8,8,0,0,0,13.69,7l112-120A8,8,0,0,0,215.79,118.17Z"/></svg>
+        Conflicts
+        <span style="font-size:9px;color:#b85c4a;margin-left:4px;">1</span>
+      </div>
+      <div class="conflict-body">
+        <div class="conflict-row">
+          <svg width="14" height="14" viewBox="0 0 256 256" fill="#b85c4a"><path d="M215.79,118.17a8,8,0,0,0-5-5.66L153.18,90.9l14.66-73.33a8,8,0,0,0-13.69-7l-112,120a8,8,0,0,0,3,13l57.63,21.61L88.16,238.43a8,8,0,0,0,13.69,7l112-120A8,8,0,0,0,215.79,118.17Z"/></svg>
+          <span class="conflict-file">src/index.ts</span>
+          <span class="conflict-info">2 sessions editing</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

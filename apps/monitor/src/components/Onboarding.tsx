@@ -1,5 +1,5 @@
-import { type Component, createSignal, Show, For, createMemo } from "solid-js";
-import { ShieldCheck, Copy, Check } from "./Icons";
+import { type Component, createSignal, Show, For, createMemo, onMount, onCleanup } from "solid-js";
+import { ShieldCheck, Copy, Check, CaretDown, CaretRight } from "./Icons";
 import { HOOK_EVENTS } from "../../../../packages/types/monitor";
 
 // ── Copy button ─────────────────────────────────────────────────────
@@ -439,10 +439,22 @@ print('Done! Restart your terminal.')
 
   const ready = () => !!apiKey();
 
+  const [isMobile, setIsMobile] = createSignal(
+    typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches,
+  );
+  const [fieldsOpen, setFieldsOpen] = createSignal(false);
+
+  onMount(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    onCleanup(() => mq.removeEventListener("change", handler));
+  });
+
   return (
     <div class="flex-1 flex flex-col overflow-hidden">
-      {/* 3-column grid fills viewport below header */}
-      <div class="flex-1 flex min-h-0">
+      {/* 3-column grid fills viewport below header — stacks on mobile */}
+      <div class={`flex-1 flex min-h-0 onboarding-grid ${isMobile() ? "flex-col overflow-y-auto" : ""}`}>
         {/* ── COL 1: Auth + API key ──────────────────────────── */}
         <div class="flex-1 border-r border-panel-border/30 p-5 flex flex-col overflow-y-auto">
           <div class="flex items-baseline gap-2 mb-4">
@@ -531,8 +543,17 @@ print('Done! Restart your terminal.')
           <div class="flex items-baseline gap-2 mb-4">
             <span class="text-[13px] font-bold text-text-label">2</span>
             <h2 class="text-[13px] font-bold uppercase tracking-wider text-text-label">Choose fields</h2>
+            <Show when={isMobile()}>
+              <button
+                onClick={() => setFieldsOpen(!fieldsOpen())}
+                class="ml-auto text-text-sub hover:text-text-primary transition-colors"
+              >
+                {fieldsOpen() ? <CaretDown size={12} /> : <CaretRight size={12} />}
+              </button>
+            </Show>
           </div>
 
+          <div class={isMobile() ? `fields-collapsible-body ${fieldsOpen() ? "fields-expanded" : "fields-collapsed"}` : ""}>
           <Show when={hookType() !== "bash"}>
             <div class="bg-safe/8 border border-safe/20 rounded px-3 py-2 mb-4">
               <p class="text-[11px] text-safe">HTTP hooks send all fields automatically. No script needed.</p>
@@ -588,11 +609,12 @@ print('Done! Restart your terminal.')
               )}
             </For>
           </div>
+          </div>{/* end fields-collapsible-body wrapper */}
         </div>
 
         {/* ── COL 3: Install (hook + settings) ───────────────── */}
         <div
-          class={`flex-1 p-5 flex flex-col overflow-hidden transition-opacity ${ready() ? "" : "opacity-25 pointer-events-none"}`}
+          class={`flex-1 p-5 flex flex-col transition-opacity ${isMobile() ? "overflow-visible" : "overflow-hidden"} ${ready() ? "" : "opacity-25 pointer-events-none"}`}
         >
           <div class="flex items-baseline gap-2 mb-3">
             <span class="text-[13px] font-bold text-text-label">3</span>

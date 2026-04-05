@@ -1,4 +1,4 @@
-import { type Component, For, Show, createMemo, createSignal, onMount } from "solid-js";
+import { type Component, For, Show, createMemo, createSignal, onMount, onCleanup } from "solid-js";
 import "./globals.css";
 import { createSessionStore } from "./stores/sessions";
 import { AgentMap } from "./components/AgentMap";
@@ -41,6 +41,19 @@ const App: Component = () => {
   });
 
   const [showOnboarding, setShowOnboarding] = createSignal(false);
+
+  // Mobile responsive
+  const [isMobile, setIsMobile] = createSignal(
+    typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches,
+  );
+  const [showMobileActivity, setShowMobileActivity] = createSignal(false);
+
+  onMount(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    onCleanup(() => mq.removeEventListener("change", handler));
+  });
 
   const refetchUser = () => {
     const controller = new AbortController();
@@ -126,6 +139,7 @@ const App: Component = () => {
   const handleSelectSession = (id: string) => {
     setSelectedSessionIds((prev) => {
       if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (isMobile()) return [id];
       if (prev.length >= 3) return [...prev.slice(1), id];
       return [...prev, id];
     });
@@ -138,12 +152,12 @@ const App: Component = () => {
   return (
     <div class="flex flex-col h-screen bg-bg text-text-primary font-mono overflow-hidden">
       {/* Header */}
-      <header class="h-11 shrink-0 flex items-center justify-between px-5 bg-item border-b border-panel-border shadow-[0_1px_3px_rgba(0,0,0,0.4)]">
+      <header class="h-11 shrink-0 flex items-center justify-between px-5 bg-item border-b border-panel-border shadow-[0_1px_3px_rgba(0,0,0,0.4)] mobile-header">
         <div class="flex items-center gap-3">
           <span class="text-lg font-bold tracking-wider flex items-center gap-1.5">
             <ShieldCheck size={20} /> ClaudeMon
           </span>
-          <Show when={hasAgents()}>
+          <Show when={hasAgents() && !isMobile()}>
             <span class="text-text-sub">|</span>
             <span class="text-[11px] text-text-dim tracking-wider">Monitor your Claude Code sessions in real time</span>
           </Show>
@@ -271,9 +285,20 @@ const App: Component = () => {
           </Show>
         }
       >
-        <div class="flex flex-1 overflow-hidden">
+        <div class={`flex flex-1 overflow-hidden ${isMobile() ? "flex-col" : ""}`}>
+          {/* Mobile: Conflict banner at top */}
+          <Show when={isMobile() && conflicts().length > 0}>
+            <div class="shrink-0 flex items-center gap-2 px-3 py-1.5 bg-attack/5 border-b border-attack/30">
+              <Lightning size={12} class="text-attack" />
+              <span class="text-[10px] text-attack font-bold">{conflicts().length} conflict{conflicts().length !== 1 ? "s" : ""}</span>
+              <span class="text-[9px] text-text-dim truncate">
+                {conflicts().map((c) => c.filePath.split("/").pop()).join(", ")}
+              </span>
+            </div>
+          </Show>
+
           {/* Left: Agent Map */}
-          <div class="flex-1 min-w-0 flex flex-col border-r border-panel-border">
+          <div class={`flex-1 min-w-0 flex flex-col ${isMobile() ? "" : "border-r border-panel-border"}`}>
             <div class="px-4 py-2 border-b border-panel-border flex items-center gap-2 h-[33px]">
               <TreeStructure size={14} class="text-text-label" />
               <span class="text-[10px] text-text-label uppercase tracking-[2px]">Agent Map</span>
@@ -286,39 +311,73 @@ const App: Component = () => {
             </div>
           </div>
 
-          {/* Middle: Session Detail columns (up to 3) */}
-          <For each={selectedSessions()}>
-            {(session) => <SessionDetail session={session} onClose={() => handleCloseSession(session.session_id)} />}
-          </For>
+          {/* Mobile: Session Detail as full-screen overlay */}
+          <Show when={isMobile() && selectedSessions().length > 0}>
+            <div class="absolute inset-0 z-50 bg-bg flex flex-col" style={{ top: "44px" }}>
+              <SessionDetail
+                session={selectedSessions()[0]}
+                onClose={() => handleCloseSession(selectedSessions()[0].session_id)}
+                isMobile={true}
+              />
+            </div>
+          </Show>
 
-          {/* Right sidebar: Activity + Conflicts */}
-          <div class="w-[340px] shrink-0 flex flex-col overflow-hidden border-l border-panel-border">
-            {/* Activity Timeline */}
-            <div class="flex-1 flex flex-col min-h-0 border-b border-panel-border">
-              <div class="px-3 py-2 border-b border-panel-border flex items-center gap-2 shrink-0 h-[33px]">
+          {/* Desktop: Session Detail columns (up to 3) */}
+          <Show when={!isMobile()}>
+            <For each={selectedSessions()}>
+              {(session) => <SessionDetail session={session} onClose={() => handleCloseSession(session.session_id)} />}
+            </For>
+          </Show>
+
+          {/* Mobile: Activity toggle at bottom */}
+          <Show when={isMobile()}>
+            <div class="shrink-0 border-t border-panel-border">
+              <button
+                onClick={() => setShowMobileActivity(!showMobileActivity())}
+                class="flex items-center gap-2 w-full px-3 py-2 bg-item"
+              >
                 <ListBullets size={14} class="text-text-label" />
                 <span class="text-[10px] text-text-label uppercase tracking-[2px]">Activity</span>
                 <span class="text-[9px] text-text-sub ml-auto">{allEvents().length} events</span>
-              </div>
-              <div class="flex-1 overflow-y-auto smooth-scroll">
-                <ActivityTimeline events={allEvents()} onSelectSession={handleSelectSession} />
-              </div>
+              </button>
+              <Show when={showMobileActivity()}>
+                <div class="max-h-[50vh] overflow-y-auto smooth-scroll border-t border-panel-border">
+                  <ActivityTimeline events={allEvents()} onSelectSession={handleSelectSession} />
+                </div>
+              </Show>
             </div>
+          </Show>
 
-            {/* Conflicts */}
-            <div class="shrink-0 max-h-[220px] overflow-y-auto smooth-scroll">
-              <div class="px-3 py-2 border-b border-panel-border flex items-center gap-2 h-[33px]">
-                <Lightning size={14} class="text-attack" />
-                <span class="text-[10px] text-text-label uppercase tracking-[2px]">Conflicts</span>
-                <Show when={conflicts().length > 0}>
-                  <span class="text-[9px] text-attack font-bold ml-auto">{conflicts().length}</span>
-                </Show>
+          {/* Desktop: Right sidebar: Activity + Conflicts */}
+          <Show when={!isMobile()}>
+            <div class="w-[340px] shrink-0 flex flex-col overflow-hidden border-l border-panel-border">
+              {/* Activity Timeline */}
+              <div class="flex-1 flex flex-col min-h-0 border-b border-panel-border">
+                <div class="px-3 py-2 border-b border-panel-border flex items-center gap-2 shrink-0 h-[33px]">
+                  <ListBullets size={14} class="text-text-label" />
+                  <span class="text-[10px] text-text-label uppercase tracking-[2px]">Activity</span>
+                  <span class="text-[9px] text-text-sub ml-auto">{allEvents().length} events</span>
+                </div>
+                <div class="flex-1 overflow-y-auto smooth-scroll">
+                  <ActivityTimeline events={allEvents()} onSelectSession={handleSelectSession} />
+                </div>
               </div>
-              <div class="p-2">
-                <ConflictPanel conflicts={conflicts()} />
+
+              {/* Conflicts */}
+              <div class="shrink-0 max-h-[220px] overflow-y-auto smooth-scroll">
+                <div class="px-3 py-2 border-b border-panel-border flex items-center gap-2 h-[33px]">
+                  <Lightning size={14} class="text-attack" />
+                  <span class="text-[10px] text-text-label uppercase tracking-[2px]">Conflicts</span>
+                  <Show when={conflicts().length > 0}>
+                    <span class="text-[9px] text-attack font-bold ml-auto">{conflicts().length}</span>
+                  </Show>
+                </div>
+                <div class="p-2">
+                  <ConflictPanel conflicts={conflicts()} />
+                </div>
               </div>
             </div>
-          </div>
+          </Show>
         </div>
       </Show>
     </div>
