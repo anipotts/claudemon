@@ -132,7 +132,7 @@ export class SessionRoom extends DurableObject {
 
     // Auto-cleanup: remove sessions idle for 10+ minutes
     const now = Date.now();
-    for (const [id, s] of this.sessions) {
+    for (const [_id, s] of this.sessions) {
       if (now - s.last_event_at > 600000 && s.status !== "done" && s.status !== "offline") {
         s.status = "offline";
       }

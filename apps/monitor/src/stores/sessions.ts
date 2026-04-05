@@ -1,8 +1,7 @@
 import { createStore, produce } from "solid-js/store";
 import type { MonitorEvent, SessionState, WsMessage } from "../../../../packages/types/monitor";
 import { TOOL_CATEGORIES } from "../../../../packages/types/monitor";
-import { createWebSocket, type ConnectionStatus } from "./websocket";
-import { createSignal } from "solid-js";
+import { createWebSocket } from "./websocket";
 
 const MAX_EVENTS = 100;
 
@@ -34,7 +33,6 @@ function createSessionFromEvent(event: MonitorEvent): SessionState {
 
 export function createSessionStore() {
   const [sessions, setSessions] = createStore<Record<string, SessionState>>({});
-  const [connectionStatus, setConnectionStatus] = createSignal<ConnectionStatus>("connecting");
 
   function handleEvent(event: MonitorEvent) {
     const sid = event.session_id;

@@ -21,11 +21,16 @@ export function createWebSocket(onMessage: (msg: WsMessage) => void) {
   function connect() {
     if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) return;
 
-    const url = import.meta.env.DEV ? DEV_WS_URL : WS_URL;
+    let url = import.meta.env.DEV ? DEV_WS_URL : WS_URL;
 
-    // Pass JWT token from cookie for per-user routing
-    // The cookie is httpOnly so we can't read it directly,
-    // but the server also checks cookies on upgrade requests
+    // Primary auth: cookie on upgrade request (same-site)
+    // Fallback: API key as query param (cross-origin WebSocket may not carry cookies)
+    const apiKey = typeof localStorage !== "undefined" ? localStorage.getItem("claudemon_api_key") : null;
+    if (apiKey) {
+      const sep = url.includes("?") ? "&" : "?";
+      url = `${url}${sep}token=${encodeURIComponent(apiKey)}`;
+    }
+
     setStatus("connecting");
 
     ws = new WebSocket(url);
