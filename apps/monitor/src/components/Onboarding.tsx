@@ -190,63 +190,16 @@ exit 0`;
       {/* 3-column grid fills viewport below header */}
       <div class="flex-1 flex min-h-0">
 
-        {/* ── COL 1: Data fields ─────────────────────────────── */}
+        {/* ── COL 1: Auth + API key ──────────────────────────── */}
         <div class="flex-1 border-r border-panel-border/30 p-5 flex flex-col overflow-y-auto">
           <div class="flex items-baseline gap-2 mb-4">
             <span class="text-[13px] font-bold text-text-label">1</span>
-            <h2 class="text-[13px] font-bold uppercase tracking-wider text-text-label">Choose fields</h2>
-          </div>
-
-          <div class="space-y-0.5 mb-4">
-            <For each={FIELDS}>
-              {(field) => {
-                const on = () => enabledFields()[field.id];
-                return (
-                  <button
-                    onClick={() => toggleField(field.id)}
-                    class={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded text-left transition-colors ${
-                      field.required ? "cursor-default" : "cursor-pointer hover:bg-card/80"
-                    }`}
-                  >
-                    <div class={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition-colors ${
-                      on() ? "bg-safe/20 border-safe/50" : "border-panel-border/60"
-                    }`}>
-                      <Show when={on()}><Check size={9} class="text-safe" /></Show>
-                    </div>
-                    <span class={`text-[13px] font-mono ${on() ? "text-text-primary" : "text-text-sub line-through"}`}>
-                      {field.label}
-                    </span>
-                    <Show when={field.required}>
-                      <span class="text-[9px] text-text-sub uppercase tracking-wider ml-auto">req</span>
-                    </Show>
-                  </button>
-                );
-              }}
-            </For>
-          </div>
-
-          <p class="text-[12px] text-text-dim mb-3">
-            <span class="text-attack font-bold">Never sent:</span> file contents, API keys, env vars, your conversation.
-          </p>
-
-          <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-text-dim">
-            <span class="flex items-center gap-1"><ShieldCheck size={10} class="text-safe" /> Ephemeral</span>
-            <span class="flex items-center gap-1"><ShieldCheck size={10} class="text-safe" /> Open source</span>
-            <span class="flex items-center gap-1"><ShieldCheck size={10} class="text-safe" /> Self-hostable</span>
-          </div>
-        </div>
-
-        {/* ── COL 2: Auth + API key ──────────────────────────── */}
-        <div class="flex-1 border-r border-panel-border/30 p-5 flex flex-col overflow-y-auto">
-          <div class="flex items-baseline gap-2 mb-4">
-            <span class="text-[13px] font-bold text-text-label">2</span>
             <h2 class="text-[13px] font-bold uppercase tracking-wider text-text-label">Get API key</h2>
           </div>
 
           <Show when={!props.authLoading}>
             <Show when={props.user} fallback={
               <div>
-                <p class="text-[13px] text-text-dim mb-4">Sign in to create an API key.</p>
                 <a
                   href={`${props.apiUrl}/auth/login?redirect=${encodeURIComponent(window.location.href)}`}
                   class="inline-flex items-center gap-2 bg-[#161b22] border border-[#30363d] rounded px-4 py-2 text-[13px] text-white hover:bg-[#1c2128] transition-colors"
@@ -282,25 +235,64 @@ exit 0`;
             </Show>
           </Show>
 
-          {/* Settings JSON below API key */}
-          <div class={`flex-1 min-h-0 flex flex-col transition-opacity ${ready() ? "" : "opacity-25 pointer-events-none"}`}>
-            <CodeBlock code={settingsJson()} label="Add to ~/.claude/settings.json" lang="json" />
+          <div class="border-t border-panel-border/30 my-4" />
+
+          <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-text-dim mb-3">
+            <span class="flex items-center gap-1"><ShieldCheck size={10} class="text-safe" /> Ephemeral</span>
+            <span class="flex items-center gap-1"><ShieldCheck size={10} class="text-safe" /> Open source</span>
+            <span class="flex items-center gap-1"><ShieldCheck size={10} class="text-safe" /> Self-hostable</span>
+          </div>
+          <p class="text-[12px] text-text-dim">
+            <span class="text-attack font-bold">Never sent:</span> file contents, API keys, env vars, your conversation.
+          </p>
+        </div>
+
+        {/* ── COL 2: Choose fields ───────────────────────────── */}
+        <div class={`flex-1 border-r border-panel-border/30 p-5 flex flex-col overflow-y-auto transition-opacity ${ready() ? "" : "opacity-25 pointer-events-none"}`}>
+          <div class="flex items-baseline gap-2 mb-4">
+            <span class="text-[13px] font-bold text-text-label">2</span>
+            <h2 class="text-[13px] font-bold uppercase tracking-wider text-text-label">Choose fields</h2>
+          </div>
+
+          <div class="space-y-0.5 mb-4">
+            <For each={FIELDS}>
+              {(field) => {
+                const on = () => enabledFields()[field.id];
+                return (
+                  <button
+                    onClick={() => toggleField(field.id)}
+                    class={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded text-left transition-colors ${
+                      field.required ? "cursor-default" : "cursor-pointer hover:bg-card/80"
+                    }`}
+                  >
+                    <div class={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                      on() ? "bg-safe/20 border-safe/50" : "border-panel-border/60"
+                    }`}>
+                      <Show when={on()}><Check size={9} class="text-safe" /></Show>
+                    </div>
+                    <span class={`text-[13px] font-mono ${on() ? "text-text-primary" : "text-text-sub line-through"}`}>
+                      {field.label}
+                    </span>
+                    <Show when={field.required}>
+                      <span class="text-[9px] text-text-sub uppercase tracking-wider ml-auto">req</span>
+                    </Show>
+                  </button>
+                );
+              }}
+            </For>
           </div>
         </div>
 
-        {/* ── COL 3: Hook script ─────────────────────────────── */}
-        <div class="flex-1 p-5 flex flex-col overflow-hidden">
+        {/* ── COL 3: Install (hook + settings) ───────────────── */}
+        <div class={`flex-1 p-5 flex flex-col overflow-hidden transition-opacity ${ready() ? "" : "opacity-25 pointer-events-none"}`}>
           <div class="flex items-baseline gap-2 mb-4">
             <span class="text-[13px] font-bold text-text-label">3</span>
-            <h2 class="text-[13px] font-bold uppercase tracking-wider text-text-label">Save hook</h2>
+            <h2 class="text-[13px] font-bold uppercase tracking-wider text-text-label">Install</h2>
           </div>
 
-          <div class="flex-1 min-h-0 flex flex-col">
-            <CodeBlock
-              code={hookScript()}
-              label={"Save as ~/.claudemon-hook.sh"}
-              lang="bash"
-            />
+          <div class="flex-1 min-h-0 flex flex-col gap-4 overflow-y-auto">
+            <CodeBlock code={hookScript()} label="Save as ~/.claudemon-hook.sh" lang="bash" />
+            <CodeBlock code={settingsJson()} label="Add to ~/.claude/settings.json" lang="json" />
           </div>
 
           <div class="mt-3 flex items-center gap-2.5 text-[12px]">
