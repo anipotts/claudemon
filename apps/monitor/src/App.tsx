@@ -142,18 +142,35 @@ const App: Component = () => {
     fetch(`${API_URL}/sessions/purge`, { method: "POST", credentials: "include" }).catch(() => {});
   };
 
+  const [activeTabId, setActiveTabId] = createSignal<string | null>(null);
+  const [viewMode, setViewMode] = createSignal<"tabs" | "columns">("tabs");
+
   const handleSelectSession = (id: string) => {
     setSelectedSessionIds((prev) => {
-      if (prev.includes(id)) return prev.filter((x) => x !== id);
-      if (isMobile()) return [id];
-      // No limit — tabs handle multiple selections
+      if (prev.includes(id)) {
+        // Deselect — if it was the active tab, activate the previous one
+        const remaining = prev.filter((x) => x !== id);
+        if (activeTabId() === id) setActiveTabId(remaining.length > 0 ? remaining[remaining.length - 1] : null);
+        return remaining;
+      }
+      if (isMobile()) { setActiveTabId(id); return [id]; }
+      setActiveTabId(id);
       return [...prev, id];
     });
   };
 
   const handleCloseSession = (id: string) => {
-    setSelectedSessionIds((prev) => prev.filter((x) => x !== id));
+    setSelectedSessionIds((prev) => {
+      const remaining = prev.filter((x) => x !== id);
+      if (activeTabId() === id) setActiveTabId(remaining.length > 0 ? remaining[remaining.length - 1] : null);
+      return remaining;
+    });
   };
+
+  const activeSession = createMemo(() => {
+    const id = activeTabId();
+    return id ? sessions[id] : selectedSessions().length > 0 ? selectedSessions()[0] : undefined;
+  });
 
   return (
     <div class="flex flex-col h-screen bg-bg text-text-primary font-mono overflow-hidden">
@@ -336,20 +353,14 @@ const App: Component = () => {
                   <For each={selectedSessionIds()}>
                     {(id) => {
                       const s = () => sessions[id];
-                      const isLast = () => id === selectedSessionIds()[selectedSessionIds().length - 1];
+                      const isActive = () => id === activeTabId();
                       return (
                         <Show when={s()}>
                           <button
                             class={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-mono border-r border-panel-border/30 shrink-0 transition-colors ${
-                              isLast() ? "bg-bg text-text-primary" : "text-text-sub hover:text-text-primary hover:bg-panel/20"
+                              isActive() ? "bg-bg text-text-primary" : "text-text-sub hover:text-text-primary hover:bg-panel/20"
                             }`}
-                            onClick={() => {
-                              if (isLast()) {
-                                handleCloseSession(id);
-                              } else {
-                                setSelectedSessionIds((prev) => [...prev.filter((x) => x !== id), id]);
-                              }
-                            }}
+                            onClick={() => setActiveTabId(id)}
                           >
                             <span class="w-1.5 h-1.5 rounded-full shrink-0" style={{
                               background: s()!.status === "working" ? "#a3b18a" : s()!.status === "thinking" ? "#7b9fbf" : s()!.status === "waiting" ? "#c9a96e" : "#4a4640"
@@ -362,6 +373,18 @@ const App: Component = () => {
                       );
                     }}
                   </For>
+                  {/* View mode toggle (only show when multiple selected) */}
+                  <Show when={selectedSessionIds().length > 1}>
+                    <div class="ml-auto flex items-center shrink-0 px-2">
+                      <button
+                        onClick={() => setViewMode(viewMode() === "tabs" ? "columns" : "tabs")}
+                        class="text-[8px] text-text-sub hover:text-text-primary uppercase tracking-wider px-2 py-1 rounded transition-colors"
+                        title={viewMode() === "tabs" ? "Switch to column view" : "Switch to tab view"}
+                      >
+                        {viewMode() === "tabs" ? "columns" : "tabs"}
+                      </button>
+                    </div>
+                  </Show>
                 </div>
               </Show>
 
@@ -370,7 +393,6 @@ const App: Component = () => {
                 <Show
                   when={selectedSessions().length > 0}
                   fallback={
-                    /* No session selected: activity overview */
                     <div class="flex-1 flex flex-col">
                       <Show
                         when={allEvents().length > 0}
@@ -398,11 +420,31 @@ const App: Component = () => {
                     </div>
                   }
                 >
-                  {/* Session detail */}
-                  <SessionDetail
-                    session={selectedSessions()[selectedSessions().length - 1]}
-                    onClose={() => handleCloseSession(selectedSessionIds()[selectedSessionIds().length - 1])}
-                  />
+                  {/* Tab view: show active session only */}
+                  <Show when={viewMode() === "tabs"}>
+                    <Show when={activeSession()}>
+                      {(s) => (
+                        <SessionDetail
+                          session={s()}
+                          onClose={() => handleCloseSession(s().session_id)}
+                        />
+                      )}
+                    </Show>
+                  </Show>
+
+                  {/* Column view: show all selected sessions side by side */}
+                  <Show when={viewMode() === "columns"}>
+                    <For each={selectedSessions()}>
+                      {(session) => (
+                        <div class="flex-1 min-w-[300px] border-r border-panel-border last:border-r-0 overflow-hidden">
+                          <SessionDetail
+                            session={session}
+                            onClose={() => handleCloseSession(session.session_id)}
+                          />
+                        </div>
+                      )}
+                    </For>
+                  </Show>
 
                   {/* Activity sidebar */}
                   <div class="w-[280px] shrink-0 flex flex-col border-l border-panel-border">
