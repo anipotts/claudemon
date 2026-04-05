@@ -307,17 +307,29 @@ export const SessionDetail: Component<{
 
       {/* Waiting banner — pinned, not scrollable */}
       <Show when={isWaiting()}>
-        <div class="waiting-banner mx-2 mt-2 rounded-sm px-3 py-2 flex items-center gap-2">
-          <span
-            class="w-2.5 h-2.5 rounded-full bg-suspicious animate-pulse"
-            style={{ "box-shadow": "0 0 8px var(--suspicious)" }}
-          />
-          <div class="flex-1 min-w-0">
-            <span class="text-[11px] font-bold text-suspicious">Claude needs your input</span>
-            <Show when={s().notification_message}>
-              <div class="text-[10px] text-text-dim mt-0.5 truncate">{s().notification_message}</div>
-            </Show>
+        <div class="waiting-banner mx-2 mt-2 rounded-sm px-3 py-2">
+          <div class="flex items-center gap-2">
+            <span
+              class="w-2.5 h-2.5 rounded-full bg-suspicious animate-pulse shrink-0"
+              style={{ "box-shadow": "0 0 8px var(--suspicious)" }}
+            />
+            <div class="flex-1 min-w-0">
+              <span class="text-[11px] font-bold text-suspicious">Claude needs your input</span>
+              <Show when={s().notification_message}>
+                <div class="text-[10px] text-text-dim mt-0.5">{s().notification_message}</div>
+              </Show>
+            </div>
           </div>
+          <div
+            class="mt-2 bg-[#0c0c0c] border border-suspicious/20 rounded px-2.5 py-1.5 font-mono text-[10px] text-suspicious/80 cursor-pointer hover:border-suspicious/40 transition-colors select-all"
+            title="Click to copy resume command"
+            onClick={() => navigator.clipboard.writeText(`claude --resume ${s().session_id}`)}
+          >
+            claude --resume {s().session_id}
+          </div>
+          <Show when={s().cwd}>
+            <div class="text-[8px] text-text-sub mt-1">in {s().cwd}</div>
+          </Show>
         </div>
       </Show>
 
@@ -423,48 +435,133 @@ export const SessionDetail: Component<{
         </For>
 
         <Show when={timeline().length === 0}>
-          <div class="flex flex-col items-center justify-center py-8 px-4 gap-3">
-            <span class="text-[11px] text-text-sub">No events yet</span>
-            <div class="w-full max-w-[300px] border border-panel-border rounded-sm bg-card p-3 space-y-2 text-[10px]">
-              <div class="flex items-center gap-2">
-                <span class="text-text-sub">Session</span>
-                <span class="text-text-primary font-bold truncate">{s().session_id.slice(0, 8)}</span>
+          <div class="p-4 space-y-3">
+            {/* Session info grid */}
+            <div class="border border-panel-border rounded-sm bg-card">
+              <div class="px-3 py-2 border-b border-panel-border/50">
+                <span class="text-[9px] text-text-sub uppercase tracking-wider">Session Details</span>
               </div>
-              <Show when={s().model}>
-                <div class="flex items-center gap-2">
-                  <span class="text-text-sub">Model</span>
-                  <span class="text-text-dim truncate">{s().model}</span>
+              <div class="p-3 grid grid-cols-2 gap-x-4 gap-y-2 text-[10px]">
+                <div>
+                  <span class="text-text-sub block text-[8px] uppercase tracking-wider mb-0.5">Session ID</span>
+                  <span class="text-text-primary font-mono select-all">{s().session_id}</span>
                 </div>
-              </Show>
-              <Show when={s().branch}>
-                <div class="flex items-center gap-2">
-                  <span class="text-text-sub">Branch</span>
-                  <span class="text-text-dim truncate flex items-center gap-1">
-                    <GitBranch size={9} /> {s().branch}
-                  </span>
+                <div>
+                  <span class="text-text-sub block text-[8px] uppercase tracking-wider mb-0.5">Project</span>
+                  <span class="text-text-primary">{s().project_name}</span>
                 </div>
-              </Show>
-              <Show when={s().permission_mode}>
-                <div class="flex items-center gap-2">
-                  <span class="text-text-sub">Permissions</span>
-                  <span class="text-text-dim">
-                    {s().permission_mode === "bypassPermissions" ? "bypass" : s().permission_mode}
-                  </span>
+                <Show when={s().model}>
+                  <div>
+                    <span class="text-text-sub block text-[8px] uppercase tracking-wider mb-0.5">Model</span>
+                    <span class="text-text-dim">{s().model}</span>
+                  </div>
+                </Show>
+                <Show when={s().permission_mode}>
+                  <div>
+                    <span class="text-text-sub block text-[8px] uppercase tracking-wider mb-0.5">Permissions</span>
+                    <span class="text-text-dim">
+                      {s().permission_mode === "bypassPermissions" ? "bypass" : s().permission_mode}
+                    </span>
+                  </div>
+                </Show>
+                <Show when={s().branch}>
+                  <div>
+                    <span class="text-text-sub block text-[8px] uppercase tracking-wider mb-0.5">Branch</span>
+                    <span class="text-text-dim flex items-center gap-1">
+                      <GitBranch size={9} /> {s().branch}
+                    </span>
+                  </div>
+                </Show>
+                <div>
+                  <span class="text-text-sub block text-[8px] uppercase tracking-wider mb-0.5">Source</span>
+                  <span class="text-text-dim">{s().source || "local"}</span>
                 </div>
-              </Show>
-              <Show when={s().project_name}>
-                <div class="flex items-center gap-2">
-                  <span class="text-text-sub">Project</span>
-                  <span class="text-text-dim truncate">{s().project_name}</span>
-                </div>
-              </Show>
-              <Show when={s().source}>
-                <div class="flex items-center gap-2">
-                  <span class="text-text-sub">Source</span>
-                  <span class="text-text-dim">{s().source}</span>
-                </div>
-              </Show>
+                <Show when={s().project_path}>
+                  <div class="col-span-2">
+                    <span class="text-text-sub block text-[8px] uppercase tracking-wider mb-0.5">Path</span>
+                    <span class="text-text-dim font-mono text-[9px] select-all">{s().project_path}</span>
+                  </div>
+                </Show>
+                <Show when={s().cwd && s().cwd !== s().project_path}>
+                  <div class="col-span-2">
+                    <span class="text-text-sub block text-[8px] uppercase tracking-wider mb-0.5">
+                      Working Directory
+                    </span>
+                    <span class="text-text-dim font-mono text-[9px] select-all">{s().cwd}</span>
+                  </div>
+                </Show>
+                <Show when={s().transcript_path}>
+                  <div class="col-span-2">
+                    <span class="text-text-sub block text-[8px] uppercase tracking-wider mb-0.5">Transcript</span>
+                    <span class="text-text-dim font-mono text-[9px] select-all">{s().transcript_path}</span>
+                  </div>
+                </Show>
+              </div>
             </div>
+
+            {/* Resume/find session command */}
+            <Show when={s().status === "waiting" || s().status === "working" || s().status === "thinking"}>
+              <div class="border border-panel-border rounded-sm bg-card">
+                <div class="px-3 py-2 border-b border-panel-border/50">
+                  <span class="text-[9px] text-text-sub uppercase tracking-wider">Find This Session</span>
+                </div>
+                <div class="p-3 space-y-2">
+                  <div class="text-[10px] text-text-dim">This session is running locally. Resume it with:</div>
+                  <div
+                    class="bg-[#0c0c0c] border border-panel-border rounded px-3 py-2 font-mono text-[11px] text-safe cursor-pointer hover:border-safe/30 transition-colors select-all"
+                    title="Click to copy"
+                    onClick={() => navigator.clipboard.writeText(`claude --resume ${s().session_id}`)}
+                  >
+                    claude --resume {s().session_id}
+                  </div>
+                  <Show when={s().cwd}>
+                    <div class="text-[9px] text-text-sub">
+                      Run from: <span class="font-mono text-text-dim">{s().cwd}</span>
+                    </div>
+                  </Show>
+                </div>
+              </div>
+            </Show>
+
+            {/* Files touched */}
+            <Show when={s().files_touched?.length}>
+              <div class="border border-panel-border rounded-sm bg-card">
+                <div class="px-3 py-2 border-b border-panel-border/50">
+                  <span class="text-[9px] text-text-sub uppercase tracking-wider">
+                    Files Touched ({s().files_touched!.length})
+                  </span>
+                </div>
+                <div class="p-2 space-y-0.5 max-h-[150px] overflow-y-auto">
+                  <For each={s().files_touched!}>
+                    {(fp) => (
+                      <div class="px-2 py-0.5">
+                        <FileBadge path={fp} />
+                      </div>
+                    )}
+                  </For>
+                </div>
+              </div>
+            </Show>
+
+            {/* Recent commands */}
+            <Show when={s().commands_run?.length}>
+              <div class="border border-panel-border rounded-sm bg-card">
+                <div class="px-3 py-2 border-b border-panel-border/50">
+                  <span class="text-[9px] text-text-sub uppercase tracking-wider">
+                    Recent Commands ({s().commands_run!.length})
+                  </span>
+                </div>
+                <div class="p-2 space-y-0.5 max-h-[120px] overflow-y-auto">
+                  <For each={s().commands_run!}>
+                    {(cmd) => (
+                      <div class="px-2 py-0.5 text-[9px] font-mono text-text-dim truncate">
+                        <span class="text-text-sub">$</span> {cmd}
+                      </div>
+                    )}
+                  </For>
+                </div>
+              </div>
+            </Show>
           </div>
         </Show>
       </div>
