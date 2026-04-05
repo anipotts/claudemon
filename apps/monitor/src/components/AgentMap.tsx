@@ -14,6 +14,7 @@ import {
   Eye,
   EyeSlash,
 } from "./Icons";
+import { SessionBadge } from "./SessionBadge";
 import { timeAgo, formatDuration } from "../utils/time";
 
 const STATUS_STYLES: Record<SessionStatus, { color: string; bg: string; pulse: boolean }> = {
@@ -95,13 +96,9 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
       }}
       onClick={() => props.onSelect?.(s().session_id)}
     >
-      {/* Row 1: Status + full ID + Badge */}
+      {/* Row 1: Session badge + duration + status */}
       <div class="flex items-center gap-2 mb-1">
-        <span
-          class={`w-2 h-2 rounded-full shrink-0 status-transition ${style().pulse ? "animate-pulse" : ""}`}
-          style={{ background: style().color, "box-shadow": style().pulse ? `0 0 6px ${style().color}` : "none" }}
-        />
-        <span class="text-[11px] font-bold text-text-primary font-mono truncate">{s().session_id}</span>
+        <SessionBadge sessionId={s().session_id} status={s().status} showStatus={true} size="md" />
         <span class="text-[9px] text-text-sub ml-auto shrink-0">{formatDuration(s().started_at)}</span>
         <span
           class={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-sm shrink-0 ${isWaiting() ? "text-[9px] px-2 py-0.5" : ""}`}

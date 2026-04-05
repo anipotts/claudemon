@@ -1,7 +1,7 @@
 import { type Component, For, Show } from "solid-js";
 import { Warning, Lightning } from "./Icons";
 import { FileBadge } from "./FileBadge";
-import { hashSessionColor } from "./ActivityTimeline";
+import { hashSessionColor } from "./SessionBadge";
 
 export interface ConflictData {
   id: string;

@@ -6,7 +6,8 @@ import { ActivityTimeline } from "./components/ActivityTimeline";
 import { ConflictPanel, type ConflictData } from "./components/ConflictPanel";
 import { SessionDetail } from "./components/SessionDetail";
 import { Onboarding } from "./components/Onboarding";
-import { ShieldCheck, Lightning, ListBullets, TreeStructure, Trash, GearSix, Terminal } from "./components/Icons";
+import { ShieldCheck, Lightning, ListBullets, Trash, GearSix, Terminal } from "./components/Icons";
+import { SessionBadge } from "./components/SessionBadge";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { IdleDashboard } from "./components/IdleDashboard";
 
@@ -153,7 +154,10 @@ const App: Component = () => {
         if (activeTabId() === id) setActiveTabId(remaining.length > 0 ? remaining[remaining.length - 1] : null);
         return remaining;
       }
-      if (isMobile()) { setActiveTabId(id); return [id]; }
+      if (isMobile()) {
+        setActiveTabId(id);
+        return [id];
+      }
       setActiveTabId(id);
       return [...prev, id];
     });
@@ -322,12 +326,16 @@ const App: Component = () => {
           <Show when={isMobile() && conflicts().length > 0}>
             <div class="shrink-0 flex items-center gap-2 px-3 py-1.5 bg-attack/5 border-b border-attack/30">
               <Lightning size={12} class="text-attack" />
-              <span class="text-[10px] text-attack font-bold">{conflicts().length} conflict{conflicts().length !== 1 ? "s" : ""}</span>
+              <span class="text-[10px] text-attack font-bold">
+                {conflicts().length} conflict{conflicts().length !== 1 ? "s" : ""}
+              </span>
             </div>
           </Show>
 
           {/* Sessions sidebar */}
-          <div class={`flex flex-col ${isMobile() ? "flex-1 min-w-0" : "w-[260px] shrink-0 border-r border-panel-border"}`}>
+          <div
+            class={`flex flex-col ${isMobile() ? "flex-1 min-w-0" : "w-[260px] shrink-0 border-r border-panel-border"}`}
+          >
             <div class="flex-1 overflow-y-auto smooth-scroll p-2">
               <AgentMap sessions={sessions} selectedIds={selectedSessionIds()} onSelect={handleSelectSession} />
             </div>
@@ -356,19 +364,29 @@ const App: Component = () => {
                       const isActive = () => id === activeTabId();
                       return (
                         <Show when={s()}>
-                          <button
-                            class={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-mono border-r border-panel-border/30 shrink-0 transition-colors ${
-                              isActive() ? "bg-bg text-text-primary" : "text-text-sub hover:text-text-primary hover:bg-panel/20"
+                          <div
+                            class={`flex items-center gap-1.5 px-2 py-1.5 border-r border-panel-border/30 shrink-0 transition-colors cursor-pointer ${
+                              isActive() ? "bg-bg" : "hover:bg-panel/20"
                             }`}
                             onClick={() => setActiveTabId(id)}
                           >
-                            <span class="w-1.5 h-1.5 rounded-full shrink-0" style={{
-                              background: s()!.status === "working" ? "#a3b18a" : s()!.status === "thinking" ? "#7b9fbf" : s()!.status === "waiting" ? "#c9a96e" : "#4a4640"
-                            }} />
-                            <span class="truncate max-w-[100px]">{s()!.project_name}</span>
-                            <span class="text-[8px] text-text-sub">{s()!.session_id.slice(0, 8)}</span>
-                            <span class="text-text-sub hover:text-text-primary ml-0.5 text-[9px]" onClick={(e) => { e.stopPropagation(); handleCloseSession(id); }}>x</span>
-                          </button>
+                            <SessionBadge
+                              sessionId={id}
+                              projectName={s()!.project_name}
+                              status={s()!.status}
+                              showStatus={true}
+                              size="md"
+                            />
+                            <span
+                              class="text-text-sub hover:text-text-primary text-[9px]"
+                              onClick={(e: MouseEvent) => {
+                                e.stopPropagation();
+                                handleCloseSession(id);
+                              }}
+                            >
+                              x
+                            </span>
+                          </div>
                         </Show>
                       );
                     }}
@@ -412,7 +430,9 @@ const App: Component = () => {
                         <div class="shrink-0 border-t border-panel-border p-2">
                           <div class="flex items-center gap-2 px-2 py-1">
                             <Lightning size={12} class="text-attack" />
-                            <span class="text-[9px] text-attack font-bold">{conflicts().length} conflict{conflicts().length !== 1 ? "s" : ""}</span>
+                            <span class="text-[9px] text-attack font-bold">
+                              {conflicts().length} conflict{conflicts().length !== 1 ? "s" : ""}
+                            </span>
                           </div>
                           <ConflictPanel conflicts={conflicts()} />
                         </div>
@@ -423,12 +443,7 @@ const App: Component = () => {
                   {/* Tab view: show active session only */}
                   <Show when={viewMode() === "tabs"}>
                     <Show when={activeSession()}>
-                      {(s) => (
-                        <SessionDetail
-                          session={s()}
-                          onClose={() => handleCloseSession(s().session_id)}
-                        />
-                      )}
+                      {(s) => <SessionDetail session={s()} onClose={() => handleCloseSession(s().session_id)} />}
                     </Show>
                   </Show>
 
@@ -437,10 +452,7 @@ const App: Component = () => {
                     <For each={selectedSessions()}>
                       {(session) => (
                         <div class="flex-1 min-w-[300px] border-r border-panel-border last:border-r-0 overflow-hidden">
-                          <SessionDetail
-                            session={session}
-                            onClose={() => handleCloseSession(session.session_id)}
-                          />
+                          <SessionDetail session={session} onClose={() => handleCloseSession(session.session_id)} />
                         </div>
                       )}
                     </For>
@@ -462,7 +474,9 @@ const App: Component = () => {
                       <div class="shrink-0 border-t border-panel-border">
                         <div class="px-3 py-1.5 flex items-center gap-2">
                           <Lightning size={12} class="text-attack" />
-                          <span class="text-[9px] text-attack font-bold">{conflicts().length} conflict{conflicts().length !== 1 ? "s" : ""}</span>
+                          <span class="text-[9px] text-attack font-bold">
+                            {conflicts().length} conflict{conflicts().length !== 1 ? "s" : ""}
+                          </span>
                         </div>
                         <div class="px-2 pb-2">
                           <ConflictPanel conflicts={conflicts()} />
@@ -478,7 +492,10 @@ const App: Component = () => {
           {/* Mobile: Activity toggle */}
           <Show when={isMobile()}>
             <div class="shrink-0 border-t border-panel-border">
-              <button onClick={() => setShowMobileActivity(!showMobileActivity())} class="flex items-center gap-2 w-full px-3 py-2 bg-item">
+              <button
+                onClick={() => setShowMobileActivity(!showMobileActivity())}
+                class="flex items-center gap-2 w-full px-3 py-2 bg-item"
+              >
                 <ListBullets size={14} class="text-text-label" />
                 <span class="text-[10px] text-text-label uppercase tracking-[2px]">Activity</span>
                 <span class="text-[9px] text-text-sub ml-auto">{allEvents().length}</span>

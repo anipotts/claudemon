@@ -2,19 +2,8 @@ import { type Component, For, Show, createSignal, createMemo } from "solid-js";
 import type { MonitorEvent } from "../../../../packages/types/monitor";
 import { Terminal } from "./Icons";
 import { FileBadge } from "./FileBadge";
+import { SessionBadge, hashSessionColor } from "./SessionBadge";
 import { timeAgo } from "../utils/time";
-
-// ── Session color hashing ──────────────────────────────────────────
-
-const SESSION_COLORS = ["#a3b18a", "#c9a96e", "#7ea8be", "#b07bac", "#8a8478", "#7b9fbf"];
-
-export function hashSessionColor(sessionId: string): string {
-  let hash = 0;
-  for (let i = 0; i < sessionId.length; i++) {
-    hash = ((hash << 5) - hash + sessionId.charCodeAt(i)) | 0;
-  }
-  return SESSION_COLORS[Math.abs(hash) % SESSION_COLORS.length];
-}
 
 // ── Icon + color maps ──────────────────────────────────────────────
 
@@ -189,12 +178,11 @@ function EventRow(props: { event: MonitorEvent; onSelect?: (id: string) => void;
     >
       {/* Left: session badge + icon */}
       <div class="flex items-center gap-1 shrink-0 mt-0.5">
-        <span
-          class="text-[7px] font-bold uppercase tracking-wider px-1 rounded-sm font-mono"
-          style={{ color: sessionColor(), background: sessionColor() + "15" }}
-        >
-          {e().session_id.slice(0, 6)}
-        </span>
+        <SessionBadge
+          sessionId={e().session_id}
+          projectName={e().project_path?.split("/").pop()}
+          onClick={() => props.onSelect?.(e().session_id)}
+        />
         <span class="text-[9px] w-3 text-center font-mono" style={{ color: color() }}>
           {icon()}
         </span>
