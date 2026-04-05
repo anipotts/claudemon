@@ -1,8 +1,7 @@
-import { type Component, createSignal, For, Show, createMemo, createEffect, onCleanup } from "solid-js";
+import { type Component, createSignal, For, Show, createMemo, onCleanup } from "solid-js";
 import type { SessionState, SessionStatus } from "../../../../packages/types/monitor";
 import { STATUS_LABELS } from "../../../../packages/types/monitor";
 import { Desktop, Cloud, Terminal, Cube, GitBranch, Folder, CaretDown, CaretRight, Pulse } from "./Icons";
-import { Timestamp } from "./Timestamp";
 import { timeAgo, formatDuration } from "../utils/time";
 
 const STATUS_STYLES: Record<SessionStatus, { color: string; bg: string; pulse: boolean }> = {
@@ -13,7 +12,6 @@ const STATUS_STYLES: Record<SessionStatus, { color: string; bg: string; pulse: b
   error: { color: "#b85c4a", bg: "#b85c4a08", pulse: false },
   offline: { color: "#4a4640", bg: "#4a464008", pulse: false },
 };
-
 
 // ── Session Card ────────────────────────────────────────────────────
 
@@ -27,10 +25,9 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
     const idleMs = now() - s().last_event_at;
     return (s().status === "thinking" || s().status === "working") && idleMs > 30_000;
   };
-  const style = () => isIdle()
-    ? { color: "#666", bg: "#66666608", pulse: false }
-    : STATUS_STYLES[s().status] || STATUS_STYLES.offline;
-  const statusLabel = () => isIdle() ? "Idle" : (STATUS_LABELS[s().status] || "Unknown");
+  const style = () =>
+    isIdle() ? { color: "#666", bg: "#66666608", pulse: false } : STATUS_STYLES[s().status] || STATUS_STYLES.offline;
+  const statusLabel = () => (isIdle() ? "Idle" : STATUS_LABELS[s().status] || "Unknown");
   const isWaiting = () => s().status === "waiting";
 
   const lastToolEvent = () => {
@@ -47,12 +44,11 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
     const input = e.tool_input || {};
     const name = e.tool_name || "";
     let detail = "";
-    if (name === "Bash") detail = (input.command as string || "").slice(0, 60);
+    if (name === "Bash") detail = ((input.command as string) || "").slice(0, 60);
     else if (name === "Edit" || name === "Write" || name === "Read") {
-      const fp = (input.file_path as string || "");
+      const fp = (input.file_path as string) || "";
       detail = fp.split("/").slice(-2).join("/");
-    }
-    else if (name === "Agent") detail = (input.description as string || "").slice(0, 40);
+    } else if (name === "Agent") detail = ((input.description as string) || "").slice(0, 40);
     else detail = name;
     return { name, detail };
   };
@@ -70,9 +66,18 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
     <div
       class={`border rounded-sm p-3 transition-all cursor-pointer status-transition ${props.selected ? "ring-1 ring-safe/50" : "hover:border-text-dim/30"} ${isWaiting() ? "waiting-banner" : ""}`}
       style={{
-        "border-color": props.selected ? "var(--safe)" : s().status === "working" ? "rgba(163, 177, 138, 0.3)" : isWaiting() ? undefined : style().color + "25",
+        "border-color": props.selected
+          ? "var(--safe)"
+          : s().status === "working"
+            ? "rgba(163, 177, 138, 0.3)"
+            : isWaiting()
+              ? undefined
+              : style().color + "25",
         background: props.selected ? "#a3b18a08" : isWaiting() ? undefined : style().bg,
-        "box-shadow": s().status === "working" ? "0 0 12px rgba(163, 177, 138, 0.12), inset 0 0 12px rgba(163, 177, 138, 0.04)" : "none",
+        "box-shadow":
+          s().status === "working"
+            ? "0 0 12px rgba(163, 177, 138, 0.12), inset 0 0 12px rgba(163, 177, 138, 0.04)"
+            : "none",
       }}
       onClick={() => props.onSelect?.(s().session_id)}
     >
@@ -95,7 +100,9 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
       {/* Row 2: Branch + Counters */}
       <div class="flex items-center gap-2 text-[9px] text-text-dim">
         <Show when={s().branch}>
-          <span class="flex items-center gap-0.5"><GitBranch size={9} /> {s().branch}</span>
+          <span class="flex items-center gap-0.5">
+            <GitBranch size={9} /> {s().branch}
+          </span>
         </Show>
         <Show when={counters()}>
           <span class="text-text-sub">{counters()}</span>
@@ -118,25 +125,43 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
 
 // ── Project Group ───────────────────────────────────────────────────
 
-function ProjectGroup(props: { projectPath: string; sessions: SessionState[]; selectedIds?: string[]; onSelect?: (id: string) => void }) {
+function ProjectGroup(props: {
+  projectPath: string;
+  sessions: SessionState[];
+  selectedIds?: string[];
+  onSelect?: (id: string) => void;
+}) {
   const [open, setOpen] = createSignal(true);
   const projectName = () => props.projectPath.split("/").pop() || props.projectPath;
 
   return (
     <div class="border border-panel-border rounded-sm bg-card">
-      <button onClick={() => setOpen(!open())} class="flex items-center gap-2 px-3 py-1.5 w-full hover:bg-panel/30 transition-colors">
+      <button
+        onClick={() => setOpen(!open())}
+        class="flex items-center gap-2 px-3 py-1.5 w-full hover:bg-panel/30 transition-colors"
+      >
         {open() ? <CaretDown size={10} class="text-text-sub" /> : <CaretRight size={10} class="text-text-sub" />}
         <Folder size={12} class="text-text-dim" />
         <span class="text-[11px] font-bold text-text-primary">{projectName()}</span>
         <Show when={props.sessions[0]?.branch}>
-          <span class="flex items-center gap-0.5 text-[9px] text-text-sub"><GitBranch size={9} /> {props.sessions[0].branch}</span>
+          <span class="flex items-center gap-0.5 text-[9px] text-text-sub">
+            <GitBranch size={9} /> {props.sessions[0].branch}
+          </span>
         </Show>
-        <span class="ml-auto text-[9px] text-text-sub">{props.sessions.length} session{props.sessions.length !== 1 ? "s" : ""}</span>
+        <span class="ml-auto text-[9px] text-text-sub">
+          {props.sessions.length} session{props.sessions.length !== 1 ? "s" : ""}
+        </span>
       </button>
       <Show when={open()}>
         <div class="px-2 pb-2 space-y-1.5">
           <For each={props.sessions}>
-            {(session) => <SessionCard session={session} selected={props.selectedIds?.includes(session.session_id)} onSelect={props.onSelect} />}
+            {(session) => (
+              <SessionCard
+                session={session}
+                selected={props.selectedIds?.includes(session.session_id)}
+                onSelect={props.onSelect}
+              />
+            )}
           </For>
         </div>
       </Show>
@@ -148,7 +173,13 @@ function ProjectGroup(props: { projectPath: string; sessions: SessionState[]; se
 
 const ENV_ICONS: Record<string, typeof Desktop> = { local: Desktop, cloud: Cloud, ssh: Terminal, container: Cube };
 
-function EnvironmentGroup(props: { hostname: string; envType: string; sessions: SessionState[]; selectedIds?: string[]; onSelect?: (id: string) => void }) {
+function EnvironmentGroup(props: {
+  hostname: string;
+  envType: string;
+  sessions: SessionState[];
+  selectedIds?: string[];
+  onSelect?: (id: string) => void;
+}) {
   const [open, setOpen] = createSignal(true);
   const EnvIcon = () => ENV_ICONS[props.envType] || Desktop;
 
@@ -164,9 +195,15 @@ function EnvironmentGroup(props: { hostname: string; envType: string; sessions: 
 
   return (
     <div>
-      <button onClick={() => setOpen(!open())} class="flex items-center gap-2 px-1 py-1.5 w-full hover:bg-panel/30 transition-colors rounded-sm">
+      <button
+        onClick={() => setOpen(!open())}
+        class="flex items-center gap-2 px-1 py-1.5 w-full hover:bg-panel/30 transition-colors rounded-sm"
+      >
         {open() ? <CaretDown size={10} class="text-text-sub" /> : <CaretRight size={10} class="text-text-sub" />}
-        {(() => { const I = EnvIcon(); return <I size={14} class="text-text-label" />; })()}
+        {(() => {
+          const I = EnvIcon();
+          return <I size={14} class="text-text-label" />;
+        })()}
         <span class="text-[11px] font-bold text-text-primary">{props.hostname}</span>
         <span class="text-[9px] text-text-sub uppercase tracking-wider">{props.envType}</span>
         <span class="ml-auto flex items-center gap-1">
@@ -177,7 +214,14 @@ function EnvironmentGroup(props: { hostname: string; envType: string; sessions: 
       <Show when={open()}>
         <div class="space-y-1.5 mt-1">
           <For each={projectGroups()}>
-            {([path, sessions]) => <ProjectGroup projectPath={path} sessions={sessions} selectedIds={props.selectedIds} onSelect={props.onSelect} />}
+            {([path, sessions]) => (
+              <ProjectGroup
+                projectPath={path}
+                sessions={sessions}
+                selectedIds={props.selectedIds}
+                onSelect={props.onSelect}
+              />
+            )}
           </For>
         </div>
       </Show>
@@ -217,7 +261,13 @@ export const AgentMap: Component<{
       <div class="space-y-2">
         <For each={envGroups()}>
           {([hostname, sessions]) => (
-            <EnvironmentGroup hostname={hostname} envType={sessions[0]?.source || "local"} sessions={sessions} selectedIds={props.selectedIds} onSelect={props.onSelect} />
+            <EnvironmentGroup
+              hostname={hostname}
+              envType={sessions[0]?.source || "local"}
+              sessions={sessions}
+              selectedIds={props.selectedIds}
+              onSelect={props.onSelect}
+            />
           )}
         </For>
       </div>

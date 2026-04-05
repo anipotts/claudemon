@@ -28,112 +28,148 @@ app.use(
   }),
 );
 
-// ── Room routing (per-user or global) ────────────────────────────────
+// -- Room routing (per-user or global) ------------------------------------
 
 function getRoom(env: Env, userId?: string): DurableObjectStub {
-  const name = env.SINGLE_USER === "true" || !userId || userId === "anonymous"
-    ? "global"
-    : `user:${userId}`;
+  const name = env.SINGLE_USER === "true" || !userId || userId === "anonymous" ? "global" : `user:${userId}`;
   const id = env.SESSION_ROOM.idFromName(name);
   return env.SESSION_ROOM.get(id);
 }
 
-// ── Auth routes ──────────────────────────────────────────────────────
+// -- Shared event helpers -------------------------------------------------
 
-app.route("/", auth);
+function enrichEvent(event: any, userId: string) {
+  if (!event.timestamp) event.timestamp = Date.now();
+  if (!event.machine_id) event.machine_id = userId || "unknown";
+  if (!event.project_path) event.project_path = event.cwd || "unknown";
 
-// ── Health ───────────────────────────────────────────────────────────
-
-app.get("/health", (c) =>
-  c.json({ status: "ok", service: "claudemon", version: "0.2.0" }),
-);
-
-// ── POST /events — receive hook events (requires API key) ───────────
-
-app.post("/events", apiKeyAuth, async (c) => {
-  const body = await c.req.json();
-  const userId = c.get("userId");
-
-  // Enrich: HTTP hooks from Claude Code don't send machine_id, project_path,
-  // branch, or timestamp — those were bash script enrichments. Fill defaults
-  // so the DO doesn't crash on undefined fields.
-  if (!body.timestamp) body.timestamp = Date.now();
-  if (!body.machine_id) body.machine_id = userId || "unknown";
-  if (!body.project_path) body.project_path = body.cwd || "unknown";
-
-  // Normalize Claude Code native field names → ClaudeMon field names
-  if (body.hook_event_name === "Notification") {
-    if (body.message && !body.notification_message) body.notification_message = body.message;
-    if (body.title && !body.notification_title) body.notification_title = body.title;
+  // Normalize Claude Code native field names -> ClaudeMon field names
+  if (event.hook_event_name === "Notification") {
+    if (event.message && !event.notification_message) event.notification_message = event.message;
+    if (event.title && !event.notification_title) event.notification_title = event.title;
   }
-  if (body.hook_event_name === "SessionEnd") {
-    if (body.reason && !body.end_reason) body.end_reason = body.reason;
+  if (event.hook_event_name === "SessionEnd") {
+    if (event.reason && !event.end_reason) event.end_reason = event.reason;
   }
-  if (body.hook_event_name === "PermissionDenied") {
-    if (body.reason && !body.permission_denied_reason) body.permission_denied_reason = body.reason;
+  if (event.hook_event_name === "PermissionDenied") {
+    if (event.reason && !event.permission_denied_reason) event.permission_denied_reason = event.reason;
   }
-  if (body.hook_event_name === "PreCompact" || body.hook_event_name === "PostCompact") {
-    if (body.trigger && !body.compact_trigger) body.compact_trigger = body.trigger;
+  if (event.hook_event_name === "PreCompact" || event.hook_event_name === "PostCompact") {
+    if (event.trigger && !event.compact_trigger) event.compact_trigger = event.trigger;
   }
-  if (body.hook_event_name === "FileChanged") {
-    if (body.event && !body.file_event) body.file_event = body.event;
+  if (event.hook_event_name === "FileChanged") {
+    if (event.event && !event.file_event) event.file_event = event.event;
   }
-  if (body.hook_event_name === "WorktreeCreate") {
-    if (body.name && !body.worktree_name) body.worktree_name = body.name;
+  if (event.hook_event_name === "WorktreeCreate") {
+    if (event.name && !event.worktree_name) event.worktree_name = event.name;
   }
-  if (body.hook_event_name === "ConfigChange") {
-    if (body.source && !body.config_source) body.config_source = body.source;
-    if (body.file_path && !body.config_file_path) body.config_file_path = body.file_path;
+  if (event.hook_event_name === "ConfigChange") {
+    if (event.source && !event.config_source) event.config_source = event.source;
+    if (event.file_path && !event.config_file_path) event.config_file_path = event.file_path;
   }
+}
 
-  const room = getRoom(c.env, userId);
-  await room.fetch(new Request("https://do/event", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  }));
-  return c.json({ ok: true });
-});
+function isValidEvent(event: any): boolean {
+  return (
+    typeof event === "object" &&
+    event !== null &&
+    typeof event.session_id === "string" &&
+    event.session_id.length > 0 &&
+    typeof event.hook_event_name === "string" &&
+    event.hook_event_name.length > 0
+  );
+}
 
-// ── POST /events/batch — receive batched hook events ────────────────
-
-app.post("/events/batch", apiKeyAuth, async (c) => {
-  const events = await c.req.json() as unknown[];
-  const userId = c.get("userId");
-  const room = getRoom(c.env, userId);
-  for (const event of events) {
-    await room.fetch(new Request("https://do/event", {
+function sendEvent(room: DurableObjectStub, event: any) {
+  return room.fetch(
+    new Request("https://do/event", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(event),
-    }));
+    }),
+  );
+}
+
+// -- Auth routes ----------------------------------------------------------
+
+app.route("/", auth);
+
+// -- Health ---------------------------------------------------------------
+
+app.get("/health", (c) => c.json({ status: "ok", service: "claudemon", version: "0.5.4" }));
+
+// -- POST /events -- receive hook events (requires API key) ---------------
+
+app.post("/events", apiKeyAuth, async (c) => {
+  let body: any;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Malformed JSON" }, 400);
   }
-  return c.json({ ok: true, count: events.length });
+
+  if (!isValidEvent(body)) {
+    return c.json({ error: "Invalid event: requires session_id and hook_event_name" }, 400);
+  }
+
+  const userId = c.get("userId");
+  enrichEvent(body, userId);
+
+  const room = getRoom(c.env, userId);
+  await sendEvent(room, body);
+  return c.json({ ok: true });
 });
 
-// ── POST /events/webhook/github — GitHub dispatch relay ─────────────
+// -- POST /events/batch -- receive batched hook events --------------------
+
+app.post("/events/batch", apiKeyAuth, async (c) => {
+  let events: any;
+  try {
+    events = await c.req.json();
+  } catch {
+    return c.json({ error: "Malformed JSON" }, 400);
+  }
+
+  if (!Array.isArray(events)) {
+    return c.json({ error: "Request body must be a JSON array" }, 400);
+  }
+
+  const userId = c.get("userId");
+  const room = getRoom(c.env, userId);
+
+  // Process sequentially to preserve event ordering (DO serializes requests anyway)
+  let count = 0;
+  for (const event of events) {
+    if (!isValidEvent(event)) continue;
+    enrichEvent(event, userId);
+    await sendEvent(room, event);
+    count++;
+  }
+  return c.json({ ok: true, count });
+});
+
+// -- POST /events/webhook/github -- GitHub dispatch relay -----------------
 
 app.post("/events/webhook/github", async (c) => {
-  // Verify webhook secret
   const secret = c.req.header("X-Webhook-Secret");
   if (!c.env.WEBHOOK_SECRET || secret !== c.env.WEBHOOK_SECRET) {
     return c.json({ error: "Invalid webhook secret" }, 403);
   }
 
-  const body = await c.req.json();
+  let body: any;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Malformed JSON" }, 400);
+  }
+
   const eventData = body.data || body;
-
   const room = getRoom(c.env, "anonymous");
-  await room.fetch(new Request("https://do/event", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(eventData),
-  }));
-
+  await sendEvent(room, eventData);
   return c.json({ ok: true });
 });
 
-// ── GET /sessions — list active sessions ────────────────────────────
+// -- GET /sessions -- list active sessions --------------------------------
 
 app.get("/sessions", optionalCookieAuth, async (c) => {
   const room = getRoom(c.env, c.get("userId"));
@@ -141,7 +177,7 @@ app.get("/sessions", optionalCookieAuth, async (c) => {
   return new Response(res.body, { headers: { "Content-Type": "application/json" } });
 });
 
-// ── POST /sessions/purge — clear all sessions ───────────────────────
+// -- POST /sessions/purge -- clear all sessions ---------------------------
 
 app.post("/sessions/purge", optionalCookieAuth, async (c) => {
   const room = getRoom(c.env, c.get("userId"));
@@ -149,7 +185,7 @@ app.post("/sessions/purge", optionalCookieAuth, async (c) => {
   return new Response(res.body, { headers: { "Content-Type": "application/json" } });
 });
 
-// ── DELETE /sessions/:id — archive a session ────────────────────────
+// -- DELETE /sessions/:id -- archive a session ----------------------------
 
 app.delete("/sessions/:id", optionalCookieAuth, async (c) => {
   const id = c.req.param("id");
@@ -158,7 +194,7 @@ app.delete("/sessions/:id", optionalCookieAuth, async (c) => {
   return new Response(res.body, { headers: { "Content-Type": "application/json" } });
 });
 
-// ── POST /cloud/register — manually register a cloud session ────────
+// -- POST /cloud/register -- manually register a cloud session ------------
 
 app.post("/cloud/register", apiKeyAuth, async (c) => {
   const body = await c.req.json();
@@ -174,28 +210,24 @@ app.post("/cloud/register", apiKeyAuth, async (c) => {
   }
 
   const room = getRoom(c.env, c.get("userId"));
-  await room.fetch(new Request("https://do/event", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      session_id,
-      machine_id: "cloud",
-      project_path: project_path || "cloud-session",
-      hook_event_name: "SessionStart",
-      timestamp: Date.now(),
-      model: model || "unknown",
-      source: source || "cloud",
-    }),
-  }));
+  await sendEvent(room, {
+    session_id,
+    machine_id: "cloud",
+    project_path: project_path || "cloud-session",
+    hook_event_name: "SessionStart",
+    timestamp: Date.now(),
+    model: model || "unknown",
+    source: source || "cloud",
+  });
 
   return c.json({ ok: true, session_id });
 });
 
-// ── Serve hook script (no eval, safe auth header) ───────────────────
+// -- Serve hook script (no eval, safe auth header) ------------------------
 
 app.get("/hook.sh", async (c) => {
   const script = `#!/usr/bin/env bash
-# ClaudeMon Hook — batching version (flushes every 2s)
+# ClaudeMon Hook -- batching version (flushes every 2s)
 set -euo pipefail
 API_URL="\${CLAUDEMON_API_URL:-https://api.claudemon.com}"
 API_KEY="\${CLAUDEMON_API_KEY:-}"
@@ -224,12 +256,12 @@ else
   PAYLOAD="$PAYLOAD}"
 fi
 
-# ── Batch: append payload to batch file ──────────────────────────────
+# -- Batch: append payload to batch file -----------------------------------
 BATCH_FILE="/tmp/claudemon-\${SID}.batch"
 LOCK_FILE="/tmp/claudemon-flush-\${SID}.lock"
 echo "$PAYLOAD" >> "$BATCH_FILE"
 
-# ── Start flush loop if not already running ──────────────────────────
+# -- Start flush loop if not already running -------------------------------
 if ! [ -f "$LOCK_FILE" ]; then
   touch "$LOCK_FILE"
   (
@@ -262,7 +294,7 @@ exit 0`;
   });
 });
 
-// ── Export — intercept WebSocket upgrades before Hono ────────────────
+// -- Export -- intercept WebSocket upgrades before Hono --------------------
 
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -276,11 +308,10 @@ const worker = {
       });
     }
 
-    // WebSocket upgrade — bypass Hono CORS, auth via cookie
+    // WebSocket upgrade -- bypass Hono CORS, auth via cookie
     if (url.pathname === "/ws" && request.headers.get("Upgrade") === "websocket") {
       let userId = "anonymous";
 
-      // Auth: cookie-based (browsers send cookies on WS upgrade)
       const cookie = request.headers.get("Cookie") || "";
       const match = cookie.match(/claudemon_token=([^;]+)/);
       if (match && env.JWT_SECRET) {
@@ -289,9 +320,11 @@ const worker = {
       }
 
       const room = getRoom(env, userId);
-      return room.fetch(new Request("https://do/ws", {
-        headers: request.headers,
-      }));
+      return room.fetch(
+        new Request("https://do/ws", {
+          headers: request.headers,
+        }),
+      );
     }
 
     return app.fetch(request, env, ctx);

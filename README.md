@@ -42,6 +42,21 @@ cd apps/monitor-api && wrangler deploy
 cd apps/monitor && npm run build && wrangler deploy
 ```
 
+## Self-Hosting
+
+Run your own ClaudeMon instance on Cloudflare Workers (free tier):
+
+```bash
+# Clone and deploy
+git clone https://github.com/anipotts/claudemon.git
+cd claudemon/apps/monitor-api
+wrangler deploy -c wrangler.self-hosted.toml
+```
+
+Self-hosted mode runs in `SINGLE_USER` mode — no GitHub OAuth or API keys required. All sessions are visible to anyone with the URL.
+
+For the frontend, deploy `apps/monitor` to Cloudflare Pages and set `VITE_MONITOR_API_URL` to your worker URL.
+
 ## License
 
 MIT

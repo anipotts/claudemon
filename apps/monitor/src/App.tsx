@@ -27,20 +27,29 @@ const App: Component = () => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
     fetch(`${API_URL}/auth/me`, { credentials: "include", signal: controller.signal })
-      .then((res) => res.ok ? res.json() : null)
-      .then((data) => { if (data) setUser(data); })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) setUser(data);
+      })
       .catch(() => {})
-      .finally(() => { clearTimeout(timeout); setAuthLoading(false); });
+      .finally(() => {
+        clearTimeout(timeout);
+        setAuthLoading(false);
+      });
   });
 
   const allSessions = createMemo(() => Object.values(sessions));
   const totalAgents = createMemo(() => allSessions().length);
-  const activeCount = createMemo(() => allSessions().filter((s) => s.status === "working" || s.status === "thinking").length);
+  const activeCount = createMemo(
+    () => allSessions().filter((s) => s.status === "working" || s.status === "thinking").length,
+  );
   const waitingCount = createMemo(() => allSessions().filter((s) => s.status === "waiting").length);
   const offCount = createMemo(() => allSessions().filter((s) => s.status === "offline" || s.status === "done").length);
 
   const selectedSessions = createMemo(() =>
-    selectedSessionIds().map(id => sessions[id]).filter(Boolean)
+    selectedSessionIds()
+      .map((id) => sessions[id])
+      .filter(Boolean),
   );
 
   const allEvents = createMemo(() => {
@@ -53,7 +62,12 @@ const App: Component = () => {
     const fileEditors = new Map<string, Set<string>>();
     const now = Date.now();
     for (const e of allEvents()) {
-      if (e.tool_name && (e.tool_name === "Edit" || e.tool_name === "Write") && e.tool_input?.file_path && now - e.timestamp < 300000) {
+      if (
+        e.tool_name &&
+        (e.tool_name === "Edit" || e.tool_name === "Write") &&
+        e.tool_input?.file_path &&
+        now - e.timestamp < 300000
+      ) {
         const fp = e.tool_input.file_path as string;
         if (!fileEditors.has(fp)) fileEditors.set(fp, new Set());
         fileEditors.get(fp)!.add(e.session_id);
@@ -69,7 +83,7 @@ const App: Component = () => {
   const hasAgents = createMemo(() => totalAgents() > 0 || allEvents().length > 0);
   const connected = () => connectionStatus() === "connected";
   const [notificationsOn, setNotificationsOn] = createSignal(
-    typeof localStorage !== "undefined" && localStorage.getItem("claudemon_notifications") === "on"
+    typeof localStorage !== "undefined" && localStorage.getItem("claudemon_notifications") === "on",
   );
 
   const toggleNotifications = async () => {
@@ -93,15 +107,15 @@ const App: Component = () => {
   };
 
   const handleSelectSession = (id: string) => {
-    setSelectedSessionIds(prev => {
-      if (prev.includes(id)) return prev.filter(x => x !== id);
+    setSelectedSessionIds((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
       if (prev.length >= 3) return [...prev.slice(1), id];
       return [...prev, id];
     });
   };
 
   const handleCloseSession = (id: string) => {
-    setSelectedSessionIds(prev => prev.filter(x => x !== id));
+    setSelectedSessionIds((prev) => prev.filter((x) => x !== id));
   };
 
   return (
@@ -128,7 +142,10 @@ const App: Component = () => {
               </Show>
               <Show when={waitingCount() > 0}>
                 <span class="flex items-center gap-1 text-suspicious font-bold">
-                  <span class="w-1.5 h-1.5 rounded-full bg-suspicious animate-pulse" style={{ "box-shadow": "0 0 6px var(--suspicious)" }} />
+                  <span
+                    class="w-1.5 h-1.5 rounded-full bg-suspicious animate-pulse"
+                    style={{ "box-shadow": "0 0 6px var(--suspicious)" }}
+                  />
                   {waitingCount()} waiting
                 </span>
               </Show>
@@ -156,12 +173,24 @@ const App: Component = () => {
             title={notificationsOn() ? "Disable notifications" : "Enable notifications"}
             aria-label={notificationsOn() ? "Disable notifications" : "Enable notifications"}
           >
-            <Show when={notificationsOn()} fallback={
-              <svg width="14" height="14" viewBox="0 0 256 256" fill="none" stroke="currentColor" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M96 224c0 17.7 14.3 32 32 32s32-14.3 32-32" />
-                <path d="M56 104a72 72 0 0 1 144 0c0 35.8 8.5 56.4 16.3 68.5A8 8 0 0 1 209.4 184H46.6a8 8 0 0 1-6.9-11.5C47.5 160.4 56 139.8 56 104Z" />
-              </svg>
-            }>
+            <Show
+              when={notificationsOn()}
+              fallback={
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 256 256"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="20"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M96 224c0 17.7 14.3 32 32 32s32-14.3 32-32" />
+                  <path d="M56 104a72 72 0 0 1 144 0c0 35.8 8.5 56.4 16.3 68.5A8 8 0 0 1 209.4 184H46.6a8 8 0 0 1-6.9-11.5C47.5 160.4 56 139.8 56 104Z" />
+                </svg>
+              }
+            >
               <svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor" stroke="none">
                 <path d="M96 224c0 17.7 14.3 32 32 32s32-14.3 32-32" />
                 <path d="M56 104a72 72 0 0 1 144 0c0 35.8 8.5 56.4 16.3 68.5A8 8 0 0 1 209.4 184H46.6a8 8 0 0 1-6.9-11.5C47.5 160.4 56 139.8 56 104Z" />
@@ -179,21 +208,20 @@ const App: Component = () => {
 
           {/* Auth */}
           <Show when={!authLoading()}>
-            <Show when={user()} fallback={
-              <a
-                href={`${API_URL}/auth/login`}
-                class="text-[10px] text-text-dim hover:text-text-primary transition-colors"
-              >
-                Sign in
-              </a>
-            }>
+            <Show
+              when={user()}
+              fallback={
+                <a
+                  href={`${API_URL}/auth/login`}
+                  class="text-[10px] text-text-dim hover:text-text-primary transition-colors"
+                >
+                  Sign in
+                </a>
+              }
+            >
               {(u) => (
                 <div class="flex items-center gap-2">
-                  <img
-                    src={u().avatar_url}
-                    alt={u().login}
-                    class="w-5 h-5 rounded-full border border-panel-border"
-                  />
+                  <img src={u().avatar_url} alt={u().login} class="w-5 h-5 rounded-full border border-panel-border" />
                   <span class="text-[10px] text-text-dim">{u().login}</span>
                   <a
                     href={`${API_URL}/auth/logout`}
@@ -225,22 +253,13 @@ const App: Component = () => {
               </span>
             </div>
             <div class="flex-1 overflow-y-auto smooth-scroll p-3">
-              <AgentMap
-                sessions={sessions}
-                selectedIds={selectedSessionIds()}
-                onSelect={handleSelectSession}
-              />
+              <AgentMap sessions={sessions} selectedIds={selectedSessionIds()} onSelect={handleSelectSession} />
             </div>
           </div>
 
           {/* Middle: Session Detail columns (up to 3) */}
           <For each={selectedSessions()}>
-            {(session) => (
-              <SessionDetail
-                session={session}
-                onClose={() => handleCloseSession(session.session_id)}
-              />
-            )}
+            {(session) => <SessionDetail session={session} onClose={() => handleCloseSession(session.session_id)} />}
           </For>
 
           {/* Right sidebar: Activity + Conflicts */}

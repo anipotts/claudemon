@@ -110,10 +110,10 @@ export const INITIAL_FLAGGED_FILES: FlaggedFile[] = [];
 // Agent Collaboration Types (v2)
 // ---------------------------------------------------------------------------
 
-export type AgentType = 'claude-code' | 'cursor' | 'codex' | 'ollama' | 'other';
-export type EnvType = 'local' | 'cloud' | 'ssh' | 'container';
-export type SessionStatus = 'active' | 'idle' | 'disconnected';
-export type EventAction = 'read' | 'edit' | 'create' | 'delete' | 'run_command' | 'commit' | 'branch' | 'merge';
+export type AgentType = "claude-code" | "cursor" | "codex" | "ollama" | "other";
+export type EnvType = "local" | "cloud" | "ssh" | "container";
+export type SessionStatus = "active" | "idle" | "disconnected";
+export type EventAction = "read" | "edit" | "create" | "delete" | "run_command" | "commit" | "branch" | "merge";
 
 export interface AgentEnvironment {
   hostname: string;

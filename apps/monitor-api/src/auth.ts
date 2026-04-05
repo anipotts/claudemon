@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Env } from "./env";
 
 interface JwtPayload {
-  sub: string;        // "github:<user_id>"
+  sub: string; // "github:<user_id>"
   name: string;
   login: string;
   avatar_url: string;
@@ -30,13 +30,10 @@ function base64urlDecode(s: string): Uint8Array {
 }
 
 async function getSigningKey(secret: string): Promise<CryptoKey> {
-  return crypto.subtle.importKey(
-    "raw",
-    encoder.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign", "verify"],
-  );
+  return crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, [
+    "sign",
+    "verify",
+  ]);
 }
 
 async function signJwt(payload: JwtPayload, secret: string): Promise<string> {
@@ -67,7 +64,9 @@ async function verifyJwt(token: string, secret: string): Promise<JwtPayload | nu
 
 async function hashApiKey(key: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", encoder.encode(key));
-  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 function generateApiKey(): string {
@@ -182,7 +181,9 @@ auth.get("/auth/callback", async (c) => {
     "SameSite=Lax",
     "Max-Age=2592000",
     "Path=/",
-  ].filter(Boolean).join("; ");
+  ]
+    .filter(Boolean)
+    .join("; ");
 
   const location = redirectTo.startsWith("http") ? redirectTo : `https://app.claudemon.com${redirectTo}`;
   return new Response(null, {
@@ -216,7 +217,7 @@ auth.get("/auth/me", async (c) => {
   const headers: Record<string, string> = {};
   if (remaining < 600) {
     const now = Math.floor(Date.now() / 1000);
-    const newJwt = await signJwt({ ...payload, iat: now, exp: now + 3600 }, c.env.JWT_SECRET);
+    const newJwt = await signJwt({ ...payload, iat: now, exp: now + 2592000 }, c.env.JWT_SECRET);
     const isLocal = new URL(c.req.url).hostname === "localhost";
     headers["Set-Cookie"] = [
       `claudemon_token=${newJwt}`,
@@ -225,7 +226,9 @@ auth.get("/auth/me", async (c) => {
       "SameSite=Lax",
       "Max-Age=2592000",
       "Path=/",
-    ].filter(Boolean).join("; ");
+    ]
+      .filter(Boolean)
+      .join("; ");
   }
 
   return c.json(
@@ -248,11 +251,14 @@ auth.post("/auth/api-keys", async (c) => {
   const key = generateApiKey();
   const hash = await hashApiKey(key);
 
-  await c.env.API_KEYS.put(`key:${hash}`, JSON.stringify({
-    user_id: payload.sub,
-    label: label || "default",
-    created_at: Date.now(),
-  }));
+  await c.env.API_KEYS.put(
+    `key:${hash}`,
+    JSON.stringify({
+      user_id: payload.sub,
+      label: label || "default",
+      created_at: Date.now(),
+    }),
+  );
 
   const userKeysRaw = await c.env.API_KEYS.get(`user:${payload.sub}:keys`);
   const userKeys: string[] = userKeysRaw ? JSON.parse(userKeysRaw) : [];
