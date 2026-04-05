@@ -1,6 +1,6 @@
 import { type Component, For, Show } from "solid-js";
 import type { MonitorEvent } from "../../../../packages/types/monitor";
-import { Terminal, Circle } from "./Icons";
+import { Terminal } from "./Icons";
 import { FileBadge } from "./FileBadge";
 import { Timestamp } from "./Timestamp";
 
@@ -15,25 +15,50 @@ export function hashSessionColor(sessionId: string): string {
 }
 
 const TOOL_ICONS: Record<string, string> = {
-  Read: ".", Edit: "~", Write: "+", Bash: ">_", Grep: "?", Glob: "*", Agent: "@",
-  SessionStart: ">>", SessionEnd: "||", Stop: "||", StopFailure: "!!",
-  Notification: "?!", PostToolUseFailure: "!!", PreCompact: "<<", PostCompact: ">>",
-  PermissionRequest: ">>", PermissionDenied: "xx", SubagentStart: "@+", SubagentStop: "@-",
+  Read: ".",
+  Edit: "~",
+  Write: "+",
+  Bash: ">_",
+  Grep: "?",
+  Glob: "*",
+  Agent: "@",
+  SessionStart: ">>",
+  SessionEnd: "||",
+  Stop: "||",
+  StopFailure: "!!",
+  Notification: "?!",
+  PostToolUseFailure: "!!",
+  PreCompact: "<<",
+  PostCompact: ">>",
+  PermissionRequest: ">>",
+  PermissionDenied: "xx",
+  SubagentStart: "@+",
+  SubagentStop: "@-",
   UserPromptSubmit: ">",
 };
 
 const ACTION_COLORS: Record<string, string> = {
   // Tool colors
-  Read: "#6b6560", Edit: "#c9a96e", Write: "#a3b18a", Bash: "#7ea8be",
-  Grep: "#6b6560", Glob: "#6b6560", Agent: "#b07bac",
+  Read: "#6b6560",
+  Edit: "#c9a96e",
+  Write: "#a3b18a",
+  Bash: "#7ea8be",
+  Grep: "#6b6560",
+  Glob: "#6b6560",
+  Agent: "#b07bac",
   // Event colors
-  SessionStart: "#a3b18a", SessionEnd: "#666",
-  Stop: "#666", StopFailure: "#b85c4a",
+  SessionStart: "#a3b18a",
+  SessionEnd: "#666",
+  Stop: "#666",
+  StopFailure: "#b85c4a",
   Notification: "#c9a96e",
   PostToolUseFailure: "#b85c4a",
-  PreCompact: "#7b9fbf", PostCompact: "#7b9fbf",
-  PermissionRequest: "#c9a96e", PermissionDenied: "#b85c4a",
-  SubagentStart: "#b07bac", SubagentStop: "#b07bac",
+  PreCompact: "#7b9fbf",
+  PostCompact: "#7b9fbf",
+  PermissionRequest: "#c9a96e",
+  PermissionDenied: "#b85c4a",
+  SubagentStart: "#b07bac",
+  SubagentStop: "#b07bac",
   UserPromptSubmit: "#8a8478",
 };
 
@@ -50,10 +75,10 @@ function EventRow(props: { event: MonitorEvent; onSelect?: (id: string) => void 
   const summary = () => {
     const input = e().tool_input || {};
     // Tool events
-    if (e().tool_name === "Bash") return (input.command as string || "").slice(0, 50);
+    if (e().tool_name === "Bash") return ((input.command as string) || "").slice(0, 50);
     if (e().tool_name === "Grep") return `/${input.pattern || ""}/`;
-    if (e().tool_name === "Glob") return (input.pattern as string || "");
-    if (e().tool_name === "Agent") return (input.description as string || "").slice(0, 40);
+    if (e().tool_name === "Glob") return (input.pattern as string) || "";
+    if (e().tool_name === "Agent") return ((input.description as string) || "").slice(0, 40);
 
     // Lifecycle events
     if (e().hook_event_name === "SessionStart") return e().source || "started";
@@ -96,11 +121,14 @@ function EventRow(props: { event: MonitorEvent; onSelect?: (id: string) => void 
           </Show>
         </div>
         <div class="mt-0.5">
-          <Show when={filePath()} fallback={
-            <Show when={summary()}>
-              <span class="text-[10px] text-text-dim truncate block">{summary()}</span>
-            </Show>
-          }>
+          <Show
+            when={filePath()}
+            fallback={
+              <Show when={summary()}>
+                <span class="text-[10px] text-text-dim truncate block">{summary()}</span>
+              </Show>
+            }
+          >
             <FileBadge path={filePath()!} />
           </Show>
         </div>
@@ -117,21 +145,22 @@ export const ActivityTimeline: Component<{
   // Only show PostToolUse (skip PreToolUse duplicates) + lifecycle events
   const filteredEvents = () =>
     props.events
-      .filter((e) =>
-        (e.hook_event_name === "PostToolUse" && e.tool_name) ||
-        e.hook_event_name === "PostToolUseFailure" ||
-        e.hook_event_name === "SessionStart" ||
-        e.hook_event_name === "SessionEnd" ||
-        e.hook_event_name === "Stop" ||
-        e.hook_event_name === "StopFailure" ||
-        e.hook_event_name === "Notification" ||
-        e.hook_event_name === "PreCompact" ||
-        e.hook_event_name === "PostCompact" ||
-        e.hook_event_name === "PermissionRequest" ||
-        e.hook_event_name === "PermissionDenied" ||
-        e.hook_event_name === "SubagentStart" ||
-        e.hook_event_name === "SubagentStop" ||
-        e.hook_event_name === "UserPromptSubmit"
+      .filter(
+        (e) =>
+          (e.hook_event_name === "PostToolUse" && e.tool_name) ||
+          e.hook_event_name === "PostToolUseFailure" ||
+          e.hook_event_name === "SessionStart" ||
+          e.hook_event_name === "SessionEnd" ||
+          e.hook_event_name === "Stop" ||
+          e.hook_event_name === "StopFailure" ||
+          e.hook_event_name === "Notification" ||
+          e.hook_event_name === "PreCompact" ||
+          e.hook_event_name === "PostCompact" ||
+          e.hook_event_name === "PermissionRequest" ||
+          e.hook_event_name === "PermissionDenied" ||
+          e.hook_event_name === "SubagentStart" ||
+          e.hook_event_name === "SubagentStop" ||
+          e.hook_event_name === "UserPromptSubmit",
       )
       .slice(0, 100);
 
@@ -146,9 +175,7 @@ export const ActivityTimeline: Component<{
       }
     >
       <div class="space-y-0.5">
-        <For each={filteredEvents()}>
-          {(event) => <EventRow event={event} onSelect={props.onSelectSession} />}
-        </For>
+        <For each={filteredEvents()}>{(event) => <EventRow event={event} onSelect={props.onSelectSession} />}</For>
       </div>
     </Show>
   );

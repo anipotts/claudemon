@@ -1,3 +1,11 @@
+# ClaudeMon Self-Hosted Configuration
+#
+# Use this instead of wrangler.toml to deploy your own ClaudeMon instance.
+# Runs in SINGLE_USER mode — no GitHub OAuth, no API keys needed.
+#
+# Deploy: wrangler deploy -c wrangler.self-hosted.toml
+# Docs: https://github.com/anipotts/claudemon#self-hosting
+
 name = "claudemon-api"
 main = "src/index.ts"
 compatibility_date = "2026-04-05"

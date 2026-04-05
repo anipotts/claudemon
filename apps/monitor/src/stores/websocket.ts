@@ -3,9 +3,7 @@ import type { WsMessage } from "../../../../packages/types/monitor";
 
 const WORKER_HOST = "api.claudemon.com";
 
-const WS_URL =
-  import.meta.env.VITE_MONITOR_WS_URL ||
-  `wss://${WORKER_HOST}/ws`;
+const WS_URL = import.meta.env.VITE_MONITOR_WS_URL || `wss://${WORKER_HOST}/ws`;
 
 const DEV_WS_URL = "ws://localhost:8787/ws";
 
@@ -23,7 +21,7 @@ export function createWebSocket(onMessage: (msg: WsMessage) => void) {
   function connect() {
     if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) return;
 
-    let url = import.meta.env.DEV ? DEV_WS_URL : WS_URL;
+    const url = import.meta.env.DEV ? DEV_WS_URL : WS_URL;
 
     // Pass JWT token from cookie for per-user routing
     // The cookie is httpOnly so we can't read it directly,

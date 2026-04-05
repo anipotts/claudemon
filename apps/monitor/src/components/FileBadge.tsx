@@ -9,7 +9,8 @@ function classifyPath(path: string): { type: BadgeType; label: string; filename:
   if (path.includes(".claude/plans/")) return { type: "plan", label: "plan", filename };
   if (path.includes(".claude/")) return { type: "global", label: "global", filename };
   if (/\.(test|spec)\.\w+$/.test(filename)) return { type: "test", label: "test", filename };
-  if (/^(package\.json|tsconfig\.json|wrangler\.(toml|jsonc)|vite\.config\.\w+|\.eslintrc)/.test(filename)) return { type: "config", label: "config", filename };
+  if (/^(package\.json|tsconfig\.json|wrangler\.(toml|jsonc)|vite\.config\.\w+|\.eslintrc)/.test(filename))
+    return { type: "config", label: "config", filename };
   if (path.includes("/src/")) {
     const srcIdx = parts.indexOf("src");
     return { type: "src", label: "src", filename: parts.slice(srcIdx + 1).join("/") };

@@ -152,7 +152,11 @@ export function createSessionStore() {
         }
 
         // Track files touched
-        if (event.tool_name && (event.tool_name === "Edit" || event.tool_name === "Write") && event.tool_input?.file_path) {
+        if (
+          event.tool_name &&
+          (event.tool_name === "Edit" || event.tool_name === "Write") &&
+          event.tool_input?.file_path
+        ) {
           const fp = event.tool_input.file_path as string;
           if (!session.files_touched?.includes(fp)) {
             session.files_touched = [...(session.files_touched || []), fp];
@@ -180,7 +184,11 @@ export function createSessionStore() {
 
         // Browser push notification for waiting state
         if (session.status === "waiting" && event.hook_event_name === "Notification") {
-          if (typeof Notification !== "undefined" && Notification.permission === "granted" && localStorage.getItem("claudemon_notifications") === "on") {
+          if (
+            typeof Notification !== "undefined" &&
+            Notification.permission === "granted" &&
+            localStorage.getItem("claudemon_notifications") === "on"
+          ) {
             new Notification("ClaudeMon", {
               body: event.notification_message || `${session.project_name} is waiting for input`,
               tag: session.session_id,

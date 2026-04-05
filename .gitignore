@@ -8,3 +8,18 @@ node_modules/
 apps/api/.wrangler/
 apps/monitor/dist/
 apps/monitor-api/.wrangler/
+
+# Build output
+dist/
+*.js.map
+*.d.ts.map
+
+# Biome
+.biome/
+
+# TypeScript build artifacts in source dirs
+apps/*/src/**/*.js
+apps/*/src/**/*.jsx
+apps/*/src/**/*.d.ts
+packages/*/src/**/*.js
+packages/*/src/**/*.d.ts

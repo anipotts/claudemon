@@ -369,7 +369,7 @@ footer .sep { color: var(--panel-border); }
       <p>Set up in 30 seconds. No account required for self-hosted.</p>
       <div class="cta-row">
         <a href="https://app.claudemon.com" class="btn btn-primary">Get Started</a>
-        <a href="https://github.com/anipotts/lightning-validia" class="btn btn-secondary">View Source</a>
+        <a href="https://github.com/anipotts/claudemon" class="btn btn-secondary">View Source</a>
       </div>
     </div>
   </section>
@@ -378,7 +378,7 @@ footer .sep { color: var(--panel-border); }
     <div class="container">
       <span>ClaudeMon</span>
       <span class="sep">|</span>
-      <a href="https://github.com/anipotts/lightning-validia">GitHub</a>
+      <a href="https://github.com/anipotts/claudemon">GitHub</a>
     </div>
   </footer>
 </body>

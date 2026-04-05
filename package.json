@@ -2,8 +2,17 @@
   "name": "claudemon-monorepo",
   "version": "0.1.0",
   "private": true,
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ]
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev:monitor": "cd apps/monitor && npm run dev",
+    "dev:api": "cd apps/monitor-api && npm run dev",
+    "build": "cd apps/monitor && npm run build",
+    "typecheck": "npx tsc --noEmit -p apps/monitor/tsconfig.json && npx tsc --noEmit -p apps/monitor-api/tsconfig.json",
+    "lint": "npx @biomejs/biome check .",
+    "format": "npx @biomejs/biome check --write .",
+    "clean": "rm -rf apps/monitor/dist node_modules/.cache"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.0"
+  }
 }

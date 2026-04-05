@@ -67,7 +67,10 @@ export class SessionRoom extends DurableObject {
       const sessionId = url.pathname.split("/sessions/")[1];
       this.sessions.delete(sessionId);
       await this.ctx.storage.delete(`session:${sessionId}`);
-      this.broadcast({ type: "sessions_snapshot", sessions: Array.from(this.sessions.values()).map(s => toSessionState(toMetadata(s))) });
+      this.broadcast({
+        type: "sessions_snapshot",
+        sessions: Array.from(this.sessions.values()).map((s) => toSessionState(toMetadata(s))),
+      });
       return Response.json({ ok: true });
     }
 
@@ -229,9 +232,15 @@ export class SessionRoom extends DurableObject {
             status: "working",
             started_at: event.timestamp,
             last_event_at: event.timestamp,
-            edit_count: 0, command_count: 0, read_count: 0, search_count: 0,
-            error_count: 0, compaction_count: 0, permission_denied_count: 0,
-            files_touched: [], commands_run: [],
+            edit_count: 0,
+            command_count: 0,
+            read_count: 0,
+            search_count: 0,
+            error_count: 0,
+            compaction_count: 0,
+            permission_denied_count: 0,
+            files_touched: [],
+            commands_run: [],
             events: [],
             parent_session_id: session_id,
             agent_type: event.agent_type,
@@ -332,7 +341,7 @@ export class SessionRoom extends DurableObject {
     // Deduplicate Pre/Post via tool_use_id — merge PostToolUse response into PreToolUse
     if (event.hook_event_name === "PostToolUse" && event.tool_use_id) {
       const idx = session.events.findIndex(
-        (e) => e.tool_use_id === event.tool_use_id && e.hook_event_name === "PreToolUse"
+        (e) => e.tool_use_id === event.tool_use_id && e.hook_event_name === "PreToolUse",
       );
       if (idx >= 0) {
         session.events[idx].tool_response = event.tool_response;
