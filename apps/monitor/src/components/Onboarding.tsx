@@ -302,10 +302,10 @@ print('Done! Restart your terminal.')
     return JSON.stringify({ hooks }, null, 2);
   });
 
-  const npmInstallCmd = "npm install -g claudemon";
+  const npmInstallCmd = "npm install -g claudemon-cli";
   const npmInitCmd = createMemo(() => {
     const key = apiKey() || "YOUR_API_KEY";
-    return `claudemon init --key ${key}`;
+    return `claudemon-cli init --key ${key}`;
   });
 
   const ready = () => !!apiKey();

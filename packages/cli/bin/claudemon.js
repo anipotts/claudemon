@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import { createInterface } from "node:readline";
 
-const VERSION = "0.1.0";
+const VERSION = "0.5.3";
 const API_URL = "https://api.claudemon.com";
 
 const HOOK_EVENTS = [
