@@ -163,12 +163,14 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean })
           </Show>
 
           {/* Bash output — only render if there's actual content */}
-          <Show when={bashOutput() && (bashOutput()!.stdout || bashOutput()!.stderr)}>
+          <Show when={bashOutput()}>
             {(bo) => (
-              <div class="terminal-block mt-1">
-                <Show when={bo().stdout}><span class="text-text-dim">{bo().stdout}</span></Show>
-                <Show when={bo().stderr}><span class="text-attack">{bo().stderr}</span></Show>
-              </div>
+              <Show when={bo().stdout || bo().stderr}>
+                <div class="terminal-block mt-1">
+                  <Show when={bo().stdout}><span class="text-text-dim">{bo().stdout}</span></Show>
+                  <Show when={bo().stderr}><span class="text-attack">{bo().stderr}</span></Show>
+                </div>
+              </Show>
             )}
           </Show>
 
@@ -209,8 +211,22 @@ export const SessionDetail: Component<{
 
   // Events sorted chronologically
   const timeline = createMemo(() =>
-    s().events.filter((e) => e.tool_name || e.hook_event_name === "Stop" || e.hook_event_name === "SessionStart")
-      .sort((a, b) => a.timestamp - b.timestamp)
+    s().events.filter((e) =>
+      e.tool_name ||
+      e.hook_event_name === "Stop" ||
+      e.hook_event_name === "StopFailure" ||
+      e.hook_event_name === "SessionStart" ||
+      e.hook_event_name === "SessionEnd" ||
+      e.hook_event_name === "Notification" ||
+      e.hook_event_name === "PostToolUseFailure" ||
+      e.hook_event_name === "PreCompact" ||
+      e.hook_event_name === "PostCompact" ||
+      e.hook_event_name === "PermissionRequest" ||
+      e.hook_event_name === "PermissionDenied" ||
+      e.hook_event_name === "SubagentStart" ||
+      e.hook_event_name === "SubagentStop"
+    )
+    .sort((a, b) => a.timestamp - b.timestamp)
   );
 
   // Auto-scroll to bottom on new events
@@ -247,14 +263,42 @@ export const SessionDetail: Component<{
         >
           x
         </button>
-        <span class="text-[10px] text-text-label uppercase tracking-[2px]">Session Detail</span>
+        <span class="text-[10px] font-bold text-text-primary font-mono">{s().session_id.slice(0, 8)}</span>
+        <Show when={s().permission_mode}>
+          <span class="text-[9px] text-text-sub">{s().permission_mode === "bypassPermissions" ? "bypass" : s().permission_mode}</span>
+        </Show>
+        <span class="text-[9px] text-text-dim truncate">{s().project_name}</span>
+        <Show when={s().model}>
+          <span class="text-[9px] text-text-dim ml-auto">{s().model?.replace("claude-", "").replace(/-\d+$/, "")}</span>
+        </Show>
       </div>
 
       {/* Waiting banner — pinned, not scrollable */}
       <Show when={isWaiting()}>
         <div class="waiting-banner mx-2 mt-2 rounded-sm px-3 py-2 flex items-center gap-2">
           <span class="w-2.5 h-2.5 rounded-full bg-suspicious animate-pulse" style={{ "box-shadow": "0 0 8px var(--suspicious)" }} />
-          <span class="text-[11px] font-bold text-suspicious">Claude needs your input</span>
+          <div class="flex-1 min-w-0">
+            <span class="text-[11px] font-bold text-suspicious">Claude needs your input</span>
+            <Show when={s().notification_message}>
+              <div class="text-[10px] text-text-dim mt-0.5 truncate">{s().notification_message}</div>
+            </Show>
+          </div>
+        </div>
+      </Show>
+
+      <Show when={s().compact_summary}>
+        <div class="mx-2 mt-2 rounded-sm px-3 py-2 bg-[#7b9fbf]/10 border border-[#7b9fbf]/20">
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] font-bold text-[#7b9fbf]">Context compacted</span>
+            <span class="text-[9px] text-text-dim">x{s().compaction_count || 1}</span>
+          </div>
+          <div class="text-[9px] text-text-dim mt-1 line-clamp-2">{s().compact_summary}</div>
+        </div>
+      </Show>
+
+      <Show when={s().end_reason && (s().status === "done" || s().status === "offline")}>
+        <div class="mx-2 mt-2 rounded-sm px-3 py-1.5 bg-panel/30 text-[10px] text-text-dim">
+          Session ended: <span class="text-text-sub">{s().end_reason}</span>
         </div>
       </Show>
 
@@ -267,34 +311,62 @@ export const SessionDetail: Component<{
         <For each={timeline()}>
           {(event, i) => (
             <Show when={event.tool_name} fallback={
-              <Show when={event.hook_event_name === "Stop" && event.last_assistant_message}>
-                {(() => {
-                  const [open, setOpen] = createSignal(false);
-                  const text = event.last_assistant_message!;
-                  // Clean preview: first meaningful line, no markdown cruft
-                  const firstLine = text.split("\n").find(l => l.trim() && !l.startsWith("#") && !l.startsWith("-") && !l.startsWith("*"))?.trim() || text.slice(0, 100).trim();
-                  const preview = firstLine.replace(/\*\*/g, "").slice(0, 100);
-                  return (
-                    <div class="border-b border-panel-border/20 bg-panel/20">
-                      <button
-                        class="flex items-center gap-2 w-full px-3 py-1.5 hover:bg-panel/30 text-left"
-                        onClick={() => setOpen(!open())}
-                      >
-                        <span class="text-[10px] text-text-label shrink-0">Claude</span>
-                        <span class="text-[9px] text-text-dim truncate">{preview}{text.length > 100 ? "..." : ""}</span>
-                        <span class="text-text-sub ml-auto shrink-0">
-                          {open() ? <CaretDown size={9} /> : <CaretRight size={9} />}
-                        </span>
-                      </button>
-                      <div class={`tool-call-body ${open() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
-                        <div class="px-3 pb-2 pl-3 max-h-[300px] overflow-y-auto">
-                          <MarkdownBlock text={text} maxLength={3000} />
+              <>
+                <Show when={event.hook_event_name === "Stop" && event.last_assistant_message}>
+                  {(() => {
+                    const [open, setOpen] = createSignal(false);
+                    const text = event.last_assistant_message!;
+                    // Clean preview: first meaningful line, no markdown cruft
+                    const firstLine = text.split("\n").find(l => l.trim() && !l.startsWith("#") && !l.startsWith("-") && !l.startsWith("*"))?.trim() || text.slice(0, 100).trim();
+                    const preview = firstLine.replace(/\*\*/g, "").slice(0, 100);
+                    return (
+                      <div class="border-b border-panel-border/20 bg-panel/20">
+                        <button
+                          class="flex items-center gap-2 w-full px-3 py-1.5 hover:bg-panel/30 text-left"
+                          onClick={() => setOpen(!open())}
+                        >
+                          <span class="text-[10px] text-text-label shrink-0">Claude</span>
+                          <span class="text-[9px] text-text-dim truncate">{preview}{text.length > 100 ? "..." : ""}</span>
+                          <span class="text-text-sub ml-auto shrink-0">
+                            {open() ? <CaretDown size={9} /> : <CaretRight size={9} />}
+                          </span>
+                        </button>
+                        <div class={`tool-call-body ${open() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
+                          <div class="px-3 pb-2 pl-3 max-h-[300px] overflow-y-auto">
+                            <MarkdownBlock text={text} maxLength={3000} />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })()}
-              </Show>
+                    );
+                  })()}
+                </Show>
+                <Show when={!event.tool_name && event.hook_event_name !== "Stop"}>
+                  <div class="border-b border-panel-border/20 px-3 py-1.5 flex items-center gap-2">
+                    <span class={`text-[10px] font-bold uppercase ${
+                      event.hook_event_name === "PostToolUseFailure" || event.hook_event_name === "StopFailure" ? "text-attack" :
+                      event.hook_event_name === "Notification" || event.hook_event_name === "PermissionRequest" ? "text-suspicious" :
+                      event.hook_event_name === "PreCompact" || event.hook_event_name === "PostCompact" ? "text-[#7b9fbf]" :
+                      event.hook_event_name === "SubagentStart" || event.hook_event_name === "SubagentStop" ? "text-[#b07bac]" :
+                      "text-text-sub"
+                    }`}>
+                      {event.hook_event_name}
+                    </span>
+                    <Show when={event.hook_event_name === "PostToolUseFailure" && event.error}>
+                      <span class="text-[9px] text-attack truncate">{event.error!.slice(0, 60)}</span>
+                    </Show>
+                    <Show when={event.hook_event_name === "Notification" && event.notification_message}>
+                      <span class="text-[9px] text-text-dim truncate">{event.notification_message}</span>
+                    </Show>
+                    <Show when={event.hook_event_name === "PermissionDenied"}>
+                      <span class="text-[9px] text-attack">{event.tool_name} denied</span>
+                    </Show>
+                    <Show when={event.hook_event_name === "SubagentStart" || event.hook_event_name === "SubagentStop"}>
+                      <span class="text-[9px] text-text-dim">{event.agent_type || "agent"}</span>
+                    </Show>
+                    <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
+                  </div>
+                </Show>
+              </>
             }>
               <ToolCallBlock
                 event={event}
@@ -330,14 +402,10 @@ export const SessionDetail: Component<{
             class={`w-2 h-2 rounded-full shrink-0 status-transition ${s().status === "working" || s().status === "thinking" ? "animate-pulse" : ""}`}
             style={{ background: statusColor(), "box-shadow": s().status === "working" ? `0 0 6px ${statusColor()}` : "none" }}
           />
-          <span class="font-bold text-text-primary font-mono">{s().session_id.slice(0, 8)}</span>
           <Show when={s().branch}>
             <span class="flex items-center gap-0.5 text-text-sub">
               <GitBranch size={9} /> {s().branch}
             </span>
-          </Show>
-          <Show when={s().permission_mode}>
-            <span class="text-text-sub">{s().permission_mode === "bypassPermissions" ? "bypass" : s().permission_mode}</span>
           </Show>
           <span class="text-text-sub ml-auto">{duration()}</span>
         </div>
@@ -346,6 +414,11 @@ export const SessionDetail: Component<{
           <Show when={s().command_count}><span>{s().command_count} cmds</span></Show>
           <Show when={s().read_count}><span>{s().read_count} reads</span></Show>
           <Show when={s().search_count}><span>{s().search_count} searches</span></Show>
+          <Show when={s().error_count}><span class="text-attack">{s().error_count} errors</span></Show>
+          <Show when={s().compaction_count}><span class="text-[#7b9fbf]">{s().compaction_count} compacts</span></Show>
+          <Show when={s().tool_rate}><span>{s().tool_rate} tools/min</span></Show>
+          <Show when={s().permission_denied_count}><span class="text-attack">{s().permission_denied_count} denied</span></Show>
+          <Show when={s().files_touched?.length}><span>{s().files_touched!.length} files</span></Show>
           <span>{s().events.length} events</span>
         </div>
       </div>

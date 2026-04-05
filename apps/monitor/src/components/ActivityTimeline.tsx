@@ -14,14 +14,32 @@ export function hashSessionColor(sessionId: string): string {
   return SESSION_COLORS[Math.abs(hash) % SESSION_COLORS.length];
 }
 
+const TOOL_ICONS: Record<string, string> = {
+  Read: ".", Edit: "~", Write: "+", Bash: ">_", Grep: "?", Glob: "*", Agent: "@",
+  SessionStart: ">>", SessionEnd: "||", Stop: "||", StopFailure: "!!",
+  Notification: "?!", PostToolUseFailure: "!!", PreCompact: "<<", PostCompact: ">>",
+  PermissionRequest: ">>", PermissionDenied: "xx", SubagentStart: "@+", SubagentStop: "@-",
+  UserPromptSubmit: ">",
+};
+
 const ACTION_COLORS: Record<string, string> = {
+  // Tool colors
   Read: "#6b6560", Edit: "#c9a96e", Write: "#a3b18a", Bash: "#7ea8be",
   Grep: "#6b6560", Glob: "#6b6560", Agent: "#b07bac",
+  // Event colors
+  SessionStart: "#a3b18a", SessionEnd: "#666",
+  Stop: "#666", StopFailure: "#b85c4a",
+  Notification: "#c9a96e",
+  PostToolUseFailure: "#b85c4a",
+  PreCompact: "#7b9fbf", PostCompact: "#7b9fbf",
+  PermissionRequest: "#c9a96e", PermissionDenied: "#b85c4a",
+  SubagentStart: "#b07bac", SubagentStop: "#b07bac",
+  UserPromptSubmit: "#8a8478",
 };
 
 function EventRow(props: { event: MonitorEvent; onSelect?: (id: string) => void }) {
   const e = () => props.event;
-  const color = () => ACTION_COLORS[e().tool_name || ""] || "#6b6560";
+  const color = () => ACTION_COLORS[e().tool_name || ""] || ACTION_COLORS[e().hook_event_name] || "#6b6560";
   const sessionColor = () => hashSessionColor(e().session_id);
 
   const filePath = () => {
@@ -31,10 +49,26 @@ function EventRow(props: { event: MonitorEvent; onSelect?: (id: string) => void 
 
   const summary = () => {
     const input = e().tool_input || {};
+    // Tool events
     if (e().tool_name === "Bash") return (input.command as string || "").slice(0, 50);
     if (e().tool_name === "Grep") return `/${input.pattern || ""}/`;
     if (e().tool_name === "Glob") return (input.pattern as string || "");
     if (e().tool_name === "Agent") return (input.description as string || "").slice(0, 40);
+
+    // Lifecycle events
+    if (e().hook_event_name === "SessionStart") return e().source || "started";
+    if (e().hook_event_name === "SessionEnd") return e().end_reason || "ended";
+    if (e().hook_event_name === "Notification") return (e().notification_message || "waiting").slice(0, 50);
+    if (e().hook_event_name === "PostToolUseFailure") return (e().error || "failed").slice(0, 50);
+    if (e().hook_event_name === "StopFailure") return (e().error || "error").slice(0, 50);
+    if (e().hook_event_name === "PreCompact") return "compacting context...";
+    if (e().hook_event_name === "PostCompact") return "context compacted";
+    if (e().hook_event_name === "PermissionRequest") return `${e().tool_name || "tool"} needs permission`;
+    if (e().hook_event_name === "PermissionDenied") return `${e().tool_name || "tool"} denied`;
+    if (e().hook_event_name === "SubagentStart") return e().agent_type || "agent spawned";
+    if (e().hook_event_name === "SubagentStop") return e().agent_type || "agent done";
+    if (e().hook_event_name === "UserPromptSubmit") return "user prompt";
+
     return null;
   };
 
@@ -51,9 +85,15 @@ function EventRow(props: { event: MonitorEvent; onSelect?: (id: string) => void 
           >
             {e().session_id.slice(0, 6)}
           </span>
+          <span class="text-[9px] text-text-dim w-3.5 text-center shrink-0 font-mono" style={{ color: color() }}>
+            {TOOL_ICONS[e().tool_name || ""] || TOOL_ICONS[e().hook_event_name] || "o"}
+          </span>
           <span class="text-[10px] font-bold uppercase" style={{ color: color() }}>
             {e().tool_name || e().hook_event_name}
           </span>
+          <Show when={e().hook_event_name === "PostToolUseFailure" || e().hook_event_name === "StopFailure"}>
+            <span class="text-[8px] text-attack font-bold px-1 rounded-sm bg-attack/10">ERR</span>
+          </Show>
         </div>
         <div class="mt-0.5">
           <Show when={filePath()} fallback={
@@ -79,8 +119,19 @@ export const ActivityTimeline: Component<{
     props.events
       .filter((e) =>
         (e.hook_event_name === "PostToolUse" && e.tool_name) ||
+        e.hook_event_name === "PostToolUseFailure" ||
         e.hook_event_name === "SessionStart" ||
-        e.hook_event_name === "Stop"
+        e.hook_event_name === "SessionEnd" ||
+        e.hook_event_name === "Stop" ||
+        e.hook_event_name === "StopFailure" ||
+        e.hook_event_name === "Notification" ||
+        e.hook_event_name === "PreCompact" ||
+        e.hook_event_name === "PostCompact" ||
+        e.hook_event_name === "PermissionRequest" ||
+        e.hook_event_name === "PermissionDenied" ||
+        e.hook_event_name === "SubagentStart" ||
+        e.hook_event_name === "SubagentStop" ||
+        e.hook_event_name === "UserPromptSubmit"
       )
       .slice(0, 100);
 

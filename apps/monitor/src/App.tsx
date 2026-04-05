@@ -1,4 +1,4 @@
-import { type Component, Show, createMemo, createSignal, onMount } from "solid-js";
+import { type Component, For, Show, createMemo, createSignal, onMount } from "solid-js";
 import "./globals.css";
 import { createSessionStore } from "./stores/sessions";
 import { AgentMap } from "./components/AgentMap";
@@ -19,7 +19,7 @@ interface User {
 
 const App: Component = () => {
   const { sessions, connectionStatus } = createSessionStore();
-  const [selectedSessionId, setSelectedSessionId] = createSignal<string | null>(null);
+  const [selectedSessionIds, setSelectedSessionIds] = createSignal<string[]>([]);
   const [user, setUser] = createSignal<User | null>(null);
   const [authLoading, setAuthLoading] = createSignal(true);
 
@@ -39,10 +39,9 @@ const App: Component = () => {
   const waitingCount = createMemo(() => allSessions().filter((s) => s.status === "waiting").length);
   const offCount = createMemo(() => allSessions().filter((s) => s.status === "offline" || s.status === "done").length);
 
-  const selectedSession = createMemo(() => {
-    const id = selectedSessionId();
-    return id ? sessions[id] : null;
-  });
+  const selectedSessions = createMemo(() =>
+    selectedSessionIds().map(id => sessions[id]).filter(Boolean)
+  );
 
   const allEvents = createMemo(() => {
     const events = allSessions().flatMap((s) => s.events);
@@ -94,7 +93,15 @@ const App: Component = () => {
   };
 
   const handleSelectSession = (id: string) => {
-    setSelectedSessionId(id === selectedSessionId() ? null : id);
+    setSelectedSessionIds(prev => {
+      if (prev.includes(id)) return prev.filter(x => x !== id);
+      if (prev.length >= 3) return [...prev.slice(1), id];
+      return [...prev, id];
+    });
+  };
+
+  const handleCloseSession = (id: string) => {
+    setSelectedSessionIds(prev => prev.filter(x => x !== id));
   };
 
   return (
@@ -220,21 +227,21 @@ const App: Component = () => {
             <div class="flex-1 overflow-y-auto smooth-scroll p-3">
               <AgentMap
                 sessions={sessions}
-                selectedId={selectedSessionId()}
+                selectedIds={selectedSessionIds()}
                 onSelect={handleSelectSession}
               />
             </div>
           </div>
 
-          {/* Middle: Session Detail (when selected) */}
-          <Show when={selectedSession()}>
+          {/* Middle: Session Detail columns (up to 3) */}
+          <For each={selectedSessions()}>
             {(session) => (
               <SessionDetail
-                session={session()}
-                onClose={() => setSelectedSessionId(null)}
+                session={session}
+                onClose={() => handleCloseSession(session.session_id)}
               />
             )}
-          </Show>
+          </For>
 
           {/* Right sidebar: Activity + Conflicts */}
           <div class="w-[340px] shrink-0 flex flex-col overflow-hidden border-l border-panel-border">
