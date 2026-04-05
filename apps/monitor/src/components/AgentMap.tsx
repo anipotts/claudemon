@@ -1,7 +1,19 @@
 import { type Component, createSignal, For, Show, createMemo, onCleanup } from "solid-js";
 import type { SessionState, SessionStatus } from "../../../../packages/types/monitor";
 import { STATUS_LABELS } from "../../../../packages/types/monitor";
-import { Desktop, Cloud, Terminal, Cube, GitBranch, Folder, CaretDown, CaretRight, Pulse } from "./Icons";
+import {
+  Desktop,
+  Cloud,
+  Terminal,
+  Cube,
+  GitBranch,
+  Folder,
+  CaretDown,
+  CaretRight,
+  Pulse,
+  Eye,
+  EyeSlash,
+} from "./Icons";
 import { timeAgo, formatDuration } from "../utils/time";
 
 const STATUS_STYLES: Record<SessionStatus, { color: string; bg: string; pulse: boolean }> = {
@@ -12,6 +24,8 @@ const STATUS_STYLES: Record<SessionStatus, { color: string; bg: string; pulse: b
   error: { color: "#b85c4a", bg: "#b85c4a08", pulse: false },
   offline: { color: "#4a4640", bg: "#4a464008", pulse: false },
 };
+
+const INACTIVE_STATUSES = new Set<SessionStatus>(["done", "offline"]);
 
 // ── Session Card ────────────────────────────────────────────────────
 
@@ -81,14 +95,14 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
       }}
       onClick={() => props.onSelect?.(s().session_id)}
     >
-      {/* Row 1: Status + ID + Badge */}
+      {/* Row 1: Status + full ID + Badge */}
       <div class="flex items-center gap-2 mb-1">
         <span
           class={`w-2 h-2 rounded-full shrink-0 status-transition ${style().pulse ? "animate-pulse" : ""}`}
           style={{ background: style().color, "box-shadow": style().pulse ? `0 0 6px ${style().color}` : "none" }}
         />
-        <span class="text-[11px] font-bold text-text-primary font-mono">{s().session_id.slice(0, 8)}</span>
-        <span class="text-[9px] text-text-sub ml-auto">{formatDuration(s().started_at)}</span>
+        <span class="text-[11px] font-bold text-text-primary font-mono truncate">{s().session_id}</span>
+        <span class="text-[9px] text-text-sub ml-auto shrink-0">{formatDuration(s().started_at)}</span>
         <span
           class={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-sm shrink-0 ${isWaiting() ? "text-[9px] px-2 py-0.5" : ""}`}
           style={{ color: style().color, background: style().color + "20" }}
@@ -123,38 +137,48 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
   );
 }
 
-// ── Project Group ───────────────────────────────────────────────────
+// ── Project Group (supports nested children) ────────────────────────
 
-function ProjectGroup(props: {
-  projectPath: string;
+interface ProjectNode {
+  path: string;
+  name: string;
   sessions: SessionState[];
+  children: ProjectNode[];
+}
+
+function ProjectGroupView(props: {
+  node: ProjectNode;
+  depth?: number;
   selectedIds?: string[];
   onSelect?: (id: string) => void;
 }) {
+  const depth = () => props.depth || 0;
   const [open, setOpen] = createSignal(true);
-  const projectName = () => props.projectPath.split("/").pop() || props.projectPath;
+  const totalSessions = (): number =>
+    props.node.sessions.length + props.node.children.reduce((sum, c) => sum + c.sessions.length, 0);
 
   return (
-    <div class="border border-panel-border rounded-sm bg-card">
+    <div class="border border-panel-border rounded-sm bg-card" style={{ "margin-left": depth() > 0 ? "12px" : "0" }}>
       <button
         onClick={() => setOpen(!open())}
         class="flex items-center gap-2 px-3 py-1.5 w-full hover:bg-panel/30 transition-colors"
       >
         {open() ? <CaretDown size={10} class="text-text-sub" /> : <CaretRight size={10} class="text-text-sub" />}
         <Folder size={12} class="text-text-dim" />
-        <span class="text-[11px] font-bold text-text-primary">{projectName()}</span>
-        <Show when={props.sessions[0]?.branch}>
+        <span class="text-[11px] font-bold text-text-primary">{props.node.name}</span>
+        <Show when={props.node.sessions[0]?.branch}>
           <span class="flex items-center gap-0.5 text-[9px] text-text-sub">
-            <GitBranch size={9} /> {props.sessions[0].branch}
+            <GitBranch size={9} /> {props.node.sessions[0].branch}
           </span>
         </Show>
         <span class="ml-auto text-[9px] text-text-sub">
-          {props.sessions.length} session{props.sessions.length !== 1 ? "s" : ""}
+          {totalSessions()} session{totalSessions() !== 1 ? "s" : ""}
         </span>
       </button>
       <Show when={open()}>
         <div class="px-2 pb-2 space-y-1.5">
-          <For each={props.sessions}>
+          {/* Direct sessions */}
+          <For each={props.node.sessions}>
             {(session) => (
               <SessionCard
                 session={session}
@@ -163,10 +187,63 @@ function ProjectGroup(props: {
               />
             )}
           </For>
+          {/* Child projects (nested) */}
+          <For each={props.node.children}>
+            {(child) => (
+              <ProjectGroupView
+                node={child}
+                depth={depth() + 1}
+                selectedIds={props.selectedIds}
+                onSelect={props.onSelect}
+              />
+            )}
+          </For>
         </div>
       </Show>
     </div>
   );
+}
+
+// ── Build project tree (detect parent/child by path containment) ────
+
+function buildProjectTree(sessions: SessionState[]): ProjectNode[] {
+  // Group by project_path
+  const pathMap = new Map<string, SessionState[]>();
+  for (const s of sessions) {
+    const key = s.project_path;
+    if (!pathMap.has(key)) pathMap.set(key, []);
+    pathMap.get(key)!.push(s);
+  }
+
+  // Sort paths so parents come before children
+  const paths = Array.from(pathMap.keys()).sort();
+
+  // Build tree: if path A is a prefix of path B, B is a child of A
+  const roots: ProjectNode[] = [];
+  const nodeMap = new Map<string, ProjectNode>();
+
+  for (const path of paths) {
+    const name = path.split("/").pop() || path;
+    const node: ProjectNode = { path, name, sessions: pathMap.get(path)!, children: [] };
+    nodeMap.set(path, node);
+
+    // Find parent: longest path that is a prefix of this path
+    let parent: ProjectNode | null = null;
+    for (const candidate of paths) {
+      if (candidate === path) continue;
+      if (path.startsWith(candidate + "/") && (!parent || candidate.length > parent.path.length)) {
+        parent = nodeMap.get(candidate) || null;
+      }
+    }
+
+    if (parent) {
+      parent.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+
+  return roots;
 }
 
 // ── Environment Group ───────────────────────────────────────────────
@@ -183,15 +260,7 @@ function EnvironmentGroup(props: {
   const [open, setOpen] = createSignal(true);
   const EnvIcon = () => ENV_ICONS[props.envType] || Desktop;
 
-  const projectGroups = createMemo(() => {
-    const map = new Map<string, SessionState[]>();
-    for (const s of props.sessions) {
-      const key = s.project_path;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(s);
-    }
-    return Array.from(map.entries());
-  });
+  const projectTree = createMemo(() => buildProjectTree(props.sessions));
 
   return (
     <div>
@@ -213,15 +282,8 @@ function EnvironmentGroup(props: {
       </button>
       <Show when={open()}>
         <div class="space-y-1.5 mt-1">
-          <For each={projectGroups()}>
-            {([path, sessions]) => (
-              <ProjectGroup
-                projectPath={path}
-                sessions={sessions}
-                selectedIds={props.selectedIds}
-                onSelect={props.onSelect}
-              />
-            )}
+          <For each={projectTree()}>
+            {(node) => <ProjectGroupView node={node} selectedIds={props.selectedIds} onSelect={props.onSelect} />}
           </For>
         </div>
       </Show>
@@ -237,7 +299,22 @@ export const AgentMap: Component<{
   onSelect?: (id: string) => void;
   onPurge?: () => void;
 }> = (props) => {
-  const allSessions = createMemo(() => Object.values(props.sessions));
+  const [hideInactive, setHideInactive] = createSignal(true);
+
+  const allSessions = createMemo(() => {
+    const all = Object.values(props.sessions);
+    if (!hideInactive()) return all;
+    // Show active + sessions with any activity, hide empty offline/done
+    return all.filter((s) => {
+      if (!INACTIVE_STATUSES.has(s.status)) return true;
+      // Keep inactive sessions that had meaningful activity
+      if (s.edit_count > 0 || s.command_count > 0 || s.read_count > 0) return true;
+      return false;
+    });
+  });
+
+  const hiddenCount = createMemo(() => Object.values(props.sessions).length - allSessions().length);
+
   const envGroups = createMemo(() => {
     const map = new Map<string, SessionState[]>();
     for (const s of allSessions()) {
@@ -249,28 +326,52 @@ export const AgentMap: Component<{
   });
 
   return (
-    <Show
-      when={allSessions().length > 0}
-      fallback={
-        <div class="flex flex-col items-center justify-center h-full gap-2 py-12">
-          <Desktop size={28} class="text-text-sub" />
-          <span class="text-[12px] text-text-dim">No agents connected</span>
-        </div>
-      }
-    >
-      <div class="space-y-2">
-        <For each={envGroups()}>
-          {([hostname, sessions]) => (
-            <EnvironmentGroup
-              hostname={hostname}
-              envType={sessions[0]?.source || "local"}
-              sessions={sessions}
-              selectedIds={props.selectedIds}
-              onSelect={props.onSelect}
-            />
-          )}
-        </For>
+    <div class="flex flex-col h-full">
+      {/* Filter toggle */}
+      <div class="flex items-center gap-2 px-1 pb-2">
+        <button
+          onClick={() => setHideInactive(!hideInactive())}
+          class="flex items-center gap-1.5 text-[9px] text-text-sub hover:text-text-primary transition-colors"
+          title={hideInactive() ? "Show all sessions" : "Hide inactive sessions"}
+        >
+          {hideInactive() ? <EyeSlash size={11} /> : <Eye size={11} />}
+          {hideInactive() ? "Hiding inactive" : "Showing all"}
+        </button>
+        <Show when={hiddenCount() > 0}>
+          <span class="text-[8px] text-text-sub">({hiddenCount()} hidden)</span>
+        </Show>
       </div>
-    </Show>
+
+      <Show
+        when={allSessions().length > 0}
+        fallback={
+          <div class="flex flex-col items-center justify-center flex-1 gap-2 py-12">
+            <Desktop size={28} class="text-text-sub" />
+            <span class="text-[12px] text-text-dim">
+              {hiddenCount() > 0 ? `${hiddenCount()} inactive sessions hidden` : "No agents connected"}
+            </span>
+            <Show when={hiddenCount() > 0}>
+              <button onClick={() => setHideInactive(false)} class="text-[10px] text-safe hover:underline">
+                Show all
+              </button>
+            </Show>
+          </div>
+        }
+      >
+        <div class="space-y-2">
+          <For each={envGroups()}>
+            {([hostname, sessions]) => (
+              <EnvironmentGroup
+                hostname={hostname}
+                envType={sessions[0]?.source || "local"}
+                sessions={sessions}
+                selectedIds={props.selectedIds}
+                onSelect={props.onSelect}
+              />
+            )}
+          </For>
+        </div>
+      </Show>
+    </div>
   );
 };
