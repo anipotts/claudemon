@@ -565,17 +565,22 @@ const App: Component = () => {
                     </div>
                   }
                 >
-                  {/* Tab view: show active session only */}
+                  {/* Tab view: all sessions mounted, only active visible */}
                   <Show when={viewMode() === "tabs"}>
-                    <Show when={activeSession()}>
-                      {(s) => (
-                        <SessionDetail
-                          session={s()}
-                          onClose={() => handleCloseSession(s().session_id)}
-                          showClose={false}
-                        />
+                    <For each={selectedSessions()}>
+                      {(session) => (
+                        <div
+                          class="flex-1 min-w-0 flex flex-col overflow-hidden"
+                          style={{ display: session.session_id === activeTabId() ? "flex" : "none" }}
+                        >
+                          <SessionDetail
+                            session={session}
+                            onClose={() => handleCloseSession(session.session_id)}
+                            showClose={false}
+                          />
+                        </div>
                       )}
-                    </Show>
+                    </For>
                   </Show>
 
                   {/* Column view: show all selected sessions side by side */}
