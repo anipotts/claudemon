@@ -69,6 +69,24 @@ const App: Component = () => {
 
   const hasAgents = createMemo(() => totalAgents() > 0 || allEvents().length > 0);
   const connected = () => connectionStatus() === "connected";
+  const [notificationsOn, setNotificationsOn] = createSignal(
+    typeof localStorage !== "undefined" && localStorage.getItem("claudemon_notifications") === "on"
+  );
+
+  const toggleNotifications = async () => {
+    if (notificationsOn()) {
+      localStorage.setItem("claudemon_notifications", "off");
+      setNotificationsOn(false);
+    } else {
+      if (typeof Notification !== "undefined") {
+        const perm = await Notification.requestPermission();
+        if (perm === "granted") {
+          localStorage.setItem("claudemon_notifications", "on");
+          setNotificationsOn(true);
+        }
+      }
+    }
+  };
 
   const handlePurge = () => {
     if (!confirm("Clear all sessions?")) return;
@@ -124,6 +142,25 @@ const App: Component = () => {
               <Trash size={13} />
             </button>
           </Show>
+
+          <button
+            onClick={toggleNotifications}
+            class="text-text-sub hover:text-text-primary transition-colors"
+            title={notificationsOn() ? "Disable notifications" : "Enable notifications"}
+            aria-label={notificationsOn() ? "Disable notifications" : "Enable notifications"}
+          >
+            <Show when={notificationsOn()} fallback={
+              <svg width="14" height="14" viewBox="0 0 256 256" fill="none" stroke="currentColor" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M96 224c0 17.7 14.3 32 32 32s32-14.3 32-32" />
+                <path d="M56 104a72 72 0 0 1 144 0c0 35.8 8.5 56.4 16.3 68.5A8 8 0 0 1 209.4 184H46.6a8 8 0 0 1-6.9-11.5C47.5 160.4 56 139.8 56 104Z" />
+              </svg>
+            }>
+              <svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor" stroke="none">
+                <path d="M96 224c0 17.7 14.3 32 32 32s32-14.3 32-32" />
+                <path d="M56 104a72 72 0 0 1 144 0c0 35.8 8.5 56.4 16.3 68.5A8 8 0 0 1 209.4 184H46.6a8 8 0 0 1-6.9-11.5C47.5 160.4 56 139.8 56 104Z" />
+              </svg>
+            </Show>
+          </button>
 
           <div class="flex items-center gap-2">
             <span class="text-[10px] text-text-dim">{connected() ? "LIVE" : connectionStatus().toUpperCase()}</span>

@@ -85,6 +85,16 @@ export function createSessionStore() {
             break;
         }
 
+        // Browser push notification for waiting state
+        if (session.status === "waiting" && event.hook_event_name === "Notification") {
+          if (typeof Notification !== "undefined" && Notification.permission === "granted" && localStorage.getItem("claudemon_notifications") === "on") {
+            new Notification("ClaudeMon", {
+              body: `${session.project_name} is waiting for input`,
+              tag: session.session_id,
+            });
+          }
+        }
+
         // Ring buffer
         session.events.push(event);
         if (session.events.length > MAX_EVENTS) {
