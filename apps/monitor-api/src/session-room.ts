@@ -357,7 +357,9 @@ export class SessionRoom extends DurableObject {
         session.events[idx].tool_response = event.tool_response;
         session.events[idx].hook_event_name = "PostToolUse";
         session.events[idx].duration_ms = durationMs > 0 ? durationMs : undefined;
-        this.broadcast({ type: "event", event });
+        // Broadcast the MUTATED stored event, not the original wire event.
+        // The stored event has duration_ms, merged tool_response, and updated hook_event_name.
+        this.broadcast({ type: "event", event: session.events[idx] });
         return;
       }
     }

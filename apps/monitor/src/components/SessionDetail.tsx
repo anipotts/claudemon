@@ -3,6 +3,7 @@ import type { MonitorEvent, SessionState } from "../../../../packages/types/moni
 import { STATUS_COLORS } from "../../../../packages/types/monitor";
 import { GitBranch, CaretDown, CaretRight } from "./Icons";
 import { PermissionBadge } from "./PermissionBadge";
+import { ModelBadge } from "./ModelBadge";
 import { FileBadge } from "./FileBadge";
 import { SessionBadge } from "./SessionBadge";
 import { Timestamp } from "./Timestamp";
@@ -18,22 +19,6 @@ const TOOL_ICONS: Record<string, string> = {
   Glob: "*",
   Agent: "@",
 };
-
-// Model display — color-coded by family
-function ModelBadge(props: { model: string }) {
-  const short = () => {
-    const m = props.model;
-    if (m.includes("opus")) return { text: m.replace("claude-", "").replace(/-\d+$/, ""), color: "#c9a96e" };
-    if (m.includes("sonnet")) return { text: m.replace("claude-", "").replace(/-\d+$/, ""), color: "#7b9fbf" };
-    if (m.includes("haiku")) return { text: m.replace("claude-", "").replace(/-\d+$/, ""), color: "#8a8478" };
-    return { text: m.replace("claude-", "").replace(/-\d+$/, ""), color: "var(--text-dim)" };
-  };
-  return (
-    <span class="text-[9px] font-mono" style={{ color: short().color }}>
-      {short().text}
-    </span>
-  );
-}
 
 // ── Bash command classification ────────────────────────────────────
 
@@ -160,7 +145,7 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean; f
     const inp = input();
     const offset = inp.offset as number | undefined;
     const limit = inp.limit as number | undefined;
-    if (offset !== undefined && limit !== undefined) return `lines ${offset}-${offset + limit}`;
+    if (offset !== undefined && limit !== undefined) return `lines ${offset + 1}-${offset + limit}`;
     if (limit !== undefined) return `${limit} lines`;
     const resp = response();
     const content = (resp.content as string) || (resp.output as string) || "";
@@ -450,11 +435,12 @@ export const SessionDetail: Component<{
     }
   };
 
-  // Auto-scroll to focused event
+  // Auto-scroll to focused event — use data attribute to find correct DOM node
+  // (raw children[idx] is wrong when nestedIndices skips rows)
   createEffect(() => {
     const idx = focusedIdx();
     if (idx >= 0 && scrollRef) {
-      const el = scrollRef.children[idx] as HTMLElement | undefined;
+      const el = scrollRef.querySelector(`[data-tl-idx="${idx}"]`) as HTMLElement | null;
       el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
     }
   });
@@ -543,6 +529,7 @@ export const SessionDetail: Component<{
         <For each={timeline()}>
           {(event, i) => (
             <Show when={!nestedIndices().has(i())}>
+            <div data-tl-idx={i()}>
               <Show
                 when={event.tool_name}
                 fallback={
@@ -957,6 +944,7 @@ export const SessionDetail: Component<{
                   focused={focusedIdx() === i()}
                 />
               </Show>
+            </div>
             </Show>
           )}
         </For>

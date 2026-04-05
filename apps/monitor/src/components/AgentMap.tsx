@@ -13,8 +13,10 @@ import {
   Pulse,
   Eye,
   EyeSlash,
+  ArrowsClockwise,
 } from "./Icons";
 import { SessionBadge } from "./SessionBadge";
+import { ModelBadge } from "./ModelBadge";
 import { timeAgo, formatDuration } from "../utils/time";
 
 const STATUS_STYLES: Record<SessionStatus, { color: string; bg: string; pulse: boolean }> = {
@@ -79,15 +81,6 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
 
   const activeAgentCount = () => s().subagents.filter((a) => a.status !== "done" && a.status !== "offline").length;
 
-  const modelFamily = () => {
-    const m = s().model;
-    if (!m) return null;
-    if (m.includes("opus")) return { text: "opus", color: "#c9a96e" };
-    if (m.includes("sonnet")) return { text: "sonnet", color: "#7b9fbf" };
-    if (m.includes("haiku")) return { text: "haiku", color: "#6b6560" };
-    return { text: m.replace("claude-", "").split("-")[0], color: "#6b6560" };
-  };
-
   return (
     <div
       class={`border rounded-sm p-3 transition-all cursor-pointer status-transition ${props.selected ? "ring-1 ring-safe/50" : "hover:border-text-dim/30"} ${isWaiting() ? "waiting-banner" : ""}`}
@@ -124,12 +117,8 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
         class="flex items-center gap-2 text-[9px] text-text-dim"
         style={{ "white-space": "nowrap", overflow: "hidden" }}
       >
-        <Show when={modelFamily()}>
-          {(mf) => (
-            <span class="text-[8px] font-mono font-bold shrink-0" style={{ color: mf().color }}>
-              {mf().text}
-            </span>
-          )}
+        <Show when={s().model}>
+          <ModelBadge model={s().model!} />
         </Show>
         <Show when={s().branch}>
           <span class="flex items-center gap-0.5 truncate shrink min-w-0">
@@ -161,7 +150,7 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
                 style={{ color: s().compaction_count >= 3 ? "#c9a96e" : "#7b9fbf" }}
                 title={`Context compacted ${s().compaction_count} times`}
               >
-                &#x27F2; {s().compaction_count}
+                <ArrowsClockwise size={9} /> {s().compaction_count}
               </span>
             </Show>
             <span class="text-text-sub ml-auto shrink-0">{timeAgo(s().last_event_at)}</span>
