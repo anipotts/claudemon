@@ -1,0 +1,22 @@
+{
+  "name": "claudemon",
+  "version": "0.6.0",
+  "description": "Real-time session monitoring dashboard for Claude Code",
+  "author": {
+    "name": "Ani Potts",
+    "url": "https://claudemon.com"
+  },
+  "homepage": "https://claudemon.com",
+  "repository": "https://github.com/anipotts/claudemon",
+  "license": "MIT",
+  "keywords": ["monitoring", "observability", "dashboard", "sessions"],
+  "userConfig": {
+    "api_key": {
+      "type": "string",
+      "title": "ClaudeMon API Key",
+      "description": "Your API key from app.claudemon.com. Go to Settings > API Keys to generate one.",
+      "required": true,
+      "sensitive": true
+    }
+  }
+}

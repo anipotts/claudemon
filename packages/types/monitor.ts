@@ -50,6 +50,7 @@ export interface MonitorEvent {
   agent_id?: string;
   agent_type?: string;
   parent_session_id?: string;
+  agent_transcript_path?: string; // SubagentStop: local path to subagent transcript JSONL
 
   // Session lifecycle
   source?: string; // startup | resume | clear | compact
@@ -144,6 +145,7 @@ export interface SessionState {
   permission_mode?: string;
   transcript_path?: string;
   cwd?: string;
+  session_source?: "startup" | "resume" | "clear" | "compact"; // from SessionStart event
 
   // Live counters
   edit_count: number;
@@ -181,23 +183,24 @@ export type WsMessage =
   | { type: "sessions_snapshot"; sessions: SessionState[] }
   | { type: "ping"; ts: number };
 
-// Runtime array of all hook events — single source of truth.
-// NOTE: packages/cli/bin/claudemon.js duplicates this list (zero-dep constraint).
-// If you add/remove events here, update the CLI too.
+// All 27 Claude Code hook events — the type union above covers all of them.
+// The CLI and plugin only register 12 core events (marked with *) for monitoring.
+// The rest are available but not registered by default to reduce noise.
 export const HOOK_EVENTS: HookEventName[] = [
-  "PreToolUse",
-  "PostToolUse",
+  "SessionStart", // * session lifecycle
+  "SessionEnd", // * session lifecycle
+  "Setup", // * initial setup
+  "PreToolUse", // * tool activity start
+  "PostToolUse", // * tool completion
   "PostToolUseFailure",
-  "Stop",
-  "StopFailure",
-  "Notification",
-  "SessionStart",
-  "SessionEnd",
-  "SubagentStart",
-  "SubagentStop",
+  "Stop", // * session completion
+  "StopFailure", // * error tracking
+  "SubagentStart", // * agent hierarchy
+  "SubagentStop", // * agent hierarchy
+  "UserPromptSubmit", // * what user is asking
+  "Notification", // * needs input / completion
   "PreCompact",
-  "PostCompact",
-  "UserPromptSubmit",
+  "PostCompact", // * context overflow tracking
   "PermissionRequest",
   "PermissionDenied",
   "TaskCreated",
@@ -211,7 +214,23 @@ export const HOOK_EVENTS: HookEventName[] = [
   "InstructionsLoaded",
   "Elicitation",
   "ElicitationResult",
+];
+
+// The 12 core monitoring events registered by the CLI and plugin.
+// These capture full session lifecycle without noise.
+export const CORE_HOOK_EVENTS: HookEventName[] = [
+  "SessionStart",
+  "SessionEnd",
   "Setup",
+  "PreToolUse",
+  "PostToolUse",
+  "Stop",
+  "StopFailure",
+  "SubagentStart",
+  "SubagentStop",
+  "UserPromptSubmit",
+  "Notification",
+  "PostCompact",
 ];
 
 // Status derivation helpers

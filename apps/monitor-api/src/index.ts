@@ -43,7 +43,7 @@ app.route("/", auth);
 
 // -- Health ---------------------------------------------------------------
 
-app.get("/health", (c) => c.json({ status: "ok", service: "claudemon", version: "0.5.4" }));
+app.get("/health", (c) => c.json({ status: "ok", service: "claudemon", version: "0.6.0" }));
 
 // -- POST /events -- receive hook events (requires API key) ---------------
 
@@ -64,7 +64,10 @@ app.post("/events", apiKeyAuth, async (c) => {
 
   const room = getRoom(c.env, userId);
   await sendEvent(room, body);
-  return c.json({ ok: true });
+  // Return empty JSON object — this is the canonical "monitoring hook, carry on"
+  // response. Claude Code validates hook responses through hookJSONOutputSchema;
+  // {} passes as a valid sync response with all optional fields omitted.
+  return c.json({});
 });
 
 // -- POST /events/batch -- receive batched hook events --------------------
@@ -92,7 +95,7 @@ app.post("/events/batch", apiKeyAuth, async (c) => {
     await sendEvent(room, event);
     count++;
   }
-  return c.json({ ok: true, count });
+  return c.json({ count });
 });
 
 // -- POST /events/webhook/github -- GitHub dispatch relay -----------------

@@ -5,40 +5,25 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import { createInterface } from "node:readline";
 
-const VERSION = "0.5.4";
+const VERSION = "0.6.0";
 const API_URL = "https://api.claudemon.com";
 
-// HOOK_EVENTS — duplicated from packages/types/monitor.ts (can't import TS at runtime)
-// Keep in sync! Currently 27 events. Run `node -e "import('./packages/types/monitor.ts')"` won't work,
-// but you can compare: grep -c "'" packages/cli/bin/claudemon.js vs grep -c "|" packages/types/monitor.ts
+// Core monitoring events — the minimal set that captures full session lifecycle.
+// Claude Code has 27 hook events total; we only need 12 for effective monitoring.
+// Reduced from 27 to eliminate noise (TaskCreated, TeammateIdle, Elicitation, etc.)
 const HOOK_EVENTS = [
-  "PreToolUse",
-  "PostToolUse",
-  "PostToolUseFailure",
-  "Stop",
-  "StopFailure",
-  "Notification",
-  "SessionStart",
-  "SessionEnd",
-  "SubagentStart",
-  "SubagentStop",
-  "PreCompact",
-  "PostCompact",
-  "UserPromptSubmit",
-  "PermissionRequest",
-  "PermissionDenied",
-  "TaskCreated",
-  "TaskCompleted",
-  "TeammateIdle",
-  "CwdChanged",
-  "FileChanged",
-  "ConfigChange",
-  "WorktreeCreate",
-  "WorktreeRemove",
-  "InstructionsLoaded",
-  "Elicitation",
-  "ElicitationResult",
-  "Setup",
+  "SessionStart", // session lifecycle (MUST be command hook — HTTP blocked by CC)
+  "SessionEnd", // session lifecycle
+  "Setup", // initial setup (MUST be command hook — HTTP blocked by CC)
+  "PreToolUse", // tool activity start + tool_input
+  "PostToolUse", // tool completion + tool_response
+  "Stop", // session completion
+  "StopFailure", // error tracking
+  "SubagentStart", // agent hierarchy
+  "SubagentStop", // agent hierarchy
+  "UserPromptSubmit", // what user is asking
+  "Notification", // "needs input" / completion
+  "PostCompact", // context overflow tracking
 ];
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -104,11 +89,22 @@ async function init(keyArg) {
     }
   }
 
+  // Async command hook — non-blocking, batched, works for ALL events including
+  // SessionStart/Setup (HTTP hooks are silently blocked by Claude Code for those).
+  // Uses curl to POST to the API in the background. The `async: true` flag means
+  // Claude Code fires the hook without waiting for it to complete.
+  const curlCmd = [
+    `curl -sf -X POST "${API_URL}/events"`,
+    `-H "Content-Type: application/json"`,
+    `-H "Authorization: Bearer ${key}"`,
+    `-d "$(cat)" --max-time 5 2>/dev/null || true`,
+  ].join(" ");
+
   const hook = {
-    type: "http",
-    url: `${API_URL}/events`,
-    headers: { Authorization: `Bearer ${key}` },
-    timeout: 3,
+    type: "command",
+    command: curlCmd,
+    timeout: 8,
+    async: true,
   };
   const entry = { matcher: "", hooks: [hook] };
 
@@ -152,47 +148,143 @@ async function status() {
   console.log(bold("ClaudeMon") + dim(" — status check"));
   console.log();
 
-  // 1. API key in env
-  const hasKey = !!process.env.CLAUDEMON_API_KEY;
-  console.log(
-    (hasKey ? green("  [ok]") : red("  [!!]")) +
-      " CLAUDEMON_API_KEY " +
-      (hasKey ? dim("set in environment") : red("not set — run: claudemon init")),
-  );
-
-  // 2. Hooks in settings.json
+  // 1. Hooks in settings.json
   const settingsPath = join(homedir(), ".claude", "settings.json");
   let hasHooks = false;
+  let hookType = "";
+  let hookCount = 0;
   if (existsSync(settingsPath)) {
     try {
       const settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
       const hooks = settings.hooks || {};
-      hasHooks = Object.values(hooks).some((groups) =>
-        groups.some((g) => g.hooks?.some((h) => (h.url || h.command || "").includes("claudemon"))),
-      );
+      for (const [_evt, groups] of Object.entries(hooks)) {
+        for (const g of groups) {
+          if (g.hooks?.some((h) => (h.url || h.command || "").includes("claudemon"))) {
+            hasHooks = true;
+            hookCount++;
+            const h = g.hooks.find((h) => (h.url || h.command || "").includes("claudemon"));
+            if (h) hookType = h.type;
+          }
+        }
+      }
     } catch {}
   }
   console.log(
     (hasHooks ? green("  [ok]") : red("  [!!]")) +
       " Claude hooks " +
-      (hasHooks ? dim("configured in settings.json") : red("not found — run: claudemon init")),
+      (hasHooks ? dim(`${hookCount} events via ${hookType} hooks`) : red("not found — run: claudemon init")),
   );
 
-  // 3. API health check
+  // Warn if using old HTTP hooks (blocked for SessionStart/Setup)
+  if (hookType === "http") {
+    console.log(red("  [!!]") + " HTTP hooks detected — SessionStart events are silently dropped by Claude Code.");
+    console.log(dim("       Re-run `claudemon init` to upgrade to async command hooks."));
+  }
+
+  // 2. API health check
   let apiOk = false;
+  let apiVersion = "";
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 3000);
     const res = await fetch(`${API_URL}/health`, { signal: controller.signal });
     clearTimeout(timeout);
     apiOk = res.ok;
+    if (res.ok) {
+      const data = await res.json();
+      apiVersion = data.version || "";
+    }
   } catch {}
   console.log(
     (apiOk ? green("  [ok]") : red("  [!!]")) +
       " API server " +
-      (apiOk ? dim("reachable at " + API_URL) : red("unreachable — check your network")),
+      (apiOk
+        ? dim(`reachable at ${API_URL}` + (apiVersion ? ` (v${apiVersion})` : ""))
+        : red("unreachable — check your network")),
   );
 
+  // 3. curl available (required for async command hooks)
+  let hasCurl = false;
+  try {
+    const { execSync } = await import("node:child_process");
+    execSync("which curl", { stdio: "ignore" });
+    hasCurl = true;
+  } catch {}
+  console.log(
+    (hasCurl ? green("  [ok]") : red("  [!!]")) +
+      " curl " +
+      (hasCurl ? dim("available (required for async hooks)") : red("not found — install curl")),
+  );
+
+  console.log();
+  console.log(dim("  Dashboard: ") + "https://app.claudemon.com");
+  console.log();
+}
+
+// ── Migrate ──────────────────────────────────────────────────────
+
+async function migrate() {
+  console.log();
+  console.log(bold("ClaudeMon") + dim(" — migrate hooks to v0.6.0"));
+  console.log();
+
+  const settingsPath = join(homedir(), ".claude", "settings.json");
+  if (!existsSync(settingsPath)) {
+    console.log(red("  No settings.json found. Run: claudemon init"));
+    console.log();
+    return;
+  }
+
+  let settings;
+  try {
+    settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
+  } catch {
+    console.log(red("  Error: ") + `${settingsPath} contains invalid JSON.`);
+    process.exit(1);
+  }
+
+  const hooks = settings.hooks || {};
+
+  // Find API key from existing HTTP hooks
+  let key = "";
+  for (const groups of Object.values(hooks)) {
+    for (const g of groups) {
+      for (const h of g.hooks || []) {
+        if (h.type === "http" && (h.url || "").includes("claudemon") && h.headers?.Authorization) {
+          key = h.headers.Authorization.replace(/^Bearer\s+/i, "");
+        }
+        if (h.type === "command" && (h.command || "").includes("claudemon")) {
+          const match = (h.command || "").match(/Bearer\s+([^\s"']+)/);
+          if (match) key = match[1];
+        }
+      }
+    }
+  }
+
+  if (!key) {
+    console.log(red("  No ClaudeMon API key found in existing hooks."));
+    console.log(dim("  Run: claudemon init --key <your-key>"));
+    console.log();
+    return;
+  }
+
+  console.log(dim("  Found API key: ") + key.slice(0, 8) + "...");
+
+  // Remove ALL old claudemon hooks (both HTTP and command)
+  let removedEvents = 0;
+  for (const evt of Object.keys(hooks)) {
+    const before = hooks[evt].length;
+    hooks[evt] = hooks[evt].filter((g) => !g.hooks?.some((h) => (h.url || h.command || "").includes("claudemon")));
+    if (hooks[evt].length < before) removedEvents++;
+    if (hooks[evt].length === 0) delete hooks[evt];
+  }
+
+  // Re-add with new async command hooks for the optimized event set
+  await init(key);
+  console.log(
+    green("  Migrated!") +
+      dim(` Removed ${removedEvents} old hook entries, added ${HOOK_EVENTS.length} async command hooks.`),
+  );
   console.log();
 }
 
@@ -207,15 +299,18 @@ if (command === "init") {
   await init(key);
 } else if (command === "status") {
   await status();
+} else if (command === "migrate") {
+  await migrate();
 } else if (command === "--version" || command === "-v") {
   console.log(VERSION);
 } else {
   console.log();
   console.log(bold("claudemon") + dim(` v${VERSION}`));
   console.log();
-  console.log("  " + bold("claudemon init") + dim("          Set up ClaudeMon hooks"));
-  console.log("  " + bold("claudemon init --key") + dim("   Pass API key directly"));
-  console.log("  " + bold("claudemon status") + dim("       Check connection status"));
-  console.log("  " + bold("claudemon --version") + dim("    Show version"));
+  console.log("  " + bold("claudemon init") + dim("           Set up ClaudeMon hooks"));
+  console.log("  " + bold("claudemon init --key") + dim("    Pass API key directly"));
+  console.log("  " + bold("claudemon status") + dim("        Check connection status"));
+  console.log("  " + bold("claudemon migrate") + dim("       Upgrade hooks to v0.6.0 (HTTP -> async command)"));
+  console.log("  " + bold("claudemon --version") + dim("     Show version"));
   console.log();
 }

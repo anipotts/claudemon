@@ -163,4 +163,36 @@ describe("enrichEvent", () => {
     expect(event.config_source).toBe("existing");
     expect(event.config_file_path).toBe("existing.txt");
   });
+
+  it("normalizes SubagentStop agent_transcript_path to transcript_path", () => {
+    const event: any = {
+      session_id: "s1",
+      hook_event_name: "SubagentStop",
+      agent_transcript_path: "/home/.claude/projects/abc/agent-123.jsonl",
+    };
+    enrichEvent(event, "u");
+    expect(event.transcript_path).toBe("/home/.claude/projects/abc/agent-123.jsonl");
+  });
+
+  it("does NOT overwrite existing transcript_path on SubagentStop", () => {
+    const event: any = {
+      session_id: "s1",
+      hook_event_name: "SubagentStop",
+      agent_transcript_path: "/new-path.jsonl",
+      transcript_path: "/existing-path.jsonl",
+    };
+    enrichEvent(event, "u");
+    expect(event.transcript_path).toBe("/existing-path.jsonl");
+  });
+
+  it("normalizes Notification type field", () => {
+    const event: any = {
+      session_id: "s1",
+      hook_event_name: "Notification",
+      message: "Done",
+      type: "completion",
+    };
+    enrichEvent(event, "u");
+    expect(event.notification_type).toBe("completion");
+  });
 });

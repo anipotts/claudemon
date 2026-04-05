@@ -220,6 +220,14 @@ export class SessionRoom extends DurableObject {
         session.compact_summary = undefined;
         session.events = [];
         session.started_at = event.timestamp;
+        // Fields only available on SessionStart — previously never received
+        // because HTTP hooks were silently blocked by Claude Code for this event.
+        // Now captured via async command hooks (v0.6.0+).
+        if (event.source) session.session_source = event.source as any;
+        if (event.model) session.model = event.model;
+        if (event.permission_mode) session.permission_mode = event.permission_mode;
+        if (event.transcript_path) session.transcript_path = event.transcript_path;
+        if (event.agent_type) session.agent_type = event.agent_type;
         break;
       case "SubagentStart":
         if (event.agent_id) {

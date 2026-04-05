@@ -1,6 +1,6 @@
 {
   "name": "claudemon-cli",
-  "version": "0.5.4",
+  "version": "0.6.0",
   "description": "Monitor your Claude Code sessions in real time",
   "bin": {
     "claudemon-cli": "bin/claudemon.js"
