@@ -7,7 +7,6 @@ import { ConflictPanel, type ConflictData } from "./components/ConflictPanel";
 import { SessionDetail } from "./components/SessionDetail";
 import { Onboarding } from "./components/Onboarding";
 import { ShieldCheck, Lightning, ListBullets, Trash, GearSix, Terminal } from "./components/Icons";
-import { SessionBadge } from "./components/SessionBadge";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { IdleDashboard } from "./components/IdleDashboard";
 
@@ -355,42 +354,84 @@ const App: Component = () => {
           {/* Desktop: Main content area */}
           <Show when={!isMobile()}>
             <div class="flex-1 min-w-0 flex flex-col">
-              {/* Tab bar — always visible when sessions selected */}
+              {/* Tab bar — grouped by project */}
               <Show when={selectedSessions().length > 0}>
                 <div class="flex items-center shrink-0 bg-item border-b border-panel-border overflow-x-auto">
-                  <For each={selectedSessionIds()}>
-                    {(id) => {
-                      const s = () => sessions[id];
-                      const isActive = () => id === activeTabId();
-                      return (
-                        <Show when={s()}>
-                          <div
-                            class={`flex items-center gap-1.5 px-2 py-1.5 border-r border-panel-border/30 shrink-0 transition-colors cursor-pointer ${
-                              isActive() ? "bg-bg" : "hover:bg-panel/20"
-                            }`}
-                            onClick={() => setActiveTabId(id)}
-                          >
-                            <SessionBadge
-                              sessionId={id}
-                              projectName={s()!.project_name}
-                              status={s()!.status}
-                              showStatus={true}
-                              size="md"
-                            />
-                            <span
-                              class="text-text-sub hover:text-text-primary text-[9px]"
-                              onClick={(e: MouseEvent) => {
-                                e.stopPropagation();
-                                handleCloseSession(id);
-                              }}
-                            >
-                              x
+                  {(() => {
+                    // Group selected sessions by project_name
+                    const groups = createMemo(() => {
+                      const map = new Map<string, string[]>();
+                      for (const id of selectedSessionIds()) {
+                        const s = sessions[id];
+                        if (!s) continue;
+                        const proj = s.project_name || "unknown";
+                        if (!map.has(proj)) map.set(proj, []);
+                        map.get(proj)!.push(id);
+                      }
+                      return Array.from(map.entries());
+                    });
+                    return (
+                      <For each={groups()}>
+                        {([projectName, ids], groupIdx) => (
+                          <>
+                            {/* Project group separator */}
+                            <Show when={groupIdx() > 0}>
+                              <div class="w-px h-5 bg-panel-border mx-1 shrink-0" />
+                            </Show>
+                            {/* Project label */}
+                            <span class="text-[8px] text-text-sub uppercase tracking-wider px-1.5 shrink-0">
+                              {projectName}
                             </span>
-                          </div>
-                        </Show>
-                      );
-                    }}
-                  </For>
+                            {/* Session tabs in this project */}
+                            <For each={ids}>
+                              {(id) => {
+                                const s = () => sessions[id];
+                                const isActive = () => id === activeTabId();
+                                return (
+                                  <Show when={s()}>
+                                    <div
+                                      class={`flex items-center gap-1 px-2 py-1 rounded-sm mx-0.5 shrink-0 transition-colors cursor-pointer ${
+                                        isActive() ? "bg-bg border border-panel-border" : "hover:bg-panel/20"
+                                      }`}
+                                      onClick={() => setActiveTabId(id)}
+                                    >
+                                      <span
+                                        class="w-1.5 h-1.5 rounded-full shrink-0"
+                                        style={{
+                                          background:
+                                            s()!.status === "working"
+                                              ? "#a3b18a"
+                                              : s()!.status === "thinking"
+                                                ? "#7b9fbf"
+                                                : s()!.status === "waiting"
+                                                  ? "#c9a96e"
+                                                  : "#4a4640",
+                                          "box-shadow":
+                                            s()!.status === "working" || s()!.status === "thinking"
+                                              ? `0 0 4px ${s()!.status === "working" ? "#a3b18a" : "#7b9fbf"}`
+                                              : "none",
+                                        }}
+                                      />
+                                      <span class="text-[9px] font-mono text-text-dim">{id.slice(0, 8)}</span>
+                                      <span
+                                        class="text-text-sub hover:text-text-primary text-[9px] ml-0.5"
+                                        onClick={(e: MouseEvent) => {
+                                          e.stopPropagation();
+                                          handleCloseSession(id);
+                                        }}
+                                      >
+                                        x
+                                      </span>
+                                    </div>
+                                  </Show>
+                                );
+                              }}
+                            </For>
+                          </>
+                        )}
+                      </For>
+                    );
+                  })()}
                   {/* View mode toggle (only show when multiple selected) */}
                   <Show when={selectedSessionIds().length > 1}>
                     <div class="ml-auto flex items-center shrink-0 px-2">
