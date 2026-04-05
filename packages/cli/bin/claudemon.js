@@ -66,28 +66,6 @@ function prompt(question) {
   });
 }
 
-function quoteForShell(val) {
-  return "'" + val.replace(/'/g, "'\\''") + "'";
-}
-
-function detectRcFile() {
-  const shell = process.env.SHELL || "";
-  if (shell.includes("fish")) {
-    const p = join(homedir(), ".config", "fish", "config.fish");
-    if (existsSync(p)) return p;
-    // fish users without config.fish yet — create it
-    return p;
-  }
-  if (shell.includes("zsh")) {
-    return join(homedir(), ".zshrc");
-  }
-  for (const f of [".bashrc", ".bash_profile"]) {
-    const p = join(homedir(), f);
-    if (existsSync(p)) return p;
-  }
-  return join(homedir(), ".bashrc");
-}
-
 // ── Init ───────────────────────────────────────────────────────────
 
 async function init(keyArg) {
@@ -129,8 +107,7 @@ async function init(keyArg) {
   const hook = {
     type: "http",
     url: `${API_URL}/events`,
-    headers: { Authorization: "Bearer $CLAUDEMON_API_KEY" },
-    allowedEnvVars: ["CLAUDEMON_API_KEY"],
+    headers: { Authorization: `Bearer ${key}` },
     timeout: 3,
   };
   const entry = { matcher: "", hooks: [hook] };
@@ -160,33 +137,11 @@ async function init(keyArg) {
   console.log(green("  +") + ` Hooks added to ${dim(settingsPath)}`);
   if (preserved > 0) console.log(dim(`    (preserved ${preserved} existing hook groups)`));
 
-  // 3. Set env var in shell rc
-  const rcFile = detectRcFile();
-  const rcDir = join(rcFile, "..");
-  if (!existsSync(rcDir)) mkdirSync(rcDir, { recursive: true });
-
-  const exportLine = `export CLAUDEMON_API_KEY=${quoteForShell(key)}`;
-
-  if (existsSync(rcFile)) {
-    let content = readFileSync(rcFile, "utf-8");
-    if (/CLAUDEMON_API_KEY=/.test(content)) {
-      content = content.replace(/^.*CLAUDEMON_API_KEY=.*$/gm, () => exportLine);
-    } else {
-      content = content.trimEnd() + "\n" + exportLine + "\n";
-    }
-    writeFileSync(rcFile, content);
-  } else {
-    writeFileSync(rcFile, exportLine + "\n");
-  }
-  console.log(green("  +") + ` API key saved to ${dim(rcFile)}`);
-
-  // Done
+  // Done — no env var needed, key is hardcoded in hook config
+  // Claude Code watches settings.json, so hooks activate immediately
   console.log();
-  console.log(green("  Done!") + " Run this to activate, then open Claude Code:");
-  console.log();
-  console.log("  " + bold(`source ${rcFile}`));
-  console.log();
-  console.log(dim("  Sessions will appear at https://app.claudemon.com"));
+  console.log(green("  Done!") + " Hooks are active immediately — no restart needed.");
+  console.log(dim("  Open Claude Code and sessions will appear at https://app.claudemon.com"));
   console.log();
 }
 

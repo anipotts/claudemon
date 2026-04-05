@@ -404,7 +404,6 @@ body {
     flex: none !important;
     border-right: none !important;
     border-bottom: 1px solid var(--panel-border);
-    overflow-y: visible !important;
     overflow: visible !important;
     min-height: auto !important;
     padding: 20px 16px !important;

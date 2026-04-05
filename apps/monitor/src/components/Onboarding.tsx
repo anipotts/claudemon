@@ -553,63 +553,66 @@ print('Done! Restart your terminal.')
             </Show>
           </div>
 
-          <div class={isMobile() ? `fields-collapsible-body ${fieldsOpen() ? "fields-expanded" : "fields-collapsed"}` : ""}>
-          <Show when={hookType() !== "bash"}>
-            <div class="bg-safe/8 border border-safe/20 rounded px-3 py-2 mb-4">
-              <p class="text-[11px] text-safe">HTTP hooks send all fields automatically. No script needed.</p>
-            </div>
-          </Show>
+          <div
+            class={isMobile() ? `fields-collapsible-body ${fieldsOpen() ? "fields-expanded" : "fields-collapsed"}` : ""}
+          >
+            <Show when={hookType() !== "bash"}>
+              <div class="bg-safe/8 border border-safe/20 rounded px-3 py-2 mb-4">
+                <p class="text-[11px] text-safe">HTTP hooks send all fields automatically. No script needed.</p>
+              </div>
+            </Show>
 
-          <div class={`space-y-3 mb-4 ${hookType() !== "bash" ? "opacity-30 pointer-events-none" : ""}`}>
-            <For each={groupedFields()}>
-              {(group) => (
-                <div>
-                  <div class="text-[9px] text-text-dim uppercase tracking-widest font-bold mb-1 px-2.5">
-                    {group.category}
-                  </div>
-                  <div class="space-y-0">
-                    <For each={group.fields}>
-                      {(field) => {
-                        const on = () => enabledFields()[field.id];
-                        return (
-                          <button
-                            onClick={() => toggleField(field.id)}
-                            class={`w-full flex items-center gap-2.5 px-2.5 py-1 rounded text-left transition-colors ${
-                              field.required ? "cursor-default" : "cursor-pointer hover:bg-card/80"
-                            }`}
-                          >
-                            <div
-                              class={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition-colors ${
-                                on() ? "bg-safe/20 border-safe/50" : "border-panel-border/60"
+            <div class={`space-y-3 mb-4 ${hookType() !== "bash" ? "opacity-30 pointer-events-none" : ""}`}>
+              <For each={groupedFields()}>
+                {(group) => (
+                  <div>
+                    <div class="text-[9px] text-text-dim uppercase tracking-widest font-bold mb-1 px-2.5">
+                      {group.category}
+                    </div>
+                    <div class="space-y-0">
+                      <For each={group.fields}>
+                        {(field) => {
+                          const on = () => enabledFields()[field.id];
+                          return (
+                            <button
+                              onClick={() => toggleField(field.id)}
+                              class={`w-full flex items-center gap-2.5 px-2.5 py-1 rounded text-left transition-colors ${
+                                field.required ? "cursor-default" : "cursor-pointer hover:bg-card/80"
                               }`}
                             >
-                              <Show when={on()}>
-                                <Check size={9} class="text-safe" />
-                              </Show>
-                            </div>
-                            <span
-                              class={`text-[12px] font-mono ${on() ? "text-text-primary" : "text-text-sub line-through"}`}
-                            >
-                              {field.label}
-                            </span>
-                            <Show when={field.required}>
-                              <span class="text-[9px] text-text-sub uppercase tracking-wider ml-auto">req</span>
-                            </Show>
-                            <Show when={field.privacy}>
-                              <span class="text-[9px] bg-attack/20 text-attack border border-attack/30 rounded px-1.5 py-0.5 ml-auto uppercase tracking-wider">
-                                Contains your messages
+                              <div
+                                class={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                                  on() ? "bg-safe/20 border-safe/50" : "border-panel-border/60"
+                                }`}
+                              >
+                                <Show when={on()}>
+                                  <Check size={9} class="text-safe" />
+                                </Show>
+                              </div>
+                              <span
+                                class={`text-[12px] font-mono ${on() ? "text-text-primary" : "text-text-sub line-through"}`}
+                              >
+                                {field.label}
                               </span>
-                            </Show>
-                          </button>
-                        );
-                      }}
-                    </For>
+                              <Show when={field.required}>
+                                <span class="text-[9px] text-text-sub uppercase tracking-wider ml-auto">req</span>
+                              </Show>
+                              <Show when={field.privacy}>
+                                <span class="text-[9px] bg-attack/20 text-attack border border-attack/30 rounded px-1.5 py-0.5 ml-auto uppercase tracking-wider">
+                                  Contains your messages
+                                </span>
+                              </Show>
+                            </button>
+                          );
+                        }}
+                      </For>
+                    </div>
                   </div>
-                </div>
-              )}
-            </For>
+                )}
+              </For>
+            </div>
           </div>
-          </div>{/* end fields-collapsible-body wrapper */}
+          {/* end fields-collapsible-body wrapper */}
         </div>
 
         {/* ── COL 3: Install (hook + settings) ───────────────── */}
@@ -721,16 +724,18 @@ print('Done! Restart your terminal.')
             <div class="text-[10px] text-suspicious mb-3">Fallback — requires bash, jq, and curl on your system</div>
           </Show>
 
-          <div class="flex-1 min-h-0 flex flex-col gap-4 overflow-y-auto">
-            <Show when={hookType() === "bash"}>
-              <CodeBlock code={hookScript()} label="Save as ~/.claudemon-hook.sh" lang="bash" />
-            </Show>
-            <CodeBlock
-              code={settingsJson()}
-              label={hookType() === "http" ? "" : "Add to ~/.claude/settings.json"}
-              lang="json"
-            />
-          </div>
+          <Show when={hookType() !== "npm"}>
+            <div class="flex-1 min-h-0 flex flex-col gap-4 overflow-y-auto">
+              <Show when={hookType() === "bash"}>
+                <CodeBlock code={hookScript()} label="Save as ~/.claudemon-hook.sh" lang="bash" />
+              </Show>
+              <CodeBlock
+                code={settingsJson()}
+                label={hookType() === "http" ? "" : "Add to ~/.claude/settings.json"}
+                lang="json"
+              />
+            </div>
+          </Show>
 
           <div class="mt-3 flex items-center gap-2.5 text-[12px]">
             <span class="w-2 h-2 rounded-full bg-safe animate-pulse" />

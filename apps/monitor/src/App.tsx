@@ -1,4 +1,4 @@
-import { type Component, For, Show, createMemo, createSignal, onMount, onCleanup } from "solid-js";
+import { type Component, For, Show, createMemo, createSignal, createEffect, onMount, onCleanup } from "solid-js";
 import "./globals.css";
 import { createSessionStore } from "./stores/sessions";
 import { AgentMap } from "./components/AgentMap";
@@ -112,6 +112,10 @@ const App: Component = () => {
 
   const hasAgents = createMemo(() => totalAgents() > 0 || allEvents().length > 0);
   const connected = () => connectionStatus() === "connected";
+  const [wasConnected, setWasConnected] = createSignal(false);
+  createEffect(() => {
+    if (connected()) setWasConnected(true);
+  });
   const [notificationsOn, setNotificationsOn] = createSignal(
     typeof localStorage !== "undefined" && localStorage.getItem("claudemon_notifications") === "on",
   );
@@ -267,8 +271,8 @@ const App: Component = () => {
         </div>
       </header>
 
-      {/* Reconnecting bar */}
-      <Show when={connectionStatus() === "connecting"}>
+      {/* Reconnecting bar — only shows after first successful connection */}
+      <Show when={wasConnected() && connectionStatus() === "connecting"}>
         <div class="h-0.5 bg-suspicious/50 animate-pulse" />
       </Show>
 
@@ -290,9 +294,13 @@ const App: Component = () => {
           <Show when={isMobile() && conflicts().length > 0}>
             <div class="shrink-0 flex items-center gap-2 px-3 py-1.5 bg-attack/5 border-b border-attack/30">
               <Lightning size={12} class="text-attack" />
-              <span class="text-[10px] text-attack font-bold">{conflicts().length} conflict{conflicts().length !== 1 ? "s" : ""}</span>
+              <span class="text-[10px] text-attack font-bold">
+                {conflicts().length} conflict{conflicts().length !== 1 ? "s" : ""}
+              </span>
               <span class="text-[9px] text-text-dim truncate">
-                {conflicts().map((c) => c.filePath.split("/").pop()).join(", ")}
+                {conflicts()
+                  .map((c) => c.filePath.split("/").pop())
+                  .join(", ")}
               </span>
             </div>
           </Show>
