@@ -1,0 +1,13 @@
+{
+  "name": "openproof-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "cd ../monitor && npm run dev",
+    "build": "cd ../monitor && npm run build",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.5.0"
+  }
+}
