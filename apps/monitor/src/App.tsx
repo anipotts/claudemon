@@ -6,7 +6,7 @@ import { ActivityTimeline } from "./components/ActivityTimeline";
 import { ConflictPanel, type ConflictData } from "./components/ConflictPanel";
 import { SessionDetail } from "./components/SessionDetail";
 import { Onboarding } from "./components/Onboarding";
-import { ShieldCheck, Lightning, ListBullets, TreeStructure, Trash, GearSix } from "./components/Icons";
+import { ShieldCheck, Lightning, ListBullets, TreeStructure, Trash, GearSix, Terminal } from "./components/Icons";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { IdleDashboard } from "./components/IdleDashboard";
 
@@ -301,36 +301,22 @@ const App: Component = () => {
         }
       >
         <div class={`flex flex-1 overflow-hidden ${isMobile() ? "flex-col" : ""}`}>
-          {/* Mobile: Conflict banner at top */}
+          {/* Mobile: Conflict banner */}
           <Show when={isMobile() && conflicts().length > 0}>
             <div class="shrink-0 flex items-center gap-2 px-3 py-1.5 bg-attack/5 border-b border-attack/30">
               <Lightning size={12} class="text-attack" />
-              <span class="text-[10px] text-attack font-bold">
-                {conflicts().length} conflict{conflicts().length !== 1 ? "s" : ""}
-              </span>
-              <span class="text-[9px] text-text-dim truncate">
-                {conflicts()
-                  .map((c) => c.filePath.split("/").pop())
-                  .join(", ")}
-              </span>
+              <span class="text-[10px] text-attack font-bold">{conflicts().length} conflict{conflicts().length !== 1 ? "s" : ""}</span>
             </div>
           </Show>
 
-          {/* Left: Agent Map */}
-          <div class={`flex flex-col ${isMobile() ? "flex-1 min-w-0" : "w-[280px] shrink-0 border-r border-panel-border"}`}>
-            <div class="px-4 py-2 border-b border-panel-border flex items-center gap-2 h-[33px]">
-              <TreeStructure size={14} class="text-text-label" />
-              <span class="text-[10px] text-text-label uppercase tracking-[2px]">Agent Map</span>
-              <span class="text-[9px] text-text-sub ml-auto">
-                {totalAgents()} session{totalAgents() !== 1 ? "s" : ""}
-              </span>
-            </div>
-            <div class="flex-1 overflow-y-auto smooth-scroll p-3">
+          {/* Sessions sidebar */}
+          <div class={`flex flex-col ${isMobile() ? "flex-1 min-w-0" : "w-[260px] shrink-0 border-r border-panel-border"}`}>
+            <div class="flex-1 overflow-y-auto smooth-scroll p-2">
               <AgentMap sessions={sessions} selectedIds={selectedSessionIds()} onSelect={handleSelectSession} />
             </div>
           </div>
 
-          {/* Mobile: Session Detail as full-screen overlay */}
+          {/* Mobile: Session Detail overlay */}
           <Show when={isMobile() && selectedSessions().length > 0}>
             <div class="absolute inset-0 z-50 bg-bg flex flex-col" style={{ top: "44px" }}>
               <SessionDetail
@@ -341,52 +327,36 @@ const App: Component = () => {
             </div>
           </Show>
 
-          {/* Desktop: Single detail panel with tabs for multiple sessions */}
-          <Show when={!isMobile() && selectedSessions().length > 0}>
-            <div class="flex-1 min-w-0 flex flex-col border-l border-panel-border">
-              {/* Session tabs when multiple selected */}
-              <Show when={selectedSessionIds().length > 1}>
-                <div class="flex items-center gap-0 border-b border-panel-border shrink-0 bg-item overflow-x-auto">
+          {/* Desktop: Main content area */}
+          <Show when={!isMobile()}>
+            <div class="flex-1 min-w-0 flex flex-col">
+              {/* Tab bar — always visible when sessions selected */}
+              <Show when={selectedSessions().length > 0}>
+                <div class="flex items-center shrink-0 bg-item border-b border-panel-border overflow-x-auto">
                   <For each={selectedSessionIds()}>
                     {(id) => {
                       const s = () => sessions[id];
-                      const isActive = () => id === selectedSessionIds()[selectedSessionIds().length - 1];
+                      const isLast = () => id === selectedSessionIds()[selectedSessionIds().length - 1];
                       return (
                         <Show when={s()}>
                           <button
-                            class={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-mono border-r border-panel-border/50 shrink-0 transition-colors ${
-                              isActive()
-                                ? "bg-bg text-text-primary border-b-2 border-b-safe"
-                                : "text-text-sub hover:text-text-primary hover:bg-panel/30"
+                            class={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-mono border-r border-panel-border/30 shrink-0 transition-colors ${
+                              isLast() ? "bg-bg text-text-primary" : "text-text-sub hover:text-text-primary hover:bg-panel/20"
                             }`}
                             onClick={() => {
-                              // Move this session to end (make it active)
-                              setSelectedSessionIds((prev) => [...prev.filter((x) => x !== id), id]);
+                              if (isLast()) {
+                                handleCloseSession(id);
+                              } else {
+                                setSelectedSessionIds((prev) => [...prev.filter((x) => x !== id), id]);
+                              }
                             }}
                           >
-                            <span
-                              class="w-1.5 h-1.5 rounded-full shrink-0"
-                              style={{
-                                background:
-                                  s()!.status === "working"
-                                    ? "#a3b18a"
-                                    : s()!.status === "thinking"
-                                      ? "#7b9fbf"
-                                      : s()!.status === "waiting"
-                                        ? "#c9a96e"
-                                        : "#4a4640",
-                              }}
-                            />
-                            <span class="truncate max-w-[120px]">{s()!.project_name}</span>
-                            <button
-                              class="text-text-sub hover:text-text-primary ml-1"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleCloseSession(id);
-                              }}
-                            >
-                              x
-                            </button>
+                            <span class="w-1.5 h-1.5 rounded-full shrink-0" style={{
+                              background: s()!.status === "working" ? "#a3b18a" : s()!.status === "thinking" ? "#7b9fbf" : s()!.status === "waiting" ? "#c9a96e" : "#4a4640"
+                            }} />
+                            <span class="truncate max-w-[100px]">{s()!.project_name}</span>
+                            <span class="text-[8px] text-text-sub">{s()!.session_id.slice(0, 8)}</span>
+                            <span class="text-text-sub hover:text-text-primary ml-0.5 text-[9px]" onClick={(e) => { e.stopPropagation(); handleCloseSession(id); }}>x</span>
                           </button>
                         </Show>
                       );
@@ -394,61 +364,88 @@ const App: Component = () => {
                   </For>
                 </div>
               </Show>
-              {/* Show the last selected session's detail */}
-              <SessionDetail
-                session={selectedSessions()[selectedSessions().length - 1]}
-                onClose={() => handleCloseSession(selectedSessionIds()[selectedSessionIds().length - 1])}
-              />
+
+              {/* Content below tabs */}
+              <div class="flex flex-1 min-h-0 overflow-hidden">
+                <Show
+                  when={selectedSessions().length > 0}
+                  fallback={
+                    /* No session selected: activity overview */
+                    <div class="flex-1 flex flex-col">
+                      <Show
+                        when={allEvents().length > 0}
+                        fallback={
+                          <div class="flex-1 flex flex-col items-center justify-center gap-3">
+                            <Terminal size={28} class="text-text-sub" />
+                            <span class="text-[13px] text-text-dim">Select a session to view details</span>
+                            <span class="text-[10px] text-text-sub">or wait for new activity</span>
+                          </div>
+                        }
+                      >
+                        <div class="flex-1 overflow-y-auto smooth-scroll">
+                          <ActivityTimeline events={allEvents()} onSelectSession={handleSelectSession} />
+                        </div>
+                      </Show>
+                      <Show when={conflicts().length > 0}>
+                        <div class="shrink-0 border-t border-panel-border p-2">
+                          <div class="flex items-center gap-2 px-2 py-1">
+                            <Lightning size={12} class="text-attack" />
+                            <span class="text-[9px] text-attack font-bold">{conflicts().length} conflict{conflicts().length !== 1 ? "s" : ""}</span>
+                          </div>
+                          <ConflictPanel conflicts={conflicts()} />
+                        </div>
+                      </Show>
+                    </div>
+                  }
+                >
+                  {/* Session detail */}
+                  <SessionDetail
+                    session={selectedSessions()[selectedSessions().length - 1]}
+                    onClose={() => handleCloseSession(selectedSessionIds()[selectedSessionIds().length - 1])}
+                  />
+
+                  {/* Activity sidebar */}
+                  <div class="w-[280px] shrink-0 flex flex-col border-l border-panel-border">
+                    <div class="flex-1 flex flex-col min-h-0">
+                      <div class="px-3 py-2 border-b border-panel-border flex items-center gap-2 shrink-0 h-[33px]">
+                        <ListBullets size={14} class="text-text-label" />
+                        <span class="text-[10px] text-text-label uppercase tracking-[2px]">Activity</span>
+                        <span class="text-[9px] text-text-sub ml-auto">{allEvents().length}</span>
+                      </div>
+                      <div class="flex-1 overflow-y-auto smooth-scroll">
+                        <ActivityTimeline events={allEvents()} onSelectSession={handleSelectSession} />
+                      </div>
+                    </div>
+                    <Show when={conflicts().length > 0}>
+                      <div class="shrink-0 border-t border-panel-border">
+                        <div class="px-3 py-1.5 flex items-center gap-2">
+                          <Lightning size={12} class="text-attack" />
+                          <span class="text-[9px] text-attack font-bold">{conflicts().length} conflict{conflicts().length !== 1 ? "s" : ""}</span>
+                        </div>
+                        <div class="px-2 pb-2">
+                          <ConflictPanel conflicts={conflicts()} />
+                        </div>
+                      </div>
+                    </Show>
+                  </div>
+                </Show>
+              </div>
             </div>
           </Show>
 
-          {/* Mobile: Activity toggle at bottom */}
+          {/* Mobile: Activity toggle */}
           <Show when={isMobile()}>
             <div class="shrink-0 border-t border-panel-border">
-              <button
-                onClick={() => setShowMobileActivity(!showMobileActivity())}
-                class="flex items-center gap-2 w-full px-3 py-2 bg-item"
-              >
+              <button onClick={() => setShowMobileActivity(!showMobileActivity())} class="flex items-center gap-2 w-full px-3 py-2 bg-item">
                 <ListBullets size={14} class="text-text-label" />
                 <span class="text-[10px] text-text-label uppercase tracking-[2px]">Activity</span>
-                <span class="text-[9px] text-text-sub ml-auto">{allEvents().length} events</span>
+                <span class="text-[9px] text-text-sub ml-auto">{allEvents().length}</span>
               </button>
               <Show when={showMobileActivity()}>
                 <div class="max-h-[50vh] overflow-y-auto smooth-scroll border-t border-panel-border">
                   <ActivityTimeline events={allEvents()} onSelectSession={handleSelectSession} />
                 </div>
               </Show>
-            </div>
-          </Show>
-
-          {/* Desktop: Right sidebar: Activity + Conflicts */}
-          <Show when={!isMobile()}>
-            <div class="w-[340px] shrink-0 flex flex-col overflow-hidden border-l border-panel-border">
-              {/* Activity Timeline */}
-              <div class="flex-1 flex flex-col min-h-0 border-b border-panel-border">
-                <div class="px-3 py-2 border-b border-panel-border flex items-center gap-2 shrink-0 h-[33px]">
-                  <ListBullets size={14} class="text-text-label" />
-                  <span class="text-[10px] text-text-label uppercase tracking-[2px]">Activity</span>
-                  <span class="text-[9px] text-text-sub ml-auto">{allEvents().length} events</span>
-                </div>
-                <div class="flex-1 overflow-y-auto smooth-scroll">
-                  <ActivityTimeline events={allEvents()} onSelectSession={handleSelectSession} />
-                </div>
-              </div>
-
-              {/* Conflicts */}
-              <div class="shrink-0 max-h-[220px] overflow-y-auto smooth-scroll">
-                <div class="px-3 py-2 border-b border-panel-border flex items-center gap-2 h-[33px]">
-                  <Lightning size={14} class="text-attack" />
-                  <span class="text-[10px] text-text-label uppercase tracking-[2px]">Conflicts</span>
-                  <Show when={conflicts().length > 0}>
-                    <span class="text-[9px] text-attack font-bold ml-auto">{conflicts().length}</span>
-                  </Show>
-                </div>
-                <div class="p-2">
-                  <ConflictPanel conflicts={conflicts()} />
-                </div>
-              </div>
             </div>
           </Show>
         </div>
