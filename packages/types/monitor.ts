@@ -13,7 +13,23 @@ export type HookEventName =
   | "Stop"
   | "StopFailure"
   | "Notification"
-  | "UserPromptSubmit";
+  | "UserPromptSubmit"
+  | "PreCompact"
+  | "PostCompact"
+  | "PermissionRequest"
+  | "PermissionDenied"
+  | "TaskCreated"
+  | "TaskCompleted"
+  | "TeammateIdle"
+  | "ConfigChange"
+  | "WorktreeCreate"
+  | "WorktreeRemove"
+  | "CwdChanged"
+  | "FileChanged"
+  | "InstructionsLoaded"
+  | "Elicitation"
+  | "ElicitationResult"
+  | "Setup";
 
 export interface MonitorEvent {
   // Identity
@@ -51,6 +67,63 @@ export interface MonitorEvent {
   // Error info
   error?: string;
   error_details?: string;
+
+  // Notification
+  notification_message?: string;
+  notification_title?: string;
+  notification_type?: string;
+
+  // Compact
+  compact_trigger?: string; // manual | auto
+  compact_summary?: string;
+  custom_instructions?: string;
+
+  // Permission
+  permission_suggestions?: unknown[];
+  permission_denied_reason?: string;
+
+  // Task
+  task_id?: string;
+  task_subject?: string;
+  task_description?: string;
+  teammate_name?: string;
+  team_name?: string;
+
+  // CwdChanged
+  old_cwd?: string;
+  new_cwd?: string;
+
+  // FileChanged
+  file_path?: string;
+  file_event?: string; // change | add | unlink
+
+  // InstructionsLoaded
+  instruction_file_path?: string;
+  memory_type?: string;
+  load_reason?: string;
+
+  // SessionEnd
+  end_reason?: string;
+
+  // SessionStart
+  is_interrupt?: boolean;
+
+  // Config
+  config_source?: string;
+  config_file_path?: string;
+
+  // Worktree
+  worktree_name?: string;
+  worktree_path?: string;
+
+  // User prompt
+  prompt?: string;
+
+  // Transcript
+  transcript_path?: string;
+
+  // Branch (sent from hook)
+  branch?: string;
 }
 
 export type SessionStatus =
@@ -84,6 +157,18 @@ export interface SessionState {
   read_count: number;
   search_count: number;
 
+  // Derived metrics
+  error_count: number;
+  compaction_count: number;
+  tool_rate?: number; // tools/min
+  error_rate?: number; // errors/total tools
+  notification_message?: string; // last notification text
+  end_reason?: string;
+  compact_summary?: string; // last compaction summary
+  permission_denied_count: number;
+  files_touched: string[]; // unique file paths edited
+  commands_run: string[]; // recent bash commands (last 20)
+
   // Recent events (ring buffer, last N)
   events: MonitorEvent[];
 
@@ -101,6 +186,24 @@ export type WsMessage =
   | { type: "session_update"; session: SessionState }
   | { type: "sessions_snapshot"; sessions: SessionState[] }
   | { type: "ping"; ts: number };
+
+// All hook event names as a runtime array (single source of truth)
+export const HOOK_EVENTS: HookEventName[] = [
+  "PreToolUse", "PostToolUse", "PostToolUseFailure",
+  "Stop", "StopFailure", "Notification",
+  "SessionStart", "SessionEnd",
+  "SubagentStart", "SubagentStop",
+  "PreCompact", "PostCompact",
+  "UserPromptSubmit",
+  "PermissionRequest", "PermissionDenied",
+  "TaskCreated", "TaskCompleted",
+  "TeammateIdle", "CwdChanged", "FileChanged",
+  "ConfigChange",
+  "WorktreeCreate", "WorktreeRemove",
+  "InstructionsLoaded",
+  "Elicitation", "ElicitationResult",
+  "Setup",
+];
 
 // Status derivation helpers
 export const TOOL_CATEGORIES = {
