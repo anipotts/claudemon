@@ -275,6 +275,7 @@ export class SessionRoom extends DurableObject {
         break;
       case "UserPromptSubmit":
         session.status = "working";
+        if (event.prompt) session.last_prompt = event.prompt.slice(0, 80);
         break;
       case "PermissionRequest":
         session.status = "waiting";

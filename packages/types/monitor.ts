@@ -161,6 +161,7 @@ export interface SessionState {
   error_rate?: number; // errors/total tools
   notification_message?: string; // last notification text
   end_reason?: string;
+  last_prompt?: string; // last UserPromptSubmit text (first 80 chars)
   compact_summary?: string; // last compaction summary
   permission_denied_count: number;
   files_touched: string[]; // unique file paths edited

@@ -35,9 +35,40 @@ function ModelBadge(props: { model: string }) {
   );
 }
 
+// ── Bash command classification ────────────────────────────────────
+
+function classifyCommand(cmd: string): { label: string; color: string } | null {
+  if (/^git\s+(commit|push|pull|checkout|merge|rebase|stash|log|diff|status|add|reset|branch)/.test(cmd))
+    return { label: "git", color: "#b07bac" };
+  if (/^npm\s+(test|run\s+test|t)\b/.test(cmd)) return { label: "test", color: "#a3b18a" };
+  if (/^npm\s+(run\s+build|run\s+dev|start|install|ci)\b/.test(cmd)) return { label: "npm", color: "#cb3837" };
+  if (/^(docker|docker-compose)\s/.test(cmd)) return { label: "docker", color: "#2496ed" };
+  if (/^curl\s/.test(cmd)) return { label: "curl", color: "#7b9fbf" };
+  if (/^(python3?|node|npx|tsx|bun)\s/.test(cmd)) return { label: "run", color: "#c9a96e" };
+  if (/^(cat|head|tail|less|wc)\s/.test(cmd)) return { label: "read", color: "#6b6560" };
+  if (/^(mkdir|rm|mv|cp|chmod|ln)\s/.test(cmd)) return { label: "fs", color: "#b85c4a" };
+  if (/^(cd|ls|pwd|find|which)\s/.test(cmd)) return { label: "nav", color: "#6b6560" };
+  return null;
+}
+
+// ── Agent type colors ─────────────────────────────────────────────
+
+const AGENT_TYPE_COLORS: Record<string, string> = {
+  Explore: "#7b9fbf",
+  Plan: "#006666",
+  "code-reviewer": "#a3b18a",
+  "general-purpose": "#8a8478",
+  debugger: "#b85c4a",
+  "test-automator": "#c9a96e",
+};
+
+function agentColor(type: string): string {
+  return AGENT_TYPE_COLORS[type] || "#b07bac";
+}
+
 // ── Collapsible Tool Call ───────────────────────────────────────────
 
-function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean }) {
+function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean; focused?: boolean }) {
   const [expanded, setExpanded] = createSignal(props.defaultExpanded);
   const e = () => props.event;
   const input = () => e().tool_input || {};
@@ -70,8 +101,13 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean })
       case "Edit":
       case "Write":
         return null; // handled by FileBadge
-      case "Grep":
-        return `/${inp.pattern || ""}/ in ${inp.path || "."}`;
+      case "Grep": {
+        let detail = `/${inp.pattern || ""}/`;
+        if (inp.glob) detail += ` ${inp.glob}`;
+        else if (inp.type) detail += ` type:${inp.type}`;
+        if (inp.path) detail += ` in ${(inp.path as string).split("/").pop() || "."}`;
+        return detail;
+      }
       case "Glob":
         return (inp.pattern as string) || "";
       case "Agent":
@@ -81,21 +117,32 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean })
     }
   };
 
-  // Diff rendering for Edit
-  const diffLines = (): { type: "add" | "remove"; text: string }[] | null => {
+  // Bash command classification
+  const cmdLabel = () => {
+    if (e().tool_name !== "Bash") return null;
+    return classifyCommand((input().command as string) || "");
+  };
+
+  // Diff rendering for Edit — up to 15 lines, with line numbers
+  const diffLines = (): { type: "add" | "remove"; text: string; lineNo: number }[] | null => {
     if (e().tool_name !== "Edit" && e().tool_name !== "Write") return null;
     const old_s = input().old_string as string;
     const new_s = input().new_string as string;
     if (!old_s && !new_s) return null;
-    const lines: { type: "add" | "remove"; text: string }[] = [];
+    const lines: { type: "add" | "remove"; text: string; lineNo: number }[] = [];
     if (old_s) {
-      for (const l of old_s.split("\n").slice(0, 8)) lines.push({ type: "remove", text: l });
+      const oldLines = old_s.split("\n").slice(0, 15);
+      for (let i = 0; i < oldLines.length; i++) lines.push({ type: "remove", text: oldLines[i], lineNo: i + 1 });
     }
     if (new_s) {
-      for (const l of new_s.split("\n").slice(0, 8)) lines.push({ type: "add", text: l });
+      const newLines = new_s.split("\n").slice(0, 15);
+      for (let i = 0; i < newLines.length; i++) lines.push({ type: "add", text: newLines[i], lineNo: i + 1 });
     }
     return lines.length > 0 ? lines : null;
   };
+
+  // Edit: detect replace_all flag
+  const isReplaceAll = () => e().tool_name === "Edit" && input().replace_all === true;
 
   // Bash output
   const bashOutput = () => {
@@ -107,9 +154,14 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean })
     return { stdout: stdout.slice(0, 800), stderr: stderr.slice(0, 200), exitCode };
   };
 
-  // Read line count
+  // Read info — show offset/limit if available
   const readInfo = () => {
     if (e().tool_name !== "Read") return null;
+    const inp = input();
+    const offset = inp.offset as number | undefined;
+    const limit = inp.limit as number | undefined;
+    if (offset !== undefined && limit !== undefined) return `lines ${offset}-${offset + limit}`;
+    if (limit !== undefined) return `${limit} lines`;
     const resp = response();
     const content = (resp.content as string) || (resp.output as string) || "";
     return content ? `${content.split("\n").length} lines` : null;
@@ -143,7 +195,7 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean })
   };
 
   return (
-    <div class="border-b border-panel-border/20 event-enter">
+    <div class={`border-b border-panel-border/20 event-enter ${props.focused ? "ring-1 ring-safe/30" : ""}`}>
       {/* Header row — always visible, clickable. Shows file badge + summary inline */}
       <button
         class="flex items-center gap-1.5 w-full px-3 py-1.5 hover:bg-panel/20 text-left"
@@ -152,9 +204,26 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean })
         <span class="text-[11px] text-text-dim w-4 text-center shrink-0 font-mono">{icon()}</span>
         <span class="text-[10px] font-bold text-text-label shrink-0">{e().tool_name || e().hook_event_name}</span>
 
+        {/* Bash command label badge */}
+        <Show when={cmdLabel()}>
+          {(cl) => (
+            <span
+              class="text-[7px] font-bold uppercase px-1 rounded-sm shrink-0"
+              style={{ color: cl().color, background: cl().color + "18" }}
+            >
+              {cl().label}
+            </span>
+          )}
+        </Show>
+
         {/* File badge inline in header */}
         <Show when={filePath()}>
           <FileBadge path={filePath()!} />
+        </Show>
+
+        {/* Edit: replace_all badge */}
+        <Show when={isReplaceAll()}>
+          <span class="text-[7px] text-suspicious bg-suspicious/10 px-1 rounded-sm shrink-0">all</span>
         </Show>
 
         {/* Edit diff stat — always visible */}
@@ -239,15 +308,17 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean })
             )}
           </Show>
 
-          {/* Diff block for Edit */}
+          {/* Diff block for Edit — with line numbers */}
           <Show when={diffLines()}>
             {(lines) => (
               <div class="mt-1 rounded-sm overflow-hidden border border-panel-border/30 text-[10px] font-mono leading-4">
                 <For each={lines()}>
                   {(line) => (
-                    <div class={line.type === "add" ? "diff-add" : "diff-remove"}>
-                      {line.type === "add" ? "+ " : "- "}
-                      {line.text}
+                    <div class={`flex ${line.type === "add" ? "diff-add" : "diff-remove"}`}>
+                      <span class="w-7 text-right pr-1.5 text-text-sub/40 select-none shrink-0">{line.lineNo}</span>
+                      <span>
+                        {line.type === "add" ? "+" : "-"} {line.text}
+                      </span>
                     </div>
                   )}
                 </For>
@@ -362,6 +433,32 @@ export const SessionDetail: Component<{
   const statusColor = () => STATUS_COLORS[s().status] || "#666";
   const isWaiting = () => s().status === "waiting";
 
+  // Keyboard navigation
+  const [focusedIdx, setFocusedIdx] = createSignal(-1);
+
+  const handleKeyDown = (ev: KeyboardEvent) => {
+    const len = timeline().length;
+    if (len === 0) return;
+    if (ev.key === "j" || ev.key === "ArrowDown") {
+      ev.preventDefault();
+      setFocusedIdx((i) => Math.min(i + 1, len - 1));
+    } else if (ev.key === "k" || ev.key === "ArrowUp") {
+      ev.preventDefault();
+      setFocusedIdx((i) => Math.max(i - 1, 0));
+    } else if (ev.key === "Escape") {
+      setFocusedIdx(-1);
+    }
+  };
+
+  // Auto-scroll to focused event
+  createEffect(() => {
+    const idx = focusedIdx();
+    if (idx >= 0 && scrollRef) {
+      const el = scrollRef.children[idx] as HTMLElement | undefined;
+      el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  });
+
   return (
     <div class={`${props.isMobile ? "w-full flex-1" : "flex-1 min-w-0"} flex flex-col overflow-hidden bg-bg`}>
       {/* Header — aligned with ACTIVITY header */}
@@ -435,8 +532,14 @@ export const SessionDetail: Component<{
         </div>
       </Show>
 
-      {/* Scrollable tool call timeline */}
-      <div ref={scrollRef} class="flex-1 overflow-y-auto smooth-scroll relative" onScroll={handleScroll}>
+      {/* Scrollable tool call timeline — j/k keyboard nav */}
+      <div
+        ref={scrollRef}
+        class="flex-1 overflow-y-auto smooth-scroll relative outline-none"
+        onScroll={handleScroll}
+        onKeyDown={handleKeyDown}
+        tabIndex={0}
+      >
         <For each={timeline()}>
           {(event, i) => (
             <Show when={!nestedIndices().has(i())}>
@@ -604,8 +707,16 @@ export const SessionDetail: Component<{
                               class="flex items-center gap-2 w-full px-3 py-1.5 hover:bg-[#b07bac10] text-left"
                               onClick={() => setOpen(!open())}
                             >
-                              <span class="text-[9px] font-bold text-[#b07bac]">@</span>
-                              <span class="text-[8px] font-mono font-bold text-[#b07bac]/70 bg-[#b07bac]/10 px-1 rounded-sm">
+                              <span class="text-[9px] font-bold" style={{ color: agentColor(event.agent_type || "") }}>
+                                @
+                              </span>
+                              <span
+                                class="text-[8px] font-mono font-bold px-1 rounded-sm"
+                                style={{
+                                  color: agentColor(event.agent_type || ""),
+                                  background: agentColor(event.agent_type || "") + "18",
+                                }}
+                              >
                                 {event.agent_type || "general-purpose"}
                               </span>
                               <Show when={!isDone()}>
@@ -737,6 +848,56 @@ export const SessionDetail: Component<{
                       })()}
                     </Show>
 
+                    {/* ── SessionEnd: summary receipt ───────────────────────── */}
+                    <Show when={event.hook_event_name === "SessionEnd"}>
+                      <div class="border-t border-panel-border/30 bg-panel/20 px-3 py-2 mt-1">
+                        <div class="flex items-center gap-2 mb-1.5">
+                          <span class="text-[10px] font-bold text-text-sub">Session ended</span>
+                          <Show when={event.end_reason}>
+                            <span
+                              class={`text-[8px] font-mono px-1 rounded-sm ${event.end_reason === "bypass_permissions_disabled" ? "text-attack bg-attack/10" : "text-text-dim bg-panel-border/20"}`}
+                            >
+                              {event.end_reason}
+                            </span>
+                          </Show>
+                          <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
+                        </div>
+                        <div class="grid grid-cols-3 gap-x-3 gap-y-1 text-[9px]">
+                          <div>
+                            <span class="text-text-sub">Duration:</span> <span class="text-text-dim">{duration()}</span>
+                          </div>
+                          <div>
+                            <span class="text-text-sub">Edits:</span>{" "}
+                            <span class="text-text-dim">{s().edit_count}</span>
+                          </div>
+                          <div>
+                            <span class="text-text-sub">Commands:</span>{" "}
+                            <span class="text-text-dim">{s().command_count}</span>
+                          </div>
+                          <div>
+                            <span class="text-text-sub">Reads:</span>{" "}
+                            <span class="text-text-dim">{s().read_count}</span>
+                          </div>
+                          <div>
+                            <span class="text-text-sub">Files:</span>{" "}
+                            <span class="text-text-dim">{s().files_touched?.length || 0}</span>
+                          </div>
+                          <Show when={s().error_count}>
+                            <div>
+                              <span class="text-text-sub">Errors:</span>{" "}
+                              <span class="text-attack">{s().error_count}</span>
+                            </div>
+                          </Show>
+                          <Show when={s().compaction_count}>
+                            <div>
+                              <span class="text-text-sub">Compactions:</span>{" "}
+                              <span class="text-[#7b9fbf]">{s().compaction_count}</span>
+                            </div>
+                          </Show>
+                        </div>
+                      </div>
+                    </Show>
+
                     {/* ── All other lifecycle events (generic) ─────────────── */}
                     <Show
                       when={
@@ -744,6 +905,7 @@ export const SessionDetail: Component<{
                         event.hook_event_name !== "Stop" &&
                         event.hook_event_name !== "StopFailure" &&
                         event.hook_event_name !== "SessionStart" &&
+                        event.hook_event_name !== "SessionEnd" &&
                         event.hook_event_name !== "SubagentStart" &&
                         event.hook_event_name !== "SubagentStop" &&
                         event.hook_event_name !== "PreCompact" &&
@@ -789,7 +951,11 @@ export const SessionDetail: Component<{
                   </>
                 }
               >
-                <ToolCallBlock event={event} defaultExpanded={i() >= timeline().length - 5} />
+                <ToolCallBlock
+                  event={event}
+                  defaultExpanded={i() >= timeline().length - 5}
+                  focused={focusedIdx() === i()}
+                />
               </Show>
             </Show>
           )}

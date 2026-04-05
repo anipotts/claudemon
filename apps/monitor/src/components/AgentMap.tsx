@@ -155,9 +155,28 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
           >
             <span class="text-text-label font-bold shrink-0">{detail().name}</span>
             <span class="truncate min-w-0">{detail().detail}</span>
+            <Show when={s().compaction_count}>
+              <span
+                class="shrink-0"
+                style={{ color: s().compaction_count >= 3 ? "#c9a96e" : "#7b9fbf" }}
+                title={`Context compacted ${s().compaction_count} times`}
+              >
+                &#x27F2; {s().compaction_count}
+              </span>
+            </Show>
             <span class="text-text-sub ml-auto shrink-0">{timeAgo(s().last_event_at)}</span>
           </div>
         )}
+      </Show>
+
+      {/* Row 4: Last user prompt preview */}
+      <Show when={s().last_prompt}>
+        <div
+          class="text-[8px] text-text-sub italic mt-1 truncate"
+          style={{ overflow: "hidden", "white-space": "nowrap" }}
+        >
+          {s().last_prompt}
+        </div>
       </Show>
     </div>
   );
