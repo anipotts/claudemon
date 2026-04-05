@@ -1,4 +1,4 @@
-import { type Component, For, Show, createSignal } from "solid-js";
+import { type Component, For, createSignal } from "solid-js";
 
 // ── Syntax Highlighting (lightweight, no deps) ──────────────────────
 
@@ -10,9 +10,15 @@ const SYNTAX_RULES: [RegExp, string][] = [
   // Numbers
   [/\b(\d+\.?\d*(?:e[+-]?\d+)?)\b/gi, "syn-number"],
   // Keywords
-  [/\b(const|let|var|function|return|if|else|for|while|class|import|export|from|default|async|await|try|catch|throw|new|typeof|instanceof|interface|type|enum|extends|implements|public|private|protected|static|readonly|abstract|def|self|lambda|yield|match|case|fn|pub|mod|use|struct|impl|trait|mut|ref|where|package|func|go|defer|select|chan)\b/g, "syn-keyword"],
+  [
+    /\b(const|let|var|function|return|if|else|for|while|class|import|export|from|default|async|await|try|catch|throw|new|typeof|instanceof|interface|type|enum|extends|implements|public|private|protected|static|readonly|abstract|def|self|lambda|yield|match|case|fn|pub|mod|use|struct|impl|trait|mut|ref|where|package|func|go|defer|select|chan)\b/g,
+    "syn-keyword",
+  ],
   // Built-in types/values
-  [/\b(true|false|null|undefined|None|nil|void|string|number|boolean|int|float|bool|any|never|unknown|Promise|Array|Map|Set|Error|console|window|document|process|require|module)\b/g, "syn-builtin"],
+  [
+    /\b(true|false|null|undefined|None|nil|void|string|number|boolean|int|float|bool|any|never|unknown|Promise|Array|Map|Set|Error|console|window|document|process|require|module)\b/g,
+    "syn-builtin",
+  ],
   // Function calls
   [/\b([a-zA-Z_]\w*)\s*(?=\()/g, "syn-function"],
   // Types (PascalCase)
@@ -37,9 +43,7 @@ function highlightCode(code: string): string {
       const start = m.index;
       const end = start + m[0].length;
       // Skip if overlaps with existing token
-      const overlaps = tokens.some(
-        (t) => start < t.end && end > t.start
-      );
+      const overlaps = tokens.some((t) => start < t.end && end > t.start);
       if (!overlaps) {
         tokens.push({ start, end, cls });
       }
@@ -66,10 +70,13 @@ function CopyButton(props: { text: string; class?: string }) {
   const [copied, setCopied] = createSignal(false);
   const copy = (e: MouseEvent) => {
     e.stopPropagation();
-    navigator.clipboard.writeText(props.text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    }).catch(() => {});
+    navigator.clipboard
+      .writeText(props.text)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      })
+      .catch(() => {});
   };
   return (
     <button class={`copy-btn ${props.class || ""}`} onClick={copy}>
@@ -112,7 +119,7 @@ function renderInline(text: string) {
           if (p.type === "bold") return <strong class="text-text-label">{p.text}</strong>;
           if (p.type === "link")
             return (
-              <a href={p.href} target="_blank" rel="noopener" class="text-safe/80 hover:text-safe underline">
+              <a href={p.href} target="_blank" rel="noreferrer noopener" class="text-safe/80 hover:text-safe underline">
                 {p.text}
               </a>
             );
@@ -191,10 +198,7 @@ export const MarkdownBlock: Component<{ text: string; maxLength?: number }> = (p
             return (
               <div class="code-block-wrapper">
                 <CopyButton text={block.content} />
-                <pre
-                  class="terminal-block text-[10px] leading-4"
-                  innerHTML={highlightCode(block.content)}
-                />
+                <pre class="terminal-block text-[10px] leading-4" innerHTML={highlightCode(block.content)} />
               </div>
             );
           }

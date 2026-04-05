@@ -5,37 +5,64 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import { createInterface } from "node:readline";
 
-const VERSION = "0.5.3";
+const VERSION = "0.5.4";
 const API_URL = "https://api.claudemon.com";
 
+// HOOK_EVENTS — duplicated from packages/types/monitor.ts (can't import TS at runtime)
+// Keep in sync! Currently 27 events. Run `node -e "import('./packages/types/monitor.ts')"` won't work,
+// but you can compare: grep -c "'" packages/cli/bin/claudemon.js vs grep -c "|" packages/types/monitor.ts
 const HOOK_EVENTS = [
-  "PreToolUse", "PostToolUse", "PostToolUseFailure",
-  "Stop", "StopFailure", "Notification",
-  "SessionStart", "SessionEnd",
-  "SubagentStart", "SubagentStop",
-  "PreCompact", "PostCompact",
+  "PreToolUse",
+  "PostToolUse",
+  "PostToolUseFailure",
+  "Stop",
+  "StopFailure",
+  "Notification",
+  "SessionStart",
+  "SessionEnd",
+  "SubagentStart",
+  "SubagentStop",
+  "PreCompact",
+  "PostCompact",
   "UserPromptSubmit",
-  "PermissionRequest", "PermissionDenied",
-  "TaskCreated", "TaskCompleted",
-  "TeammateIdle", "CwdChanged", "FileChanged",
+  "PermissionRequest",
+  "PermissionDenied",
+  "TaskCreated",
+  "TaskCompleted",
+  "TeammateIdle",
+  "CwdChanged",
+  "FileChanged",
   "ConfigChange",
-  "WorktreeCreate", "WorktreeRemove",
+  "WorktreeCreate",
+  "WorktreeRemove",
   "InstructionsLoaded",
-  "Elicitation", "ElicitationResult",
+  "Elicitation",
+  "ElicitationResult",
   "Setup",
 ];
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-function dim(s) { return `\x1b[2m${s}\x1b[0m`; }
-function green(s) { return `\x1b[32m${s}\x1b[0m`; }
-function red(s) { return `\x1b[31m${s}\x1b[0m`; }
-function bold(s) { return `\x1b[1m${s}\x1b[0m`; }
+function dim(s) {
+  return `\x1b[2m${s}\x1b[0m`;
+}
+function green(s) {
+  return `\x1b[32m${s}\x1b[0m`;
+}
+function red(s) {
+  return `\x1b[31m${s}\x1b[0m`;
+}
+function bold(s) {
+  return `\x1b[1m${s}\x1b[0m`;
+}
 
 function prompt(question) {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   return new Promise((resolve) => {
-    rl.question(question, (answer) => { rl.close(); resolve(answer.trim()); });
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve(answer.trim());
+    });
   });
 }
 
@@ -75,7 +102,10 @@ async function init(keyArg) {
     console.log();
     key = await prompt("  API key: ");
   }
-  if (!key) { console.log(red("\n  No API key provided. Aborting.\n")); process.exit(1); }
+  if (!key) {
+    console.log(red("\n  No API key provided. Aborting.\n"));
+    process.exit(1);
+  }
 
   // 2. Write hooks to ~/.claude/settings.json
   const claudeDir = join(homedir(), ".claude");
@@ -110,7 +140,7 @@ async function init(keyArg) {
   // Count unique existing hook groups (not per-event)
   const seen = new Set();
   for (const evt of HOOK_EVENTS) {
-    for (const g of (settings.hooks[evt] || [])) {
+    for (const g of settings.hooks[evt] || []) {
       if (!g.hooks?.some((h) => (h.url || h.command || "").includes("claudemon"))) {
         seen.add(JSON.stringify(g));
       }
@@ -120,7 +150,7 @@ async function init(keyArg) {
 
   for (const evt of HOOK_EVENTS) {
     const groups = (settings.hooks[evt] || []).filter(
-      (g) => !g.hooks?.some((h) => (h.url || h.command || "").includes("claudemon"))
+      (g) => !g.hooks?.some((h) => (h.url || h.command || "").includes("claudemon")),
     );
     groups.push(entry);
     settings.hooks[evt] = groups;

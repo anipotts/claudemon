@@ -1,4 +1,7 @@
-// Friendly time format: 11:24:30.123 PM — EST biased, precise to milliseconds
+// Cache timezone name at module scope (doesn't change during a session)
+const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+// Friendly time format: 11:24:30.123 PM, precise to milliseconds
 export function formatTime(ts: number): string {
   const d = new Date(ts);
   const base = d.toLocaleTimeString("en-US", {
@@ -6,7 +9,6 @@ export function formatTime(ts: number): string {
     hour: "numeric",
     minute: "2-digit",
     second: "2-digit",
-    timeZone: "America/New_York",
   });
   const ms = String(d.getMilliseconds()).padStart(3, "0");
   // Insert .ms before the AM/PM: "11:24:30 PM" → "11:24:30.123 PM"
@@ -18,7 +20,6 @@ export function formatTimeFull(ts: number): string {
   const d = new Date(ts);
   const iso = d.toISOString();
   const local = d.toLocaleString("en-US", {
-    timeZone: "America/New_York",
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -28,7 +29,7 @@ export function formatTimeFull(ts: number): string {
     fractionalSecondDigits: 3,
     hour12: true,
   });
-  return `${local} EST\n${iso}\nepoch: ${ts}`;
+  return `${local} ${localTz}\n${iso}\nepoch: ${ts}`;
 }
 
 export function formatDuration(startMs: number): string {

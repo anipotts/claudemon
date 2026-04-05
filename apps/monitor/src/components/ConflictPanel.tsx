@@ -69,9 +69,7 @@ export const ConflictPanel: Component<{ conflicts: ConflictData[] }> = (props) =
       }
     >
       <div class="space-y-2">
-        <For each={validConflicts()}>
-          {(c) => <ConflictRow conflict={c} />}
-        </For>
+        <For each={validConflicts()}>{(c) => <ConflictRow conflict={c} />}</For>
       </div>
     </Show>
   );

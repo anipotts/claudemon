@@ -126,13 +126,7 @@ export interface MonitorEvent {
   branch?: string;
 }
 
-export type SessionStatus =
-  | "working"
-  | "thinking"
-  | "waiting"
-  | "done"
-  | "error"
-  | "offline";
+export type SessionStatus = "working" | "thinking" | "waiting" | "done" | "error" | "offline";
 
 export type SessionSource = "local" | "cloud" | "remote-control";
 
@@ -187,21 +181,36 @@ export type WsMessage =
   | { type: "sessions_snapshot"; sessions: SessionState[] }
   | { type: "ping"; ts: number };
 
-// All hook event names as a runtime array (single source of truth)
+// Runtime array of all hook events — single source of truth.
+// NOTE: packages/cli/bin/claudemon.js duplicates this list (zero-dep constraint).
+// If you add/remove events here, update the CLI too.
 export const HOOK_EVENTS: HookEventName[] = [
-  "PreToolUse", "PostToolUse", "PostToolUseFailure",
-  "Stop", "StopFailure", "Notification",
-  "SessionStart", "SessionEnd",
-  "SubagentStart", "SubagentStop",
-  "PreCompact", "PostCompact",
+  "PreToolUse",
+  "PostToolUse",
+  "PostToolUseFailure",
+  "Stop",
+  "StopFailure",
+  "Notification",
+  "SessionStart",
+  "SessionEnd",
+  "SubagentStart",
+  "SubagentStop",
+  "PreCompact",
+  "PostCompact",
   "UserPromptSubmit",
-  "PermissionRequest", "PermissionDenied",
-  "TaskCreated", "TaskCompleted",
-  "TeammateIdle", "CwdChanged", "FileChanged",
+  "PermissionRequest",
+  "PermissionDenied",
+  "TaskCreated",
+  "TaskCompleted",
+  "TeammateIdle",
+  "CwdChanged",
+  "FileChanged",
   "ConfigChange",
-  "WorktreeCreate", "WorktreeRemove",
+  "WorktreeCreate",
+  "WorktreeRemove",
   "InstructionsLoaded",
-  "Elicitation", "ElicitationResult",
+  "Elicitation",
+  "ElicitationResult",
   "Setup",
 ];
 
@@ -223,10 +232,10 @@ export const STATUS_LABELS: Record<SessionStatus, string> = {
 };
 
 export const STATUS_COLORS: Record<SessionStatus, string> = {
-  working: "#a3b18a",   // safe green
-  thinking: "#7b9fbf",  // blue
-  waiting: "#c9a96e",   // suspicious amber
-  done: "#666",         // gray
-  error: "#b85c4a",     // attack red
-  offline: "#333",      // dark
+  working: "#a3b18a", // safe green
+  thinking: "#7b9fbf", // blue
+  waiting: "#c9a96e", // suspicious amber
+  done: "#666", // gray
+  error: "#b85c4a", // attack red
+  offline: "#333", // dark
 };

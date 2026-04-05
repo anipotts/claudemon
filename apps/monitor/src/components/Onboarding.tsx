@@ -1,13 +1,8 @@
 import { type Component, createSignal, Show, For, createMemo } from "solid-js";
-import {
-  ShieldCheck,
-  Copy,
-  Check,
-} from "./Icons";
+import { ShieldCheck, Copy, Check } from "./Icons";
 import { HOOK_EVENTS } from "../../../../packages/types/monitor";
 
-const API_URL =
-  import.meta.env.VITE_MONITOR_API_URL || "https://api.claudemon.com";
+const API_URL = import.meta.env.VITE_MONITOR_API_URL || "https://api.claudemon.com";
 
 // ── Copy button ─────────────────────────────────────────────────────
 
@@ -20,7 +15,11 @@ function CopyBtn(props: { text: string }) {
   };
   return (
     <button onClick={handleCopy} class="p-1 rounded transition-all" title="Copy">
-      {copied() ? <Check size={13} class="text-safe" /> : <Copy size={13} class="text-text-sub hover:text-text-primary" />}
+      {copied() ? (
+        <Check size={13} class="text-safe" />
+      ) : (
+        <Copy size={13} class="text-text-sub hover:text-text-primary" />
+      )}
     </button>
   );
 }
@@ -41,7 +40,9 @@ function CodeBlock(props: { code: string; label?: string; lang?: "bash" | "json"
       <Show when={props.label}>
         <div class="text-[10px] text-text-sub uppercase tracking-wider mb-1">{props.label}</div>
       </Show>
-      <div class={`relative bg-[#0e0d0c] border border-panel-border/50 rounded flex-1 min-h-0 overflow-auto ${props.maxH || ""}`}>
+      <div
+        class={`relative bg-[#0e0d0c] border border-panel-border/50 rounded flex-1 min-h-0 overflow-auto ${props.maxH || ""}`}
+      >
         <pre class="px-3 py-2.5 text-[11.5px] leading-[1.6] font-mono whitespace-pre">
           <For each={lines()}>
             {(line, i) => (
@@ -74,7 +75,10 @@ function colorizeJson(line: string): Array<{ text: string; color?: string }> {
       i = j;
     } else if (s[i] === '"') {
       let j = i + 1;
-      while (j < s.length && s[j] !== '"') { if (s[j] === "\\") j++; j++; }
+      while (j < s.length && s[j] !== '"') {
+        if (s[j] === "\\") j++;
+        j++;
+      }
       j++;
       const str = s.slice(i, j);
       let k = j;
@@ -127,60 +131,171 @@ const FIELD_CATEGORIES = [
 
 const FIELDS: FieldConfig[] = [
   // Identity
-  { id: "session_id", label: "session_id", required: true, default: true, jqField: "session_id: .session_id", category: "Identity" },
-  { id: "machine_id", label: "machine_id", required: true, default: true, jqField: "machine_id: $mid", category: "Identity" },
+  {
+    id: "session_id",
+    label: "session_id",
+    required: true,
+    default: true,
+    jqField: "session_id: .session_id",
+    category: "Identity",
+  },
+  {
+    id: "machine_id",
+    label: "machine_id",
+    required: true,
+    default: true,
+    jqField: "machine_id: $mid",
+    category: "Identity",
+  },
   { id: "project_path", label: "project_path", default: true, jqField: "project_path: $pp", category: "Identity" },
   { id: "branch", label: "branch", default: true, jqField: "branch: $br", category: "Identity" },
 
   // Event
-  { id: "hook_event_name", label: "hook_event_name", required: true, default: true, jqField: "hook_event_name: .hook_event_name", category: "Event" },
+  {
+    id: "hook_event_name",
+    label: "hook_event_name",
+    required: true,
+    default: true,
+    jqField: "hook_event_name: .hook_event_name",
+    category: "Event",
+  },
 
   // Tool
   { id: "tool_name", label: "tool_name", default: true, jqField: "tool_name: .tool_name", category: "Tool" },
   { id: "tool_input", label: "tool_input", default: true, jqField: "tool_input: .tool_input", category: "Tool" },
-  { id: "tool_response", label: "tool_response", default: false, jqField: "tool_response: (.tool_response // null)", category: "Tool" },
-  { id: "tool_use_id", label: "tool_use_id", default: true, jqField: "tool_use_id: (.tool_use_id // null)", category: "Tool" },
+  {
+    id: "tool_response",
+    label: "tool_response",
+    default: false,
+    jqField: "tool_response: (.tool_response // null)",
+    category: "Tool",
+  },
+  {
+    id: "tool_use_id",
+    label: "tool_use_id",
+    default: true,
+    jqField: "tool_use_id: (.tool_use_id // null)",
+    category: "Tool",
+  },
 
   // Session
   { id: "model", label: "model", default: true, jqField: "model: (.model // null)", category: "Session" },
   { id: "source", label: "source", default: true, jqField: "source: (.source // null)", category: "Session" },
-  { id: "permission_mode", label: "permission_mode", default: true, jqField: "permission_mode: (.permission_mode // null)", category: "Session" },
+  {
+    id: "permission_mode",
+    label: "permission_mode",
+    default: true,
+    jqField: "permission_mode: (.permission_mode // null)",
+    category: "Session",
+  },
   { id: "cwd", label: "cwd", default: true, jqField: "cwd: (.cwd // null)", category: "Session" },
-  { id: "transcript_path", label: "transcript_path", default: false, jqField: "transcript_path: (.transcript_path // null)", category: "Session" },
+  {
+    id: "transcript_path",
+    label: "transcript_path",
+    default: false,
+    jqField: "transcript_path: (.transcript_path // null)",
+    category: "Session",
+  },
 
   // Agent
   { id: "agent_id", label: "agent_id", default: true, jqField: "agent_id: (.agent_id // null)", category: "Agent" },
-  { id: "agent_type", label: "agent_type", default: true, jqField: "agent_type: (.agent_type // null)", category: "Agent" },
+  {
+    id: "agent_type",
+    label: "agent_type",
+    default: true,
+    jqField: "agent_type: (.agent_type // null)",
+    category: "Agent",
+  },
 
   // Stop/Error
-  { id: "last_assistant_message", label: "last_assistant_message", default: false, jqField: "last_assistant_message: (.last_assistant_message // null)", category: "Stop/Error", privacy: true },
+  {
+    id: "last_assistant_message",
+    label: "last_assistant_message",
+    default: false,
+    jqField: "last_assistant_message: (.last_assistant_message // null)",
+    category: "Stop/Error",
+    privacy: true,
+  },
   { id: "error", label: "error", default: true, jqField: "error: (.error // null)", category: "Stop/Error" },
-  { id: "is_interrupt", label: "is_interrupt", default: true, jqField: "is_interrupt: (.is_interrupt // null)", category: "Stop/Error" },
+  {
+    id: "is_interrupt",
+    label: "is_interrupt",
+    default: true,
+    jqField: "is_interrupt: (.is_interrupt // null)",
+    category: "Stop/Error",
+  },
 
   // Notification
-  { id: "notification_message", label: "notification_message", default: true, jqField: "notification_message: (.message // null)", category: "Notification" },
-  { id: "notification_title", label: "notification_title", default: true, jqField: "notification_title: (.title // null)", category: "Notification" },
-  { id: "notification_type", label: "notification_type", default: true, jqField: "notification_type: (.notification_type // null)", category: "Notification" },
+  {
+    id: "notification_message",
+    label: "notification_message",
+    default: true,
+    jqField: "notification_message: (.message // null)",
+    category: "Notification",
+  },
+  {
+    id: "notification_title",
+    label: "notification_title",
+    default: true,
+    jqField: "notification_title: (.title // null)",
+    category: "Notification",
+  },
+  {
+    id: "notification_type",
+    label: "notification_type",
+    default: true,
+    jqField: "notification_type: (.notification_type // null)",
+    category: "Notification",
+  },
 
   // Compact
-  { id: "compact_trigger", label: "compact_trigger", default: true, jqField: "compact_trigger: (.trigger // null)", category: "Compact" },
-  { id: "compact_summary", label: "compact_summary", default: false, jqField: "compact_summary: (.compact_summary // null)", category: "Compact" },
+  {
+    id: "compact_trigger",
+    label: "compact_trigger",
+    default: true,
+    jqField: "compact_trigger: (.trigger // null)",
+    category: "Compact",
+  },
+  {
+    id: "compact_summary",
+    label: "compact_summary",
+    default: false,
+    jqField: "compact_summary: (.compact_summary // null)",
+    category: "Compact",
+  },
 
   // Permission
-  { id: "permission_denied_reason", label: "permission_denied_reason", default: true, jqField: "permission_denied_reason: (.reason // null)", category: "Permission" },
+  {
+    id: "permission_denied_reason",
+    label: "permission_denied_reason",
+    default: true,
+    jqField: "permission_denied_reason: (.reason // null)",
+    category: "Permission",
+  },
 
   // User Prompt
-  { id: "prompt", label: "prompt", default: false, jqField: "prompt: (.prompt // null)", category: "User Prompt", privacy: true },
+  {
+    id: "prompt",
+    label: "prompt",
+    default: false,
+    jqField: "prompt: (.prompt // null)",
+    category: "User Prompt",
+    privacy: true,
+  },
 ];
-
 
 // ── Main ────────────────────────────────────────────────────────────
 
-interface User { sub: string; name: string; login: string; avatar_url: string }
+interface User {
+  sub: string;
+  name: string;
+  login: string;
+  avatar_url: string;
+}
 
 export const Onboarding: Component<{ apiUrl: string; user: User | null; authLoading: boolean }> = (props) => {
   const [apiKey, _setApiKey] = createSignal<string | null>(
-    typeof localStorage !== "undefined" ? localStorage.getItem("claudemon_api_key") : null
+    typeof localStorage !== "undefined" ? localStorage.getItem("claudemon_api_key") : null,
   );
   const setApiKey = (key: string | null) => {
     if (key) localStorage.setItem("claudemon_api_key", key);
@@ -190,7 +305,7 @@ export const Onboarding: Component<{ apiUrl: string; user: User | null; authLoad
   const [apiKeyLoading, setApiKeyLoading] = createSignal(false);
   const [hookType, setHookType] = createSignal<"http" | "bash" | "npm">("npm");
   const [enabledFields, setEnabledFields] = createSignal<Record<string, boolean>>(
-    Object.fromEntries(FIELDS.map((f) => [f.id, f.default]))
+    Object.fromEntries(FIELDS.map((f) => [f.id, f.default])),
   );
 
   const toggleField = (id: string) => {
@@ -203,7 +318,8 @@ export const Onboarding: Component<{ apiUrl: string; user: User | null; authLoad
     setApiKeyLoading(true);
     try {
       const res = await fetch(`${props.apiUrl}/auth/api-keys`, {
-        method: "POST", credentials: "include",
+        method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ label: "onboarding" }),
       });
@@ -294,9 +410,16 @@ print('Done! Restart your terminal.')
   });
 
   const settingsJson = createMemo(() => {
-    const hook = hookType() === "http"
-      ? { type: "http", url: "https://api.claudemon.com/events", headers: { Authorization: "Bearer $CLAUDEMON_API_KEY" }, allowedEnvVars: ["CLAUDEMON_API_KEY"], timeout: 3 }
-      : { type: "command", command: "bash ~/.claudemon-hook.sh", async: true };
+    const hook =
+      hookType() === "http"
+        ? {
+            type: "http",
+            url: "https://api.claudemon.com/events",
+            headers: { Authorization: "Bearer $CLAUDEMON_API_KEY" },
+            allowedEnvVars: ["CLAUDEMON_API_KEY"],
+            timeout: 3,
+          }
+        : { type: "command", command: "bash ~/.claudemon-hook.sh", async: true };
     const entry = [{ matcher: "", hooks: [hook] }];
     const hooks = Object.fromEntries(HOOK_EVENTS.map((evt) => [evt, entry]));
     return JSON.stringify({ hooks }, null, 2);
@@ -314,7 +437,6 @@ print('Done! Restart your terminal.')
     <div class="flex-1 flex flex-col overflow-hidden">
       {/* 3-column grid fills viewport below header */}
       <div class="flex-1 flex min-h-0">
-
         {/* ── COL 1: Auth + API key ──────────────────────────── */}
         <div class="flex-1 border-r border-panel-border/30 p-5 flex flex-col overflow-y-auto">
           <div class="flex items-baseline gap-2 mb-4">
@@ -323,24 +445,33 @@ print('Done! Restart your terminal.')
           </div>
 
           <Show when={!props.authLoading}>
-            <Show when={props.user} fallback={
-              <div>
-                <a
-                  href={`${props.apiUrl}/auth/login?redirect=${encodeURIComponent(window.location.href)}`}
-                  class="inline-flex items-center gap-2 bg-[#161b22] border border-[#30363d] rounded px-4 py-2 text-[13px] text-white hover:bg-[#1c2128] transition-colors"
-                >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" /></svg>
-                  Sign in with GitHub
-                </a>
-              </div>
-            }>
+            <Show
+              when={props.user}
+              fallback={
+                <div>
+                  <a
+                    href={`${props.apiUrl}/auth/login?redirect=${encodeURIComponent(window.location.href)}`}
+                    class="inline-flex items-center gap-2 bg-[#161b22] border border-[#30363d] rounded px-4 py-2 text-[13px] text-white hover:bg-[#1c2128] transition-colors"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+                    </svg>
+                    Sign in with GitHub
+                  </a>
+                </div>
+              }
+            >
               {(u) => {
                 // This whole block re-runs once when user becomes truthy.
                 // Inner JSX expressions ARE reactive in SolidJS.
                 return (
                   <div>
                     <div class="flex items-center gap-2 mb-4 text-[13px]">
-                      <img src={u().avatar_url} alt={u().login} class="w-5 h-5 rounded-full border border-panel-border" />
+                      <img
+                        src={u().avatar_url}
+                        alt={u().login}
+                        class="w-5 h-5 rounded-full border border-panel-border"
+                      />
                       <span class="text-text-label">{u().login}</span>
                       <Check size={12} class="text-safe" />
                     </div>
@@ -372,9 +503,15 @@ print('Done! Restart your terminal.')
           <div class="border-t border-panel-border/30 my-4" />
 
           <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-text-dim mb-3">
-            <span class="flex items-center gap-1"><ShieldCheck size={10} class="text-safe" /> Ephemeral</span>
-            <span class="flex items-center gap-1"><ShieldCheck size={10} class="text-safe" /> Open source</span>
-            <span class="flex items-center gap-1"><ShieldCheck size={10} class="text-safe" /> Self-hostable</span>
+            <span class="flex items-center gap-1">
+              <ShieldCheck size={10} class="text-safe" /> Ephemeral
+            </span>
+            <span class="flex items-center gap-1">
+              <ShieldCheck size={10} class="text-safe" /> Open source
+            </span>
+            <span class="flex items-center gap-1">
+              <ShieldCheck size={10} class="text-safe" /> Self-hostable
+            </span>
           </div>
           <p class="text-[12px] text-text-dim">
             <span class="text-attack font-bold">Never sent:</span> file contents, API keys, env vars, your conversation.
@@ -382,7 +519,9 @@ print('Done! Restart your terminal.')
         </div>
 
         {/* ── COL 2: Choose fields ───────────────────────────── */}
-        <div class={`flex-1 border-r border-panel-border/30 p-5 flex flex-col overflow-y-auto transition-opacity ${ready() ? "" : "opacity-25 pointer-events-none"}`}>
+        <div
+          class={`flex-1 border-r border-panel-border/30 p-5 flex flex-col overflow-y-auto transition-opacity ${ready() ? "" : "opacity-25 pointer-events-none"}`}
+        >
           <div class="flex items-baseline gap-2 mb-4">
             <span class="text-[13px] font-bold text-text-label">2</span>
             <h2 class="text-[13px] font-bold uppercase tracking-wider text-text-label">Choose fields</h2>
@@ -398,7 +537,9 @@ print('Done! Restart your terminal.')
             <For each={groupedFields()}>
               {(group) => (
                 <div>
-                  <div class="text-[9px] text-text-dim uppercase tracking-widest font-bold mb-1 px-2.5">{group.category}</div>
+                  <div class="text-[9px] text-text-dim uppercase tracking-widest font-bold mb-1 px-2.5">
+                    {group.category}
+                  </div>
                   <div class="space-y-0">
                     <For each={group.fields}>
                       {(field) => {
@@ -410,19 +551,27 @@ print('Done! Restart your terminal.')
                               field.required ? "cursor-default" : "cursor-pointer hover:bg-card/80"
                             }`}
                           >
-                            <div class={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition-colors ${
-                              on() ? "bg-safe/20 border-safe/50" : "border-panel-border/60"
-                            }`}>
-                              <Show when={on()}><Check size={9} class="text-safe" /></Show>
+                            <div
+                              class={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                                on() ? "bg-safe/20 border-safe/50" : "border-panel-border/60"
+                              }`}
+                            >
+                              <Show when={on()}>
+                                <Check size={9} class="text-safe" />
+                              </Show>
                             </div>
-                            <span class={`text-[12px] font-mono ${on() ? "text-text-primary" : "text-text-sub line-through"}`}>
+                            <span
+                              class={`text-[12px] font-mono ${on() ? "text-text-primary" : "text-text-sub line-through"}`}
+                            >
                               {field.label}
                             </span>
                             <Show when={field.required}>
                               <span class="text-[9px] text-text-sub uppercase tracking-wider ml-auto">req</span>
                             </Show>
                             <Show when={field.privacy}>
-                              <span class="text-[9px] bg-attack/20 text-attack border border-attack/30 rounded px-1.5 py-0.5 ml-auto uppercase tracking-wider">Contains your messages</span>
+                              <span class="text-[9px] bg-attack/20 text-attack border border-attack/30 rounded px-1.5 py-0.5 ml-auto uppercase tracking-wider">
+                                Contains your messages
+                              </span>
                             </Show>
                           </button>
                         );
@@ -436,7 +585,9 @@ print('Done! Restart your terminal.')
         </div>
 
         {/* ── COL 3: Install (hook + settings) ───────────────── */}
-        <div class={`flex-1 p-5 flex flex-col overflow-hidden transition-opacity ${ready() ? "" : "opacity-25 pointer-events-none"}`}>
+        <div
+          class={`flex-1 p-5 flex flex-col overflow-hidden transition-opacity ${ready() ? "" : "opacity-25 pointer-events-none"}`}
+        >
           <div class="flex items-baseline gap-2 mb-3">
             <span class="text-[13px] font-bold text-text-label">3</span>
             <h2 class="text-[13px] font-bold uppercase tracking-wider text-text-label">Install</h2>
@@ -447,9 +598,7 @@ print('Done! Restart your terminal.')
             <button
               onClick={() => setHookType("npm")}
               class={`px-3 py-1 rounded text-[11px] font-bold uppercase tracking-wider transition-colors ${
-                hookType() === "npm"
-                  ? "bg-[#cb3837]/20 text-[#cb3837]"
-                  : "text-text-sub hover:text-text-primary"
+                hookType() === "npm" ? "bg-[#cb3837]/20 text-[#cb3837]" : "text-text-sub hover:text-text-primary"
               }`}
             >
               npm
@@ -457,9 +606,7 @@ print('Done! Restart your terminal.')
             <button
               onClick={() => setHookType("http")}
               class={`px-3 py-1 rounded text-[11px] font-bold uppercase tracking-wider transition-colors ${
-                hookType() === "http"
-                  ? "bg-safe/20 text-safe"
-                  : "text-text-sub hover:text-text-primary"
+                hookType() === "http" ? "bg-safe/20 text-safe" : "text-text-sub hover:text-text-primary"
               }`}
             >
               HTTP
@@ -467,9 +614,7 @@ print('Done! Restart your terminal.')
             <button
               onClick={() => setHookType("bash")}
               class={`px-3 py-1 rounded text-[11px] font-bold uppercase tracking-wider transition-colors ${
-                hookType() === "bash"
-                  ? "bg-suspicious/20 text-suspicious"
-                  : "text-text-sub hover:text-text-primary"
+                hookType() === "bash" ? "bg-suspicious/20 text-suspicious" : "text-text-sub hover:text-text-primary"
               }`}
             >
               Bash
@@ -500,13 +645,21 @@ print('Done! Restart your terminal.')
                   <CopyBtn text={npmInitCmd()} />
                 </div>
               </div>
-              <div class="text-[9px] text-text-dim mt-1.5">Adds hooks to ~/.claude/settings.json and saves your key. Preserves existing hooks.</div>
+              <div class="text-[9px] text-text-dim mt-1.5">
+                Adds hooks to ~/.claude/settings.json and saves your key. Preserves existing hooks.
+              </div>
             </div>
 
             <div class="space-y-1.5 text-[11px] text-text-dim font-mono">
-              <div class="flex items-start gap-2"><span class="text-safe shrink-0">1.</span> Registers all 27 Claude Code hook events</div>
-              <div class="flex items-start gap-2"><span class="text-safe shrink-0">2.</span> Saves API key to your shell profile</div>
-              <div class="flex items-start gap-2"><span class="text-safe shrink-0">3.</span> Idempotent — safe to run again</div>
+              <div class="flex items-start gap-2">
+                <span class="text-safe shrink-0">1.</span> Registers all 27 Claude Code hook events
+              </div>
+              <div class="flex items-start gap-2">
+                <span class="text-safe shrink-0">2.</span> Saves API key to your shell profile
+              </div>
+              <div class="flex items-start gap-2">
+                <span class="text-safe shrink-0">3.</span> Idempotent — safe to run again
+              </div>
             </div>
           </Show>
 
@@ -518,29 +671,37 @@ print('Done! Restart your terminal.')
 
             {/* One-click install command */}
             <div class="mb-4">
-              <div class="text-[10px] text-text-sub uppercase tracking-wider mb-1.5">Option A — paste into your terminal</div>
+              <div class="text-[10px] text-text-sub uppercase tracking-wider mb-1.5">
+                Option A — paste into your terminal
+              </div>
               <div class="group relative bg-[#0e0d0c] border border-safe/30 rounded px-3 py-2.5">
-                <pre class="text-[11px] leading-[1.5] font-mono text-safe whitespace-pre-wrap break-all">{installCommand()}</pre>
+                <pre class="text-[11px] leading-[1.5] font-mono text-safe whitespace-pre-wrap break-all">
+                  {installCommand()}
+                </pre>
                 <div class="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                   <CopyBtn text={installCommand()} />
                 </div>
               </div>
-              <div class="text-[9px] text-text-dim mt-1.5">Merges hooks into your existing settings.json — won't overwrite anything.</div>
+              <div class="text-[9px] text-text-dim mt-1.5">
+                Merges hooks into your existing settings.json — won't overwrite anything.
+              </div>
             </div>
 
             <div class="text-[10px] text-text-sub uppercase tracking-wider mb-1.5">Option B — full JSON</div>
           </Show>
           <Show when={hookType() === "bash"}>
-            <div class="text-[10px] text-suspicious mb-3">
-              Fallback — requires bash, jq, and curl on your system
-            </div>
+            <div class="text-[10px] text-suspicious mb-3">Fallback — requires bash, jq, and curl on your system</div>
           </Show>
 
           <div class="flex-1 min-h-0 flex flex-col gap-4 overflow-y-auto">
             <Show when={hookType() === "bash"}>
               <CodeBlock code={hookScript()} label="Save as ~/.claudemon-hook.sh" lang="bash" />
             </Show>
-            <CodeBlock code={settingsJson()} label={hookType() === "http" ? "" : "Add to ~/.claude/settings.json"} lang="json" />
+            <CodeBlock
+              code={settingsJson()}
+              label={hookType() === "http" ? "" : "Add to ~/.claude/settings.json"}
+              lang="json"
+            />
           </div>
 
           <div class="mt-3 flex items-center gap-2.5 text-[12px]">
@@ -548,7 +709,6 @@ print('Done! Restart your terminal.')
             <span class="text-text-dim">Listening for sessions...</span>
           </div>
         </div>
-
       </div>
     </div>
   );
