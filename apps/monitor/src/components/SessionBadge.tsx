@@ -47,7 +47,7 @@ export const SessionBadge: Component<{
 
   return (
     <span
-      class={`inline-flex items-center gap-1 font-mono cursor-pointer rounded-sm transition-colors hover:brightness-125 ${props.class || ""}`}
+      class={`inline-flex items-center gap-1 font-mono cursor-pointer rounded-sm transition-colors hover:brightness-125 overflow-hidden ${props.class || ""}`}
       style={{
         color: color(),
         background: color() + "12",
@@ -73,11 +73,13 @@ export const SessionBadge: Component<{
         />
       </Show>
       <Show when={props.projectName}>
-        <span>{props.projectName}</span>
-        <span style={{ opacity: "0.5" }}>{idShort()}</span>
+        <span class="truncate">{props.projectName}</span>
+        <span style={{ opacity: "0.5" }} class="shrink-0">
+          {idShort()}
+        </span>
       </Show>
       <Show when={!props.projectName}>
-        <span>{idShort()}</span>
+        <span class="shrink-0">{idShort()}</span>
       </Show>
     </span>
   );

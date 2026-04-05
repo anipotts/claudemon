@@ -334,7 +334,7 @@ const App: Component = () => {
 
           {/* Sessions sidebar */}
           <div
-            class={`flex flex-col ${isMobile() ? "flex-1 min-w-0" : "w-[260px] shrink-0 border-r border-panel-border"}`}
+            class={`flex flex-col ${isMobile() ? "flex-1 min-w-0" : "w-[280px] shrink-0 border-r border-panel-border"}`}
           >
             <div class="flex-1 overflow-y-auto smooth-scroll p-2">
               <AgentMap sessions={sessions} selectedIds={selectedSessionIds()} onSelect={handleSelectSession} />
@@ -443,7 +443,13 @@ const App: Component = () => {
                   {/* Tab view: show active session only */}
                   <Show when={viewMode() === "tabs"}>
                     <Show when={activeSession()}>
-                      {(s) => <SessionDetail session={s()} onClose={() => handleCloseSession(s().session_id)} />}
+                      {(s) => (
+                        <SessionDetail
+                          session={s()}
+                          onClose={() => handleCloseSession(s().session_id)}
+                          showClose={false}
+                        />
+                      )}
                     </Show>
                   </Show>
 
@@ -452,7 +458,11 @@ const App: Component = () => {
                     <For each={selectedSessions()}>
                       {(session) => (
                         <div class="flex-1 min-w-[300px] border-r border-panel-border last:border-r-0 overflow-hidden">
-                          <SessionDetail session={session} onClose={() => handleCloseSession(session.session_id)} />
+                          <SessionDetail
+                            session={session}
+                            onClose={() => handleCloseSession(session.session_id)}
+                            showClose={false}
+                          />
                         </div>
                       )}
                     </For>

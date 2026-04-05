@@ -252,6 +252,20 @@ body {
   overflow-y: auto;
 }
 
+/* Prevent wrapping in session cards and stats */
+.session-stats {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Overflow protection for text that could truncate */
+.text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *,

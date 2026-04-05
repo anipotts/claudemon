@@ -3,6 +3,7 @@ import type { MonitorEvent, SessionState } from "../../../../packages/types/moni
 import { STATUS_COLORS } from "../../../../packages/types/monitor";
 import { GitBranch, CaretDown, CaretRight } from "./Icons";
 import { FileBadge } from "./FileBadge";
+import { SessionBadge } from "./SessionBadge";
 import { Timestamp } from "./Timestamp";
 import { MarkdownBlock } from "./Markdown";
 import { formatDuration } from "../utils/time";
@@ -216,6 +217,7 @@ export const SessionDetail: Component<{
   session: SessionState;
   onClose: () => void;
   isMobile?: boolean;
+  showClose?: boolean;
 }> = (props) => {
   const s = () => props.session;
   let scrollRef: HTMLDivElement | undefined;
@@ -273,26 +275,33 @@ export const SessionDetail: Component<{
   const isWaiting = () => s().status === "waiting";
 
   return (
-    <div
-      class={`${props.isMobile ? "w-full flex-1" : "flex-1 min-w-0"} flex flex-col overflow-hidden bg-bg`}
-    >
+    <div class={`${props.isMobile ? "w-full flex-1" : "flex-1 min-w-0"} flex flex-col overflow-hidden bg-bg`}>
       {/* Header — aligned with ACTIVITY header */}
       <div class="px-3 py-2 border-b border-panel-border flex items-center gap-2 shrink-0 h-[33px]">
-        <button
-          onClick={props.onClose}
-          class={`text-text-sub hover:text-text-primary transition-colors ${props.isMobile ? "text-[14px] w-11 h-11 flex items-center justify-center -ml-2" : "text-[11px] w-4"}`}
-        >
-          x
-        </button>
-        <span class="text-[10px] font-bold text-text-primary font-mono">{s().session_id.slice(0, 8)}</span>
+        <Show when={props.showClose !== false || props.isMobile}>
+          <button
+            onClick={props.onClose}
+            class={`text-text-sub hover:text-text-primary transition-colors ${props.isMobile ? "text-[14px] w-11 h-11 flex items-center justify-center -ml-2" : "text-[11px] w-4"}`}
+          >
+            x
+          </button>
+        </Show>
+        <SessionBadge
+          sessionId={s().session_id}
+          projectName={s().project_name}
+          status={s().status}
+          showStatus={true}
+          size="md"
+        />
         <Show when={s().permission_mode}>
-          <span class="text-[9px] text-text-sub">
+          <span class="text-[9px] text-text-sub shrink-0">
             {s().permission_mode === "bypassPermissions" ? "bypass" : s().permission_mode}
           </span>
         </Show>
-        <span class="text-[9px] text-text-dim truncate">{s().project_name}</span>
         <Show when={s().model}>
-          <span class="text-[9px] text-text-dim ml-auto">{s().model?.replace("claude-", "").replace(/-\d+$/, "")}</span>
+          <span class="text-[9px] text-text-dim ml-auto shrink-0">
+            {s().model?.replace("claude-", "").replace(/-\d+$/, "")}
+          </span>
         </Show>
       </div>
 
@@ -414,7 +423,49 @@ export const SessionDetail: Component<{
         </For>
 
         <Show when={timeline().length === 0}>
-          <div class="flex items-center justify-center py-12 text-[11px] text-text-sub">No events yet</div>
+          <div class="flex flex-col items-center justify-center py-8 px-4 gap-3">
+            <span class="text-[11px] text-text-sub">No events yet</span>
+            <div class="w-full max-w-[300px] border border-panel-border rounded-sm bg-card p-3 space-y-2 text-[10px]">
+              <div class="flex items-center gap-2">
+                <span class="text-text-sub">Session</span>
+                <span class="text-text-primary font-bold truncate">{s().session_id.slice(0, 8)}</span>
+              </div>
+              <Show when={s().model}>
+                <div class="flex items-center gap-2">
+                  <span class="text-text-sub">Model</span>
+                  <span class="text-text-dim truncate">{s().model}</span>
+                </div>
+              </Show>
+              <Show when={s().branch}>
+                <div class="flex items-center gap-2">
+                  <span class="text-text-sub">Branch</span>
+                  <span class="text-text-dim truncate flex items-center gap-1">
+                    <GitBranch size={9} /> {s().branch}
+                  </span>
+                </div>
+              </Show>
+              <Show when={s().permission_mode}>
+                <div class="flex items-center gap-2">
+                  <span class="text-text-sub">Permissions</span>
+                  <span class="text-text-dim">
+                    {s().permission_mode === "bypassPermissions" ? "bypass" : s().permission_mode}
+                  </span>
+                </div>
+              </Show>
+              <Show when={s().project_name}>
+                <div class="flex items-center gap-2">
+                  <span class="text-text-sub">Project</span>
+                  <span class="text-text-dim truncate">{s().project_name}</span>
+                </div>
+              </Show>
+              <Show when={s().source}>
+                <div class="flex items-center gap-2">
+                  <span class="text-text-sub">Source</span>
+                  <span class="text-text-dim">{s().source}</span>
+                </div>
+              </Show>
+            </div>
+          </div>
         </Show>
       </div>
 
@@ -443,41 +494,44 @@ export const SessionDetail: Component<{
             }}
           />
           <Show when={s().branch}>
-            <span class="flex items-center gap-0.5 text-text-sub">
-              <GitBranch size={9} /> {s().branch}
+            <span class="flex items-center gap-0.5 text-text-sub truncate min-w-0">
+              <GitBranch size={9} class="shrink-0" /> {s().branch}
             </span>
           </Show>
           <span class="text-text-sub ml-auto">{duration()}</span>
         </div>
-        <div class="flex gap-2 text-[9px] text-text-dim mt-0.5">
+        <div
+          class="flex gap-2 text-[9px] text-text-dim mt-0.5 session-stats"
+          style={{ "white-space": "nowrap", "overflow-x": "auto" }}
+        >
           <Show when={s().edit_count}>
-            <span>{s().edit_count} edits</span>
+            <span>{s().edit_count}e</span>
           </Show>
           <Show when={s().command_count}>
-            <span>{s().command_count} cmds</span>
+            <span>{s().command_count}c</span>
           </Show>
           <Show when={s().read_count}>
-            <span>{s().read_count} reads</span>
+            <span>{s().read_count}r</span>
           </Show>
           <Show when={s().search_count}>
-            <span>{s().search_count} searches</span>
-          </Show>
-          <Show when={s().error_count}>
-            <span class="text-attack">{s().error_count} errors</span>
-          </Show>
-          <Show when={s().compaction_count}>
-            <span class="text-[#7b9fbf]">{s().compaction_count} compacts</span>
+            <span>{s().search_count}s</span>
           </Show>
           <Show when={s().tool_rate}>
-            <span>{s().tool_rate} tools/min</span>
+            <span>{s().tool_rate} t/min</span>
+          </Show>
+          <Show when={s().error_count}>
+            <span class="text-attack">{s().error_count} err</span>
           </Show>
           <Show when={s().permission_denied_count}>
             <span class="text-attack">{s().permission_denied_count} denied</span>
           </Show>
+          <Show when={s().compaction_count}>
+            <span class="text-[#7b9fbf]">{s().compaction_count} compact</span>
+          </Show>
           <Show when={s().files_touched?.length}>
             <span>{s().files_touched!.length} files</span>
           </Show>
-          <span>{s().events.length} events</span>
+          <span>{s().events.length} evts</span>
         </div>
       </div>
     </div>

@@ -70,10 +70,10 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
 
   const counters = () => {
     const parts: string[] = [];
-    if (s().edit_count) parts.push(`${s().edit_count} edit${s().edit_count !== 1 ? "s" : ""}`);
-    if (s().command_count) parts.push(`${s().command_count} cmd${s().command_count !== 1 ? "s" : ""}`);
-    if (s().read_count) parts.push(`${s().read_count} read${s().read_count !== 1 ? "s" : ""}`);
-    if (s().search_count) parts.push(`${s().search_count} search${s().search_count !== 1 ? "es" : ""}`);
+    if (s().edit_count) parts.push(`${s().edit_count}e`);
+    if (s().command_count) parts.push(`${s().command_count}c`);
+    if (s().read_count) parts.push(`${s().read_count}r`);
+    if (s().search_count) parts.push(`${s().search_count}s`);
     return parts.length > 0 ? parts.join(" \u00b7 ") : null;
   };
 
@@ -97,8 +97,8 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
       onClick={() => props.onSelect?.(s().session_id)}
     >
       {/* Row 1: Session badge + duration + status */}
-      <div class="flex items-center gap-2 mb-1">
-        <SessionBadge sessionId={s().session_id} status={s().status} showStatus={true} size="md" />
+      <div class="flex items-center gap-2 mb-1" style={{ "white-space": "nowrap" }}>
+        <SessionBadge sessionId={s().session_id} status={s().status} showStatus={true} size="md" class="shrink-0" />
         <span class="text-[9px] text-text-sub ml-auto shrink-0">{formatDuration(s().started_at)}</span>
         <span
           class={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-sm shrink-0 ${isWaiting() ? "text-[9px] px-2 py-0.5" : ""}`}
@@ -109,23 +109,29 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
       </div>
 
       {/* Row 2: Branch + Counters */}
-      <div class="flex items-center gap-2 text-[9px] text-text-dim">
+      <div
+        class="flex items-center gap-2 text-[9px] text-text-dim"
+        style={{ "white-space": "nowrap", overflow: "hidden" }}
+      >
         <Show when={s().branch}>
-          <span class="flex items-center gap-0.5">
-            <GitBranch size={9} /> {s().branch}
+          <span class="flex items-center gap-0.5 truncate shrink min-w-0">
+            <GitBranch size={9} class="shrink-0" /> {s().branch}
           </span>
         </Show>
         <Show when={counters()}>
-          <span class="text-text-sub">{counters()}</span>
+          <span class="text-text-sub shrink-0">{counters()}</span>
         </Show>
       </div>
 
       {/* Row 3: Last tool call */}
       <Show when={lastToolSummary()}>
         {(detail) => (
-          <div class="flex items-center gap-1.5 text-[9px] text-text-dim mt-1 pt-1 border-t border-panel-border/20">
-            <span class="text-text-label font-bold">{detail().name}</span>
-            <span class="truncate">{detail().detail}</span>
+          <div
+            class="flex items-center gap-1.5 text-[9px] text-text-dim mt-1 pt-1 border-t border-panel-border/20"
+            style={{ "white-space": "nowrap", overflow: "hidden" }}
+          >
+            <span class="text-text-label font-bold shrink-0">{detail().name}</span>
+            <span class="truncate min-w-0">{detail().detail}</span>
             <span class="text-text-sub ml-auto shrink-0">{timeAgo(s().last_event_at)}</span>
           </div>
         )}
@@ -161,11 +167,11 @@ function ProjectGroupView(props: {
         class="flex items-center gap-2 px-3 py-1.5 w-full hover:bg-panel/30 transition-colors"
       >
         {open() ? <CaretDown size={10} class="text-text-sub" /> : <CaretRight size={10} class="text-text-sub" />}
-        <Folder size={12} class="text-text-dim" />
-        <span class="text-[11px] font-bold text-text-primary">{props.node.name}</span>
+        <Folder size={12} class="text-text-dim shrink-0" />
+        <span class="text-[11px] font-bold text-text-primary truncate">{props.node.name}</span>
         <Show when={props.node.sessions[0]?.branch}>
-          <span class="flex items-center gap-0.5 text-[9px] text-text-sub">
-            <GitBranch size={9} /> {props.node.sessions[0].branch}
+          <span class="flex items-center gap-0.5 text-[9px] text-text-sub truncate shrink min-w-0">
+            <GitBranch size={9} class="shrink-0" /> {props.node.sessions[0].branch}
           </span>
         </Show>
         <span class="ml-auto text-[9px] text-text-sub">
@@ -270,7 +276,7 @@ function EnvironmentGroup(props: {
           const I = EnvIcon();
           return <I size={14} class="text-text-label" />;
         })()}
-        <span class="text-[11px] font-bold text-text-primary">{props.hostname}</span>
+        <span class="text-[11px] font-bold text-text-primary truncate">{props.hostname}</span>
         <span class="text-[9px] text-text-sub uppercase tracking-wider">{props.envType}</span>
         <span class="ml-auto flex items-center gap-1">
           <Pulse size={10} class="text-safe" />
@@ -301,12 +307,17 @@ export const AgentMap: Component<{
   const allSessions = createMemo(() => {
     const all = Object.values(props.sessions);
     if (!hideInactive()) return all;
-    // Show active + sessions with any activity, hide empty offline/done
+    const now = Date.now();
+    // Show active + sessions with any activity, hide empty offline/done and long-idle sessions
     return all.filter((s) => {
-      if (!INACTIVE_STATUSES.has(s.status)) return true;
-      // Keep inactive sessions that had meaningful activity
-      if (s.edit_count > 0 || s.command_count > 0 || s.read_count > 0) return true;
-      return false;
+      // Always hide empty offline/done sessions
+      if (INACTIVE_STATUSES.has(s.status)) {
+        if (s.edit_count > 0 || s.command_count > 0 || s.read_count > 0) return true;
+        return false;
+      }
+      // Hide sessions idle for more than 30 minutes (catches stale "thinking" test sessions)
+      if (now - s.last_event_at > 1_800_000) return false;
+      return true;
     });
   });
 
@@ -315,7 +326,9 @@ export const AgentMap: Component<{
   const envGroups = createMemo(() => {
     const map = new Map<string, SessionState[]>();
     for (const s of allSessions()) {
-      const key = s.machine_id || "unknown";
+      // Normalize github:XXXXX machine IDs to "Local"
+      const raw = s.machine_id || "unknown";
+      const key = raw.startsWith("github:") ? "Local" : raw;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(s);
     }

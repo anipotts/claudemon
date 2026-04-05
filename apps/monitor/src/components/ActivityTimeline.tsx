@@ -173,61 +173,43 @@ function EventRow(props: { event: MonitorEvent; onSelect?: (id: string) => void;
 
   return (
     <div
-      class={`flex items-start gap-1.5 py-1 px-2 hover:bg-panel/30 rounded-sm event-enter cursor-pointer transition-colors ${SEVERITY_BG[severity()]}`}
+      class={`py-1 px-2 hover:bg-panel/30 rounded-sm event-enter cursor-pointer transition-colors ${SEVERITY_BG[severity()]}`}
       onClick={() => props.onSelect?.(e().session_id)}
     >
-      {/* Left: session badge + icon */}
-      <div class="flex items-center gap-1 shrink-0 mt-0.5">
+      {/* Single row: badge · icon · tool · detail/file · time */}
+      <div class="flex items-center gap-1 overflow-hidden" style={{ "white-space": "nowrap" }}>
         <SessionBadge
           sessionId={e().session_id}
           projectName={e().project_path?.split("/").pop()}
           onClick={() => props.onSelect?.(e().session_id)}
         />
-        <span class="text-[9px] w-3 text-center font-mono" style={{ color: color() }}>
+        <span class="text-[9px] w-3 text-center font-mono shrink-0" style={{ color: color() }}>
           {icon()}
         </span>
-      </div>
-
-      {/* Center: tool name + details */}
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-1.5">
-          <span class="text-[9px] font-bold uppercase shrink-0" style={{ color: color() }}>
-            {toolName()}
-          </span>
-
-          {/* Diff stat for Edit */}
-          <Show when={detail().diffStat}>
-            {(ds) => (
-              <span class="text-[8px] font-mono shrink-0">
-                <span class="text-safe">+{ds().added}</span> <span class="text-attack">-{ds().removed}</span>
-              </span>
-            )}
-          </Show>
-
-          {/* Error badge */}
-          <Show when={severity() === "error"}>
-            <span class="text-[7px] text-attack font-bold px-1 rounded-sm bg-attack/15 uppercase">err</span>
-          </Show>
-
-          {/* Secondary info (right-aligned) */}
-          <Show when={detail().secondary && !detail().filePath}>
-            <span class="text-[8px] text-text-sub ml-auto truncate max-w-[80px]">{detail().secondary}</span>
-          </Show>
-        </div>
-
-        {/* File badge or primary detail */}
+        <span class="text-[9px] font-bold uppercase shrink-0" style={{ color: color() }}>
+          {toolName()}
+        </span>
+        <Show when={detail().diffStat}>
+          {(ds) => (
+            <span class="text-[8px] font-mono shrink-0">
+              <span class="text-safe">+{ds().added}</span> <span class="text-attack">-{ds().removed}</span>
+            </span>
+          )}
+        </Show>
+        <Show when={severity() === "error"}>
+          <span class="text-[7px] text-attack font-bold px-1 rounded-sm bg-attack/15 uppercase shrink-0">err</span>
+        </Show>
         <Show when={detail().filePath}>
-          <div class="mt-0.5">
-            <FileBadge path={detail().filePath!} />
-          </div>
+          <FileBadge path={detail().filePath!} />
         </Show>
         <Show when={!detail().filePath && detail().primary}>
-          <div class="text-[9px] text-text-dim truncate mt-0.5">{detail().primary}</div>
+          <span class="text-[9px] text-text-dim truncate min-w-0">{detail().primary}</span>
         </Show>
+        <Show when={detail().secondary}>
+          <span class="text-[8px] text-text-sub truncate min-w-0">{detail().secondary}</span>
+        </Show>
+        <span class="text-[8px] text-text-sub shrink-0 ml-auto font-mono">{timeAgo(e().timestamp)}</span>
       </div>
-
-      {/* Right: relative time */}
-      <span class="text-[8px] text-text-sub shrink-0 mt-0.5 font-mono">{timeAgo(e().timestamp)}</span>
     </div>
   );
 }
