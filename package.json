@@ -10,7 +10,8 @@
     "typecheck": "npx tsc --noEmit -p apps/monitor/tsconfig.json && npx tsc --noEmit -p apps/monitor-api/tsconfig.json",
     "lint": "npx @biomejs/biome check .",
     "format": "npx @biomejs/biome check --write .",
-    "clean": "rm -rf apps/monitor/dist node_modules/.cache"
+    "clean": "rm -rf apps/monitor/dist node_modules/.cache",
+    "test": "npm run test --workspace=apps/monitor-api"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.0"

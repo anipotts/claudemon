@@ -313,5 +313,5 @@ auth.delete("/auth/api-keys/:hash", async (c) => {
 
 // ── Exports ──────────────────────────────────────────────────────────
 
-export { auth, verifyJwt, hashApiKey };
+export { auth, signJwt, verifyJwt, hashApiKey, generateApiKey };
 export type { JwtPayload };

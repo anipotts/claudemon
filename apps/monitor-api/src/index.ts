@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { auth } from "./auth";
 import { apiKeyAuth, optionalCookieAuth, wsTokenAuth } from "./middleware";
+import { enrichEvent, isValidEvent, sendEvent } from "./events";
 import type { Env } from "./env";
 
 export { SessionRoom } from "./session-room";
@@ -34,60 +35,6 @@ function getRoom(env: Env, userId?: string): DurableObjectStub {
   const name = env.SINGLE_USER === "true" || !userId || userId === "anonymous" ? "global" : `user:${userId}`;
   const id = env.SESSION_ROOM.idFromName(name);
   return env.SESSION_ROOM.get(id);
-}
-
-// -- Shared event helpers -------------------------------------------------
-
-function enrichEvent(event: any, userId: string) {
-  if (!event.timestamp) event.timestamp = Date.now();
-  if (!event.machine_id) event.machine_id = userId || "unknown";
-  if (!event.project_path) event.project_path = event.cwd || "unknown";
-
-  // Normalize Claude Code native field names -> ClaudeMon field names
-  if (event.hook_event_name === "Notification") {
-    if (event.message && !event.notification_message) event.notification_message = event.message;
-    if (event.title && !event.notification_title) event.notification_title = event.title;
-  }
-  if (event.hook_event_name === "SessionEnd") {
-    if (event.reason && !event.end_reason) event.end_reason = event.reason;
-  }
-  if (event.hook_event_name === "PermissionDenied") {
-    if (event.reason && !event.permission_denied_reason) event.permission_denied_reason = event.reason;
-  }
-  if (event.hook_event_name === "PreCompact" || event.hook_event_name === "PostCompact") {
-    if (event.trigger && !event.compact_trigger) event.compact_trigger = event.trigger;
-  }
-  if (event.hook_event_name === "FileChanged") {
-    if (event.event && !event.file_event) event.file_event = event.event;
-  }
-  if (event.hook_event_name === "WorktreeCreate") {
-    if (event.name && !event.worktree_name) event.worktree_name = event.name;
-  }
-  if (event.hook_event_name === "ConfigChange") {
-    if (event.source && !event.config_source) event.config_source = event.source;
-    if (event.file_path && !event.config_file_path) event.config_file_path = event.file_path;
-  }
-}
-
-function isValidEvent(event: any): boolean {
-  return (
-    typeof event === "object" &&
-    event !== null &&
-    typeof event.session_id === "string" &&
-    event.session_id.length > 0 &&
-    typeof event.hook_event_name === "string" &&
-    event.hook_event_name.length > 0
-  );
-}
-
-function sendEvent(room: DurableObjectStub, event: any) {
-  return room.fetch(
-    new Request("https://do/event", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(event),
-    }),
-  );
 }
 
 // -- Auth routes ----------------------------------------------------------
