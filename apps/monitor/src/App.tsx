@@ -146,7 +146,7 @@ const App: Component = () => {
     setSelectedSessionIds((prev) => {
       if (prev.includes(id)) return prev.filter((x) => x !== id);
       if (isMobile()) return [id];
-      if (prev.length >= 3) return [...prev.slice(1), id];
+      // No limit — tabs handle multiple selections
       return [...prev, id];
     });
   };
@@ -317,7 +317,7 @@ const App: Component = () => {
           </Show>
 
           {/* Left: Agent Map */}
-          <div class={`flex-1 min-w-0 flex flex-col ${isMobile() ? "" : "border-r border-panel-border"}`}>
+          <div class={`flex flex-col ${isMobile() ? "flex-1 min-w-0" : "w-[280px] shrink-0 border-r border-panel-border"}`}>
             <div class="px-4 py-2 border-b border-panel-border flex items-center gap-2 h-[33px]">
               <TreeStructure size={14} class="text-text-label" />
               <span class="text-[10px] text-text-label uppercase tracking-[2px]">Agent Map</span>
@@ -341,11 +341,65 @@ const App: Component = () => {
             </div>
           </Show>
 
-          {/* Desktop: Session Detail columns (up to 3) */}
-          <Show when={!isMobile()}>
-            <For each={selectedSessions()}>
-              {(session) => <SessionDetail session={session} onClose={() => handleCloseSession(session.session_id)} />}
-            </For>
+          {/* Desktop: Single detail panel with tabs for multiple sessions */}
+          <Show when={!isMobile() && selectedSessions().length > 0}>
+            <div class="flex-1 min-w-0 flex flex-col border-l border-panel-border">
+              {/* Session tabs when multiple selected */}
+              <Show when={selectedSessionIds().length > 1}>
+                <div class="flex items-center gap-0 border-b border-panel-border shrink-0 bg-item overflow-x-auto">
+                  <For each={selectedSessionIds()}>
+                    {(id) => {
+                      const s = () => sessions[id];
+                      const isActive = () => id === selectedSessionIds()[selectedSessionIds().length - 1];
+                      return (
+                        <Show when={s()}>
+                          <button
+                            class={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-mono border-r border-panel-border/50 shrink-0 transition-colors ${
+                              isActive()
+                                ? "bg-bg text-text-primary border-b-2 border-b-safe"
+                                : "text-text-sub hover:text-text-primary hover:bg-panel/30"
+                            }`}
+                            onClick={() => {
+                              // Move this session to end (make it active)
+                              setSelectedSessionIds((prev) => [...prev.filter((x) => x !== id), id]);
+                            }}
+                          >
+                            <span
+                              class="w-1.5 h-1.5 rounded-full shrink-0"
+                              style={{
+                                background:
+                                  s()!.status === "working"
+                                    ? "#a3b18a"
+                                    : s()!.status === "thinking"
+                                      ? "#7b9fbf"
+                                      : s()!.status === "waiting"
+                                        ? "#c9a96e"
+                                        : "#4a4640",
+                              }}
+                            />
+                            <span class="truncate max-w-[120px]">{s()!.project_name}</span>
+                            <button
+                              class="text-text-sub hover:text-text-primary ml-1"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCloseSession(id);
+                              }}
+                            >
+                              x
+                            </button>
+                          </button>
+                        </Show>
+                      );
+                    }}
+                  </For>
+                </div>
+              </Show>
+              {/* Show the last selected session's detail */}
+              <SessionDetail
+                session={selectedSessions()[selectedSessions().length - 1]}
+                onClose={() => handleCloseSession(selectedSessionIds()[selectedSessionIds().length - 1])}
+              />
+            </div>
           </Show>
 
           {/* Mobile: Activity toggle at bottom */}
