@@ -1,0 +1,40 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicco.io/tauri-v2/main/tooling/cli/schema.json",
+  "productName": "OpenProof",
+  "version": "0.1.0",
+  "identifier": "com.openproof.monitor",
+  "build": {
+    "beforeDevCommand": "cd ../monitor && npm run dev",
+    "devUrl": "http://localhost:3001",
+    "beforeBuildCommand": "cd ../monitor && npm run build",
+    "frontendDist": "../monitor/dist"
+  },
+  "app": {
+    "title": "OpenProof Monitor",
+    "windows": [
+      {
+        "title": "OpenProof — Multi-Agent Monitor",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 900,
+        "minHeight": 600,
+        "decorations": true,
+        "transparent": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' https://openproof-monitor.anipotts.workers.dev wss://openproof-monitor.anipotts.workers.dev ws://localhost:* https://fonts.googleapis.com https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}
