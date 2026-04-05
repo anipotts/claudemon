@@ -352,8 +352,10 @@ export class SessionRoom extends DurableObject {
         (e) => e.tool_use_id === event.tool_use_id && e.hook_event_name === "PreToolUse",
       );
       if (idx >= 0) {
+        const durationMs = event.timestamp - session.events[idx].timestamp;
         session.events[idx].tool_response = event.tool_response;
         session.events[idx].hook_event_name = "PostToolUse";
+        session.events[idx].duration_ms = durationMs > 0 ? durationMs : undefined;
         this.broadcast({ type: "event", event });
         return;
       }

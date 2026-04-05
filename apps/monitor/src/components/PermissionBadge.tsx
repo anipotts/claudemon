@@ -1,13 +1,14 @@
 import type { Component } from "solid-js";
 
-// Permission mode colors from Claude Code source (src/utils/theme.ts)
+// Permission mode colors mapped from Claude Code source (src/utils/permissions/PermissionMode.ts)
+// CC uses color keys: text, planMode, autoAccept, error, warning — mapped to ClaudeMon palette
 const MODE_CONFIG: Record<string, { label: string; short: string; symbol: string; color: string }> = {
-  default: { label: "Ask before edits", short: "ask", symbol: "", color: "#e8e0d4" },
-  plan: { label: "Plan mode", short: "plan", symbol: "\u23F8", color: "#006666" },
-  acceptEdits: { label: "Accept edits", short: "accept", symbol: "\u23F5\u23F5", color: "#8700ff" },
-  bypassPermissions: { label: "Bypass permissions", short: "bypass", symbol: "\u23F5\u23F5", color: "#ab2b3f" },
-  dontAsk: { label: "Don't ask", short: "auto", symbol: "\u23F5\u23F5", color: "#ab2b3f" },
-  auto: { label: "Auto mode", short: "auto", symbol: "\u23F5\u23F5", color: "#966c1e" },
+  default: { label: "Default", short: "default", symbol: "", color: "#8a8478" },
+  plan: { label: "Plan mode", short: "plan", symbol: "\u23F8", color: "#7b9fbf" },
+  acceptEdits: { label: "Accept edits", short: "accept", symbol: "\u23F5\u23F5", color: "#c9a96e" },
+  bypassPermissions: { label: "Bypass permissions", short: "bypass", symbol: "\u23F5\u23F5", color: "#b85c4a" },
+  dontAsk: { label: "Don't ask", short: "dontask", symbol: "\u23F5\u23F5", color: "#b85c4a" },
+  auto: { label: "Auto mode", short: "auto", symbol: "\u23F5\u23F5", color: "#c9a96e" },
 };
 
 const FALLBACK = { label: "Unknown", short: "?", symbol: "", color: "#6b6560" };

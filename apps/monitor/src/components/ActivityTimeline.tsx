@@ -216,7 +216,7 @@ function EventRow(props: { event: MonitorEvent; onSelect?: (id: string) => void;
 
 // ── Filter types ───────────────────────────────────────────────────
 
-type FilterType = "all" | "tools" | "lifecycle" | "errors";
+type FilterType = "all" | "tools" | "lifecycle" | "prompts" | "agents" | "errors";
 
 // ── Main Component ─────────────────────────────────────────────────
 
@@ -255,6 +255,12 @@ export const ActivityTimeline: Component<{
         return all
           .filter((e) => eventSeverity(e) === "lifecycle" || e.hook_event_name === "UserPromptSubmit")
           .slice(0, 100);
+      case "prompts":
+        return all.filter((e) => e.hook_event_name === "UserPromptSubmit").slice(0, 100);
+      case "agents":
+        return all
+          .filter((e) => e.hook_event_name === "SubagentStart" || e.hook_event_name === "SubagentStop")
+          .slice(0, 100);
       case "errors":
         return all.filter((e) => eventSeverity(e) === "error" || eventSeverity(e) === "warning").slice(0, 100);
       default:
@@ -269,7 +275,7 @@ export const ActivityTimeline: Component<{
       {/* Filter tabs */}
       <Show when={baseEvents().length > 0}>
         <div class="flex items-center gap-0.5 px-2 py-1.5 border-b border-panel-border/50 shrink-0">
-          <For each={["all", "tools", "lifecycle", "errors"] as FilterType[]}>
+          <For each={["all", "tools", "lifecycle", "prompts", "agents", "errors"] as FilterType[]}>
             {(f) => (
               <button
                 onClick={() => setFilter(f)}

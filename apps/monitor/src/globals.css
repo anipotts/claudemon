@@ -232,6 +232,20 @@ body {
   animation: event-slide-in 0.08s ease-out forwards;
 }
 
+/* Tool running pulse — green dot for in-progress tools */
+@keyframes tool-running-pulse {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.tool-running {
+  animation: tool-running-pulse 1.2s ease-in-out infinite;
+}
+
 /* Status color transition */
 .status-transition {
   transition: background-color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease, color 0.4s ease;

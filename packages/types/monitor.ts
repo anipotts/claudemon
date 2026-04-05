@@ -45,6 +45,7 @@ export interface MonitorEvent {
   tool_name?: string;
   tool_input?: Record<string, unknown>;
   tool_response?: Record<string, unknown>;
+  duration_ms?: number; // PostToolUse: wall-clock time from PreToolUse to PostToolUse
 
   // Agent hierarchy
   agent_id?: string;

@@ -77,6 +77,17 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
     return parts.length > 0 ? parts.join(" \u00b7 ") : null;
   };
 
+  const activeAgentCount = () => s().subagents.filter((a) => a.status !== "done" && a.status !== "offline").length;
+
+  const modelFamily = () => {
+    const m = s().model;
+    if (!m) return null;
+    if (m.includes("opus")) return { text: "opus", color: "#c9a96e" };
+    if (m.includes("sonnet")) return { text: "sonnet", color: "#7b9fbf" };
+    if (m.includes("haiku")) return { text: "haiku", color: "#6b6560" };
+    return { text: m.replace("claude-", "").split("-")[0], color: "#6b6560" };
+  };
+
   return (
     <div
       class={`border rounded-sm p-3 transition-all cursor-pointer status-transition ${props.selected ? "ring-1 ring-safe/50" : "hover:border-text-dim/30"} ${isWaiting() ? "waiting-banner" : ""}`}
@@ -108,11 +119,18 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
         </span>
       </div>
 
-      {/* Row 2: Branch + Counters */}
+      {/* Row 2: Model + Branch + Counters + Agents */}
       <div
         class="flex items-center gap-2 text-[9px] text-text-dim"
         style={{ "white-space": "nowrap", overflow: "hidden" }}
       >
+        <Show when={modelFamily()}>
+          {(mf) => (
+            <span class="text-[8px] font-mono font-bold shrink-0" style={{ color: mf().color }}>
+              {mf().text}
+            </span>
+          )}
+        </Show>
         <Show when={s().branch}>
           <span class="flex items-center gap-0.5 truncate shrink min-w-0">
             <GitBranch size={9} class="shrink-0" /> {s().branch}
@@ -120,6 +138,11 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
         </Show>
         <Show when={counters()}>
           <span class="text-text-sub shrink-0">{counters()}</span>
+        </Show>
+        <Show when={activeAgentCount() > 0}>
+          <span class="text-[8px] font-bold shrink-0" style={{ color: "#b07bac" }}>
+            {activeAgentCount()} agent{activeAgentCount() > 1 ? "s" : ""}
+          </span>
         </Show>
       </div>
 
