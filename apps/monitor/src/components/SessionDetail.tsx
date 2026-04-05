@@ -2,6 +2,7 @@ import { type Component, For, Show, createMemo, createSignal, createEffect, onCl
 import type { MonitorEvent, SessionState } from "../../../../packages/types/monitor";
 import { STATUS_COLORS } from "../../../../packages/types/monitor";
 import { GitBranch, CaretDown, CaretRight } from "./Icons";
+import { PermissionBadge } from "./PermissionBadge";
 import { FileBadge } from "./FileBadge";
 import { SessionBadge } from "./SessionBadge";
 import { Timestamp } from "./Timestamp";
@@ -294,9 +295,7 @@ export const SessionDetail: Component<{
           size="md"
         />
         <Show when={s().permission_mode}>
-          <span class="text-[9px] text-text-sub shrink-0">
-            {s().permission_mode === "bypassPermissions" ? "bypass" : s().permission_mode}
-          </span>
+          <PermissionBadge mode={s().permission_mode!} compact={true} />
         </Show>
         <Show when={s().model}>
           <span class="text-[9px] text-text-dim ml-auto shrink-0">
@@ -459,9 +458,7 @@ export const SessionDetail: Component<{
                 <Show when={s().permission_mode}>
                   <div>
                     <span class="text-text-sub block text-[8px] uppercase tracking-wider mb-0.5">Permissions</span>
-                    <span class="text-text-dim">
-                      {s().permission_mode === "bypassPermissions" ? "bypass" : s().permission_mode}
-                    </span>
+                    <PermissionBadge mode={s().permission_mode!} />
                   </div>
                 </Show>
                 <Show when={s().branch}>
