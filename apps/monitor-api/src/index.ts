@@ -53,6 +53,39 @@ app.get("/health", (c) =>
 app.post("/events", apiKeyAuth, async (c) => {
   const body = await c.req.json();
   const userId = c.get("userId");
+
+  // Enrich: HTTP hooks from Claude Code don't send machine_id, project_path,
+  // branch, or timestamp — those were bash script enrichments. Fill defaults
+  // so the DO doesn't crash on undefined fields.
+  if (!body.timestamp) body.timestamp = Date.now();
+  if (!body.machine_id) body.machine_id = userId || "unknown";
+  if (!body.project_path) body.project_path = body.cwd || "unknown";
+
+  // Normalize Claude Code native field names → ClaudeMon field names
+  if (body.hook_event_name === "Notification") {
+    if (body.message && !body.notification_message) body.notification_message = body.message;
+    if (body.title && !body.notification_title) body.notification_title = body.title;
+  }
+  if (body.hook_event_name === "SessionEnd") {
+    if (body.reason && !body.end_reason) body.end_reason = body.reason;
+  }
+  if (body.hook_event_name === "PermissionDenied") {
+    if (body.reason && !body.permission_denied_reason) body.permission_denied_reason = body.reason;
+  }
+  if (body.hook_event_name === "PreCompact" || body.hook_event_name === "PostCompact") {
+    if (body.trigger && !body.compact_trigger) body.compact_trigger = body.trigger;
+  }
+  if (body.hook_event_name === "FileChanged") {
+    if (body.event && !body.file_event) body.file_event = body.event;
+  }
+  if (body.hook_event_name === "WorktreeCreate") {
+    if (body.name && !body.worktree_name) body.worktree_name = body.name;
+  }
+  if (body.hook_event_name === "ConfigChange") {
+    if (body.source && !body.config_source) body.config_source = body.source;
+    if (body.file_path && !body.config_file_path) body.config_file_path = body.file_path;
+  }
+
   const room = getRoom(c.env, userId);
   await room.fetch(new Request("https://do/event", {
     method: "POST",

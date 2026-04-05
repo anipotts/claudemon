@@ -169,7 +169,7 @@ auth.get("/auth/callback", async (c) => {
       login: user.login,
       avatar_url: user.avatar_url,
       iat: now,
-      exp: now + 3600,
+      exp: now + 2592000, // 30 days
     },
     c.env.JWT_SECRET,
   );
@@ -180,7 +180,7 @@ auth.get("/auth/callback", async (c) => {
     "HttpOnly",
     isLocal ? "" : "Secure",
     "SameSite=Lax",
-    "Max-Age=3600",
+    "Max-Age=2592000",
     "Path=/",
   ].filter(Boolean).join("; ");
 
@@ -223,7 +223,7 @@ auth.get("/auth/me", async (c) => {
       "HttpOnly",
       isLocal ? "" : "Secure",
       "SameSite=Lax",
-      "Max-Age=3600",
+      "Max-Age=2592000",
       "Path=/",
     ].filter(Boolean).join("; ");
   }

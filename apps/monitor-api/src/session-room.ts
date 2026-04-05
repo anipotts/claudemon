@@ -5,15 +5,15 @@ import { TOOL_CATEGORIES } from "../../../packages/types/monitor";
 const MAX_EVENTS = 200;
 
 /** SessionState minus the heavy arrays — what we persist to DO storage. */
-type SessionMetadata = Omit<SessionState, "events" | "subagents">;
+type SessionMetadata = Omit<SessionState, "events" | "subagents" | "files_touched" | "commands_run">;
 
 function toMetadata(s: SessionState): SessionMetadata {
-  const { events, subagents, ...meta } = s;
+  const { events, subagents, files_touched, commands_run, ...meta } = s;
   return meta;
 }
 
 function toSessionState(meta: SessionMetadata): SessionState {
-  return { ...meta, events: [], subagents: [] };
+  return { ...meta, events: [], subagents: [], files_touched: [], commands_run: [] };
 }
 
 export class SessionRoom extends DurableObject {
@@ -67,7 +67,7 @@ export class SessionRoom extends DurableObject {
       const sessionId = url.pathname.split("/sessions/")[1];
       this.sessions.delete(sessionId);
       await this.ctx.storage.delete(`session:${sessionId}`);
-      this.broadcast({ type: "sessions_snapshot", sessions: Array.from(this.sessions.values()).map(toMetadata) });
+      this.broadcast({ type: "sessions_snapshot", sessions: Array.from(this.sessions.values()).map(s => toSessionState(toMetadata(s))) });
       return Response.json({ ok: true });
     }
 
@@ -137,16 +137,15 @@ export class SessionRoom extends DurableObject {
 
     let session = this.sessions.get(session_id);
     if (!session) {
-      const extra = event as Record<string, unknown>;
       session = {
         session_id,
         machine_id: event.machine_id,
         project_name: event.project_path.split("/").pop() || "unknown",
         project_path: event.project_path,
-        branch: extra.branch as string | undefined,
+        branch: event.branch,
         model: event.model,
         permission_mode: event.permission_mode,
-        transcript_path: extra.transcript_path as string | undefined,
+        transcript_path: event.transcript_path,
         cwd: event.cwd,
         status: "thinking",
         started_at: event.timestamp,
@@ -157,18 +156,22 @@ export class SessionRoom extends DurableObject {
         search_count: 0,
         events: [],
         subagents: [],
+        error_count: 0,
+        compaction_count: 0,
+        permission_denied_count: 0,
+        files_touched: [],
+        commands_run: [],
         source: "local",
       };
       this.sessions.set(session_id, session);
     }
 
-    const extra = event as Record<string, unknown>;
     session.last_event_at = event.timestamp;
     if (event.model) session.model = event.model;
     if (event.permission_mode) session.permission_mode = event.permission_mode;
     if (event.cwd) session.cwd = event.cwd;
-    if (extra.transcript_path) session.transcript_path = extra.transcript_path as string;
-    if (extra.branch) session.branch = extra.branch as string;
+    if (event.transcript_path) session.transcript_path = event.transcript_path;
+    if (event.branch) session.branch = event.branch;
 
     switch (event.hook_event_name) {
       case "PreToolUse":
@@ -202,6 +205,16 @@ export class SessionRoom extends DurableObject {
         session.command_count = 0;
         session.read_count = 0;
         session.search_count = 0;
+        session.error_count = 0;
+        session.compaction_count = 0;
+        session.permission_denied_count = 0;
+        session.files_touched = [];
+        session.commands_run = [];
+        session.tool_rate = undefined;
+        session.error_rate = undefined;
+        session.notification_message = undefined;
+        session.end_reason = undefined;
+        session.compact_summary = undefined;
         session.events = [];
         session.started_at = event.timestamp;
         break;
@@ -217,6 +230,8 @@ export class SessionRoom extends DurableObject {
             started_at: event.timestamp,
             last_event_at: event.timestamp,
             edit_count: 0, command_count: 0, read_count: 0, search_count: 0,
+            error_count: 0, compaction_count: 0, permission_denied_count: 0,
+            files_touched: [], commands_run: [],
             events: [],
             parent_session_id: session_id,
             agent_type: event.agent_type,
@@ -231,13 +246,93 @@ export class SessionRoom extends DurableObject {
           if (sub) sub.status = "done";
         }
         break;
+      case "PreCompact":
+        session.status = "working";
+        break;
+      case "PostCompact":
+        session.status = "thinking";
+        session.compaction_count++;
+        if (event.compact_summary) {
+          session.compact_summary = event.compact_summary;
+        }
+        break;
+      case "UserPromptSubmit":
+        session.status = "working";
+        break;
+      case "PermissionRequest":
+        session.status = "waiting";
+        break;
+      case "PermissionDenied":
+        session.permission_denied_count++;
+        break;
+      case "TaskCreated":
+      case "TaskCompleted":
+      case "TeammateIdle":
+        break;
+      case "CwdChanged":
+        if (event.new_cwd) {
+          session.cwd = event.new_cwd;
+        }
+        break;
+      case "FileChanged":
+        if (event.file_path) {
+          const fp = event.file_path;
+          if (!session.files_touched.includes(fp)) {
+            session.files_touched.push(fp);
+          }
+        }
+        break;
+      case "ConfigChange":
+      case "WorktreeCreate":
+      case "WorktreeRemove":
+      case "InstructionsLoaded":
+      case "Elicitation":
+      case "ElicitationResult":
+      case "Setup":
+        break;
+    }
+
+    // Notification fields
+    if (event.hook_event_name === "Notification") {
+      if (event.notification_message) session.notification_message = event.notification_message;
+    }
+
+    // End reason
+    if (event.hook_event_name === "SessionEnd") {
+      if (event.end_reason) session.end_reason = event.end_reason;
+    }
+
+    // Track files touched from Edit/Write tool_input
+    if (event.tool_name && (event.tool_name === "Edit" || event.tool_name === "Write") && event.tool_input?.file_path) {
+      const fp = event.tool_input.file_path as string;
+      if (!session.files_touched.includes(fp)) {
+        session.files_touched.push(fp);
+      }
+    }
+
+    // Track bash commands
+    if (event.tool_name === "Bash" && event.tool_input?.command) {
+      session.commands_run.push((event.tool_input.command as string).slice(0, 100));
+      if (session.commands_run.length > 20) session.commands_run = session.commands_run.slice(-20);
+    }
+
+    // Error tracking
+    if (event.hook_event_name === "PostToolUseFailure") {
+      session.error_count++;
+    }
+
+    // Compute derived rates
+    const elapsed = (event.timestamp - session.started_at) / 60000;
+    if (elapsed > 0) {
+      const totalTools = session.edit_count + session.command_count + session.read_count + session.search_count;
+      session.tool_rate = Math.round((totalTools / elapsed) * 10) / 10;
+      session.error_rate = totalTools > 0 ? Math.round((session.error_count / totalTools) * 100) / 100 : 0;
     }
 
     // Deduplicate Pre/Post via tool_use_id — merge PostToolUse response into PreToolUse
-    const toolUseId = (event as Record<string, unknown>).tool_use_id as string | undefined;
-    if (event.hook_event_name === "PostToolUse" && toolUseId) {
+    if (event.hook_event_name === "PostToolUse" && event.tool_use_id) {
       const idx = session.events.findIndex(
-        (e) => (e as Record<string, unknown>).tool_use_id === toolUseId && e.hook_event_name === "PreToolUse"
+        (e) => e.tool_use_id === event.tool_use_id && e.hook_event_name === "PreToolUse"
       );
       if (idx >= 0) {
         session.events[idx].tool_response = event.tool_response;
