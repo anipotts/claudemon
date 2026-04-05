@@ -40,7 +40,7 @@ export class SessionRoom extends DurableObject {
 
     if (url.pathname === "/event" && request.method === "POST") {
       const event = (await request.json()) as MonitorEvent;
-      this.processEvent(event);
+      await this.processEvent(event);
       await this.persist();
       return new Response("ok", { status: 200 });
     }
@@ -97,7 +97,7 @@ export class SessionRoom extends DurableObject {
     // Cleanup handled automatically by getWebSockets()
   }
 
-  private processEvent(event: MonitorEvent) {
+  private async processEvent(event: MonitorEvent) {
     const { session_id } = event;
 
     // Skip events without a valid session_id (prevents unknown-* ghosts)
@@ -229,9 +229,19 @@ export class SessionRoom extends DurableObject {
       session.events = session.events.slice(-MAX_EVENTS);
     }
 
+    // Reset 1hr auto-purge alarm on every event
+    await this.ctx.storage.setAlarm(Date.now() + 3600_000);
+
     // Broadcast to ALL connected WebSockets using Hibernation API
     // This survives DO sleep — getWebSockets() returns live connections
     this.broadcast({ type: "event", event });
+  }
+
+  // Auto-purge: clear all sessions after 1hr of inactivity
+  async alarm() {
+    this.sessions.clear();
+    await this.ctx.storage.deleteAll();
+    this.broadcast({ type: "sessions_snapshot", sessions: [] });
   }
 
   private broadcast(msg: WsMessage) {

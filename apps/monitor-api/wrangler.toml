@@ -10,4 +10,15 @@ bindings = [
 
 [[migrations]]
 tag = "v1"
-new_sqlite_classes = ["SessionRoom"]
+new_classes = ["SessionRoom"]
+
+# KV for API keys + device auth
+[[kv_namespaces]]
+binding = "API_KEYS"
+id = "c7b2d09a35b34577bfd87c75e353d544"
+preview_id = "c8d086ae0a2e4a17a663afac34d7ba4d"
+
+# Staging environment
+[env.staging]
+name = "claudemon-api-staging"
+routes = [{ pattern = "staging-api.claudemon.com", custom_domain = true }]
