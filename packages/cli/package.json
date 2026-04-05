@@ -11,7 +11,7 @@
   "homepage": "https://claudemon.com",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Validia-AI/lightning-validia.git",
+    "url": "git+https://github.com/anipotts/claudemon.git",
     "directory": "packages/cli"
   },
   "keywords": [
@@ -28,6 +28,7 @@
     "access": "public"
   },
   "files": [
-    "bin/"
+    "bin/",
+    "README.md"
   ]
 }
