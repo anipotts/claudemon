@@ -62,6 +62,22 @@ app.post("/events", apiKeyAuth, async (c) => {
   return c.json({ ok: true });
 });
 
+// ── POST /events/batch — receive batched hook events ────────────────
+
+app.post("/events/batch", apiKeyAuth, async (c) => {
+  const events = await c.req.json() as unknown[];
+  const userId = c.get("userId");
+  const room = getRoom(c.env, userId);
+  for (const event of events) {
+    await room.fetch(new Request("https://do/event", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(event),
+    }));
+  }
+  return c.json({ ok: true, count: events.length });
+});
+
 // ── POST /events/webhook/github — GitHub dispatch relay ─────────────
 
 app.post("/events/webhook/github", async (c) => {
@@ -146,7 +162,7 @@ app.post("/cloud/register", apiKeyAuth, async (c) => {
 
 app.get("/hook.sh", async (c) => {
   const script = `#!/usr/bin/env bash
-# ClaudeMon Hook — all data from JSON stdin, not env vars
+# ClaudeMon Hook — batching version (flushes every 2s)
 set -euo pipefail
 API_URL="\${CLAUDEMON_API_URL:-https://api.claudemon.com}"
 API_KEY="\${CLAUDEMON_API_KEY:-}"
@@ -160,6 +176,7 @@ if git rev-parse --is-inside-work-tree &>/dev/null 2>&1; then
 fi
 if command -v jq &>/dev/null; then
   PAYLOAD="$(echo "$INPUT" | jq -c --arg mid "$MACHINE_ID" --argjson ts "$TIMESTAMP" --arg pp "$PROJECT_PATH" --arg br "$BRANCH" '{session_id:.session_id,machine_id:$mid,timestamp:$ts,project_path:$pp,hook_event_name:.hook_event_name,branch:$br,tool_name:.tool_name,tool_input:.tool_input,tool_response:(.tool_response//null),tool_use_id:(.tool_use_id//null),model:(.model//null),permission_mode:(.permission_mode//null),cwd:(.cwd//null),transcript_path:(.transcript_path//null),last_assistant_message:(.last_assistant_message//null)} | with_entries(select(.value != null))')"
+  SID="$(echo "$INPUT" | jq -r '.session_id // empty')"
 else
   _esc() { printf '%s' "$1" | sed 's/\\\\/\\\\\\\\/g;s/"/\\\\"/g'; }
   SID="$(echo "$INPUT" | grep -o '"session_id":"[^"]*"' | head -1 | cut -d'"' -f4 || true)"
@@ -173,10 +190,39 @@ else
   [ -n "$TUID" ] && PAYLOAD="$PAYLOAD,\\"tool_use_id\\":\\"$(_esc "$TUID")\\""
   PAYLOAD="$PAYLOAD}"
 fi
-CURL_ARGS=(-sf -X POST "$API_URL/events" -H "Content-Type: application/json")
-[ -n "$API_KEY" ] && CURL_ARGS+=(-H "Authorization: Bearer $API_KEY")
-CURL_ARGS+=(-d "$PAYLOAD" --max-time 2)
-curl "\${CURL_ARGS[@]}" >/dev/null 2>&1 &
+
+# ── Batch: append payload to batch file ──────────────────────────────
+BATCH_FILE="/tmp/claudemon-\${SID}.batch"
+LOCK_FILE="/tmp/claudemon-flush-\${SID}.lock"
+echo "$PAYLOAD" >> "$BATCH_FILE"
+
+# ── Start flush loop if not already running ──────────────────────────
+if ! [ -f "$LOCK_FILE" ]; then
+  touch "$LOCK_FILE"
+  (
+    IDLE=0
+    while [ $IDLE -lt 150 ]; do
+      sleep 2
+      if [ ! -s "$BATCH_FILE" ]; then
+        IDLE=$((IDLE + 2))
+        continue
+      fi
+      IDLE=0
+      LINES="$(cat "$BATCH_FILE")"
+      : > "$BATCH_FILE"
+      BODY="[$(echo "$LINES" | paste -sd ',' -)]"
+      CURL_ARGS=(-sf -X POST "$API_URL/events/batch" -H "Content-Type: application/json")
+      [ -n "$API_KEY" ] && CURL_ARGS+=(-H "Authorization: Bearer $API_KEY")
+      CURL_ARGS+=(-d "$BODY" --max-time 5)
+      if ! curl "\${CURL_ARGS[@]}" >/dev/null 2>&1; then
+        mkdir -p ~/.claudemon
+        echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) batch flush failed" >> ~/.claudemon/last-error
+      fi
+    done
+    rm -f "$LOCK_FILE"
+  ) &
+  disown
+fi
 exit 0`;
   return new Response(script, {
     headers: { "content-type": "text/plain; charset=utf-8" },
@@ -188,6 +234,14 @@ exit 0`;
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+
+    // Serve landing page at claudemon.com root
+    if ((url.hostname === "claudemon.com" || url.hostname === "www.claudemon.com") && url.pathname === "/") {
+      const { LANDING_HTML } = await import("./landing");
+      return new Response(LANDING_HTML, {
+        headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=3600" },
+      });
+    }
 
     // WebSocket upgrade — bypass Hono CORS, auth via cookie
     if (url.pathname === "/ws" && request.headers.get("Upgrade") === "websocket") {
