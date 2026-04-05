@@ -5,3 +5,6 @@ node_modules/
 
 .DS_Store
 *.HEIC
+apps/api/.wrangler/
+apps/monitor/dist/
+apps/monitor-api/.wrangler/
