@@ -1,8 +1,8 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicco.io/tauri-v2/main/tooling/cli/schema.json",
-  "productName": "OpenProof",
+  "productName": "ClaudeMon",
   "version": "0.1.0",
-  "identifier": "com.openproof.monitor",
+  "identifier": "com.claudemon.app",
   "build": {
     "beforeDevCommand": "cd ../monitor && npm run dev",
     "devUrl": "http://localhost:3001",
@@ -10,10 +10,10 @@
     "frontendDist": "../monitor/dist"
   },
   "app": {
-    "title": "OpenProof Monitor",
+    "title": "ClaudeMon",
     "windows": [
       {
-        "title": "OpenProof — Multi-Agent Monitor",
+        "title": "ClaudeMon — Monitor your Claude Code sessions",
         "width": 1200,
         "height": 800,
         "minWidth": 900,
@@ -23,7 +23,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' https://openproof-monitor.anipotts.workers.dev wss://openproof-monitor.anipotts.workers.dev ws://localhost:* https://fonts.googleapis.com https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com"
+      "csp": "default-src 'self'; connect-src 'self' https://api.claudemon.com wss://api.claudemon.com ws://localhost:* https://fonts.googleapis.com https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' https://avatars.githubusercontent.com"
     }
   },
   "bundle": {

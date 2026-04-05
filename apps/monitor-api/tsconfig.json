@@ -8,7 +8,7 @@
     "jsxImportSource": "hono/jsx",
     "types": ["@cloudflare/workers-types"],
     "paths": {
-      "@openproof/types/*": ["../../packages/types/*"]
+      "@claudemon/types/*": ["../../packages/types/*"]
     }
   },
   "include": ["src/**/*.ts"]

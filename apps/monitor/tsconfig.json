@@ -8,7 +8,7 @@
     "jsxImportSource": "solid-js",
     "types": ["vite/client"],
     "paths": {
-      "@openproof/types/*": ["../../packages/types/*"]
+      "@claudemon/types/*": ["../../packages/types/*"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"]
