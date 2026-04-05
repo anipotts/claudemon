@@ -11,10 +11,13 @@ const DEV_WS_URL = "ws://localhost:8787/ws";
 
 export type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
+let lastEventAt = 0;
+
 export function createWebSocket(onMessage: (msg: WsMessage) => void) {
   const [status, setStatus] = createSignal<ConnectionStatus>("connecting");
   let ws: WebSocket | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout>;
+  let pingTimer: ReturnType<typeof setInterval>;
   let reconnectDelay = 1000;
 
   function connect() {
@@ -32,11 +35,22 @@ export function createWebSocket(onMessage: (msg: WsMessage) => void) {
     ws.onopen = () => {
       setStatus("connected");
       reconnectDelay = 1000;
+      pingTimer = setInterval(() => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: "ping" }));
+        }
+      }, 30000);
     };
 
     ws.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data) as WsMessage;
+        if (msg.type === "event" && msg.event?.timestamp) {
+          lastEventAt = Math.max(lastEventAt, msg.event.timestamp);
+        }
+        if (msg.type === "sessions_snapshot" && lastEventAt > 0) {
+          ws!.send(JSON.stringify({ type: "replay", last_event_at: lastEventAt }));
+        }
         onMessage(msg);
       } catch {
         // ignore malformed messages
@@ -44,6 +58,7 @@ export function createWebSocket(onMessage: (msg: WsMessage) => void) {
     };
 
     ws.onclose = () => {
+      clearInterval(pingTimer);
       setStatus("disconnected");
       ws = null;
       reconnectTimer = setTimeout(connect, reconnectDelay);
@@ -68,6 +83,7 @@ export function createWebSocket(onMessage: (msg: WsMessage) => void) {
   onCleanup(() => {
     document.removeEventListener("visibilitychange", handleVisibility);
     clearTimeout(reconnectTimer);
+    clearInterval(pingTimer);
     ws?.close();
   });
 
