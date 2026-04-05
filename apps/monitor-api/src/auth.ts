@@ -102,14 +102,6 @@ function isSafeRedirect(url: string): boolean {
   }
 }
 
-// ── Device auth (for CLI) ────────────────────────────────────────────
-
-interface DeviceRequest {
-  user_id?: string;
-  api_key?: string;
-  created_at: number;
-}
-
 // ── Auth routes ──────────────────────────────────────────────────────
 
 const auth = new Hono<{ Bindings: Env }>();
@@ -311,68 +303,6 @@ auth.delete("/auth/api-keys/:hash", async (c) => {
   await c.env.API_KEYS.put(`user:${payload.sub}:keys`, JSON.stringify(updated));
 
   return c.json({ ok: true });
-});
-
-// ── Device auth (CLI flow) — 128-bit device codes ────────────────────
-
-auth.post("/auth/device/start", async (c) => {
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  const code = Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
-
-  await c.env.API_KEYS.put(
-    `device:${code}`,
-    JSON.stringify({ created_at: Date.now() } as DeviceRequest),
-    { expirationTtl: 600 },
-  );
-
-  const origin = new URL(c.req.url).origin.replace("api.", "app.");
-  return c.json({ device_code: code, verification_url: `${origin}/cli-auth?code=${code}` });
-});
-
-auth.post("/auth/device/approve", async (c) => {
-  const cookie = c.req.header("Cookie") || "";
-  const match = cookie.match(/claudemon_token=([^;]+)/);
-  if (!match) return c.json({ error: "Not authenticated" }, 401);
-  const payload = await verifyJwt(match[1], c.env.JWT_SECRET);
-  if (!payload) return c.json({ error: "Invalid token" }, 401);
-
-  const { device_code } = (await c.req.json()) as { device_code: string };
-  const raw = await c.env.API_KEYS.get(`device:${device_code}`);
-  if (!raw) return c.json({ error: "Invalid or expired device code" }, 404);
-
-  const key = generateApiKey();
-  const hash = await hashApiKey(key);
-
-  await c.env.API_KEYS.put(`key:${hash}`, JSON.stringify({
-    user_id: payload.sub,
-    label: `cli-${new Date().toISOString().slice(0, 10)}`,
-    created_at: Date.now(),
-  }));
-
-  const userKeysRaw = await c.env.API_KEYS.get(`user:${payload.sub}:keys`);
-  const userKeys: string[] = userKeysRaw ? JSON.parse(userKeysRaw) : [];
-  userKeys.push(hash);
-  await c.env.API_KEYS.put(`user:${payload.sub}:keys`, JSON.stringify(userKeys));
-
-  const req: DeviceRequest = JSON.parse(raw);
-  req.user_id = payload.sub;
-  req.api_key = key;
-  await c.env.API_KEYS.put(`device:${device_code}`, JSON.stringify(req), { expirationTtl: 300 });
-
-  return c.json({ ok: true });
-});
-
-auth.post("/auth/device/poll", async (c) => {
-  const { device_code } = (await c.req.json()) as { device_code: string };
-  const raw = await c.env.API_KEYS.get(`device:${device_code}`);
-  if (!raw) return c.json({ error: "Invalid or expired device code" }, 404);
-
-  const req = JSON.parse(raw) as DeviceRequest;
-  if (!req.api_key) return c.json({ status: "pending" }, 202);
-
-  await c.env.API_KEYS.delete(`device:${device_code}`);
-  return c.json({ status: "approved", api_key: req.api_key });
 });
 
 // ── Exports ──────────────────────────────────────────────────────────
