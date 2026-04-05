@@ -1,12 +1,16 @@
-// Friendly time format: 11:24:30 PM — EST biased, precise to seconds
+// Friendly time format: 11:24:30.123 PM — EST biased, precise to milliseconds
 export function formatTime(ts: number): string {
-  return new Date(ts).toLocaleTimeString("en-US", {
+  const d = new Date(ts);
+  const base = d.toLocaleTimeString("en-US", {
     hour12: true,
     hour: "numeric",
     minute: "2-digit",
     second: "2-digit",
     timeZone: "America/New_York",
   });
+  const ms = String(d.getMilliseconds()).padStart(3, "0");
+  // Insert .ms before the AM/PM: "11:24:30 PM" → "11:24:30.123 PM"
+  return base.replace(/(\d{2})\s+(AM|PM)/i, `$1.${ms} $2`);
 }
 
 // Full technical timestamp for hover tooltip

@@ -187,7 +187,16 @@ body {
   transition: max-height 0.1s ease-out, opacity 0.08s ease-out;
 }
 .tool-call-collapsed { max-height: 0; opacity: 0; }
-.tool-call-expanded { max-height: 600px; opacity: 1; }
+.tool-call-expanded { max-height: 800px; opacity: 1; overflow-y: auto; }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
 
 /* Smooth scroll */
 .smooth-scroll {
@@ -201,3 +210,45 @@ body {
   50% { transform: scale(1.1); }
 }
 .conflict-new { animation: conflict-bounce 0.3s ease-out; }
+
+/* Code block with copy button */
+.code-block-wrapper {
+  position: relative;
+  margin: 4px 0;
+}
+.code-block-wrapper .copy-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  opacity: 0;
+  transition: opacity 0.1s;
+  background: var(--panel-border);
+  border: none;
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-size: 9px;
+  color: var(--text-label);
+  cursor: pointer;
+  font-family: var(--font-mono);
+}
+.code-block-wrapper:hover .copy-btn { opacity: 1; }
+.copy-btn:hover { background: var(--text-sub); color: var(--text-primary); }
+
+/* Copyable inline elements */
+.copyable {
+  position: relative;
+  cursor: pointer;
+}
+.copyable:hover { background: var(--panel-border); border-radius: 2px; }
+
+/* Syntax highlighting — One Dark inspired */
+.syn-keyword { color: #c678dd; }
+.syn-string { color: #98c379; }
+.syn-number { color: #d19a66; }
+.syn-comment { color: #5c6370; font-style: italic; }
+.syn-function { color: #61afef; }
+.syn-type { color: #e5c07b; }
+.syn-operator { color: #56b6c2; }
+.syn-punctuation { color: #abb2bf; }
+.syn-property { color: #e06c75; }
+.syn-builtin { color: #e5c07b; }
