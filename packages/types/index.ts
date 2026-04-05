@@ -105,3 +105,104 @@ export const INITIAL_STATS: Stats = {
 };
 
 export const INITIAL_FLAGGED_FILES: FlaggedFile[] = [];
+
+// ---------------------------------------------------------------------------
+// Agent Collaboration Types (v2)
+// ---------------------------------------------------------------------------
+
+export type AgentType = 'claude-code' | 'cursor' | 'codex' | 'ollama' | 'other';
+export type EnvType = 'local' | 'cloud' | 'ssh' | 'container';
+export type SessionStatus = 'active' | 'idle' | 'disconnected';
+export type EventAction = 'read' | 'edit' | 'create' | 'delete' | 'run_command' | 'commit' | 'branch' | 'merge';
+
+export interface AgentEnvironment {
+  hostname: string;
+  type: EnvType;
+  provider?: string;
+  connectionInfo?: string;
+}
+
+export interface AgentWorkspace {
+  path: string;
+  isGit: boolean;
+  gitRemote?: string;
+  branch?: string;
+  isWorktree?: boolean;
+  worktreePath?: string;
+}
+
+export interface AgentSession {
+  sessionId: string;
+  agentType: AgentType;
+  environment: AgentEnvironment;
+  workspace: AgentWorkspace;
+  status: SessionStatus;
+  currentAction?: string;
+  currentFile?: string;
+  lastHeartbeat: number;
+  createdAt: number;
+}
+
+export interface AgentEvent {
+  id: string;
+  sessionId: string;
+  action: EventAction;
+  filePath?: string;
+  summary: string;
+  timestamp: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface Conflict {
+  id: string;
+  filePath: string;
+  sessionIds: string[];
+  detectedAt: number;
+  resolvedAt?: number;
+  resolution?: string;
+}
+
+// Agent Map grouped response
+export interface AgentMapBranch {
+  branch: string;
+  isWorktree: boolean;
+  agents: AgentSession[];
+}
+
+export interface AgentMapWorkspace {
+  path: string;
+  gitRemote?: string;
+  isGit: boolean;
+  branches: AgentMapBranch[];
+}
+
+export interface AgentMapEnvironment {
+  hostname: string;
+  type: EnvType;
+  provider?: string;
+  workspaces: AgentMapWorkspace[];
+}
+
+export interface AgentMapResponse {
+  environments: AgentMapEnvironment[];
+  totalAgents: number;
+}
+
+// Heartbeat request body
+export interface HeartbeatRequest {
+  sessionId: string;
+  agentType: AgentType;
+  environment: AgentEnvironment;
+  workspace: AgentWorkspace;
+  currentAction?: string;
+  currentFile?: string;
+}
+
+// Event report request body
+export interface EventReport {
+  sessionId: string;
+  action: EventAction;
+  filePath?: string;
+  summary: string;
+  metadata?: Record<string, unknown>;
+}
