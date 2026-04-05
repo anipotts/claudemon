@@ -182,8 +182,62 @@ async function init(keyArg) {
 
   // Done
   console.log();
-  console.log(green("  Done!") + " Restart your terminal, then open Claude Code.");
+  console.log(green("  Done!") + " Run this to activate, then open Claude Code:");
+  console.log();
+  console.log("  " + bold(`source ${rcFile}`));
+  console.log();
   console.log(dim("  Sessions will appear at https://app.claudemon.com"));
+  console.log();
+}
+
+// ── Status ────────────────────────────────────────────────────────
+
+async function status() {
+  console.log();
+  console.log(bold("ClaudeMon") + dim(" — status check"));
+  console.log();
+
+  // 1. API key in env
+  const hasKey = !!process.env.CLAUDEMON_API_KEY;
+  console.log(
+    (hasKey ? green("  [ok]") : red("  [!!]")) +
+      " CLAUDEMON_API_KEY " +
+      (hasKey ? dim("set in environment") : red("not set — run: claudemon init")),
+  );
+
+  // 2. Hooks in settings.json
+  const settingsPath = join(homedir(), ".claude", "settings.json");
+  let hasHooks = false;
+  if (existsSync(settingsPath)) {
+    try {
+      const settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
+      const hooks = settings.hooks || {};
+      hasHooks = Object.values(hooks).some((groups) =>
+        groups.some((g) => g.hooks?.some((h) => (h.url || h.command || "").includes("claudemon"))),
+      );
+    } catch {}
+  }
+  console.log(
+    (hasHooks ? green("  [ok]") : red("  [!!]")) +
+      " Claude hooks " +
+      (hasHooks ? dim("configured in settings.json") : red("not found — run: claudemon init")),
+  );
+
+  // 3. API health check
+  let apiOk = false;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    const res = await fetch(`${API_URL}/health`, { signal: controller.signal });
+    clearTimeout(timeout);
+    apiOk = res.ok;
+  } catch {}
+  console.log(
+    (apiOk ? green("  [ok]") : red("  [!!]")) +
+      " API server " +
+      (apiOk ? dim("reachable at " + API_URL) : red("unreachable — check your network")),
+  );
+
   console.log();
 }
 
@@ -196,6 +250,8 @@ if (command === "init") {
   const keyIdx = args.indexOf("--key");
   const key = keyIdx !== -1 ? args[keyIdx + 1] : null;
   await init(key);
+} else if (command === "status") {
+  await status();
 } else if (command === "--version" || command === "-v") {
   console.log(VERSION);
 } else {
@@ -204,6 +260,7 @@ if (command === "init") {
   console.log();
   console.log("  " + bold("claudemon init") + dim("          Set up ClaudeMon hooks"));
   console.log("  " + bold("claudemon init --key") + dim("   Pass API key directly"));
+  console.log("  " + bold("claudemon status") + dim("       Check connection status"));
   console.log("  " + bold("claudemon --version") + dim("    Show version"));
   console.log();
 }

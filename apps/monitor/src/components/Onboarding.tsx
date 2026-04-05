@@ -293,7 +293,7 @@ interface User {
   avatar_url: string;
 }
 
-export const Onboarding: Component<{ apiUrl: string; user: User | null; authLoading: boolean }> = (props) => {
+export const Onboarding: Component<{ apiUrl: string; user: User | null; authLoading: boolean; onSetupComplete?: () => void }> = (props) => {
   const [apiKey, _setApiKey] = createSignal<string | null>(
     typeof localStorage !== "undefined" ? localStorage.getItem("claudemon_api_key") : null,
   );
@@ -324,7 +324,10 @@ export const Onboarding: Component<{ apiUrl: string; user: User | null; authLoad
         body: JSON.stringify({ label: "onboarding" }),
       });
       const data = await res.json();
-      if (data.key) setApiKey(data.key);
+      if (data.key) {
+        setApiKey(data.key);
+        props.onSetupComplete?.();
+      }
     } catch (e) {
       console.error("Failed to create API key:", e);
     } finally {

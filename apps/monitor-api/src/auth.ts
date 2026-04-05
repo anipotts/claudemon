@@ -231,8 +231,11 @@ auth.get("/auth/me", async (c) => {
       .join("; ");
   }
 
+  const userKeysRaw = await c.env.API_KEYS.get(`user:${payload.sub}:keys`);
+  const hasApiKeys = userKeysRaw ? JSON.parse(userKeysRaw).length > 0 : false;
+
   return c.json(
-    { sub: payload.sub, name: payload.name, login: payload.login, avatar_url: payload.avatar_url },
+    { sub: payload.sub, name: payload.name, login: payload.login, avatar_url: payload.avatar_url, has_api_keys: hasApiKeys },
     200,
     headers,
   );

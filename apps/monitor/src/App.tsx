@@ -7,6 +7,7 @@ import { ConflictPanel, type ConflictData } from "./components/ConflictPanel";
 import { SessionDetail } from "./components/SessionDetail";
 import { Onboarding } from "./components/Onboarding";
 import { ShieldCheck, Lightning, ListBullets, TreeStructure, Trash } from "./components/Icons";
+import { IdleDashboard } from "./components/IdleDashboard";
 
 const API_URL = import.meta.env.VITE_MONITOR_API_URL || "https://api.claudemon.com";
 
@@ -15,6 +16,7 @@ interface User {
   name: string;
   login: string;
   avatar_url: string;
+  has_api_keys?: boolean;
 }
 
 const App: Component = () => {
@@ -37,6 +39,21 @@ const App: Component = () => {
         setAuthLoading(false);
       });
   });
+
+  const [showOnboarding, setShowOnboarding] = createSignal(false);
+
+  const refetchUser = () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    fetch(`${API_URL}/auth/me`, { credentials: "include", signal: controller.signal })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) setUser(data);
+        setShowOnboarding(false);
+      })
+      .catch(() => {})
+      .finally(() => clearTimeout(timeout));
+  };
 
   const allSessions = createMemo(() => Object.values(sessions));
   const totalAgents = createMemo(() => allSessions().length);
@@ -241,7 +258,11 @@ const App: Component = () => {
         <div class="h-0.5 bg-suspicious/50 animate-pulse" />
       </Show>
 
-      <Show when={hasAgents()} fallback={<Onboarding apiUrl={API_URL} user={user()} authLoading={authLoading()} />}>
+      <Show when={hasAgents()} fallback={
+        <Show when={user()?.has_api_keys && !showOnboarding()} fallback={<Onboarding apiUrl={API_URL} user={user()} authLoading={authLoading()} onSetupComplete={refetchUser} />}>
+          <IdleDashboard connectionStatus={connectionStatus} onShowSetup={() => setShowOnboarding(true)} />
+        </Show>
+      }>
         <div class="flex flex-1 overflow-hidden">
           {/* Left: Agent Map */}
           <div class="flex-1 min-w-0 flex flex-col border-r border-panel-border">
