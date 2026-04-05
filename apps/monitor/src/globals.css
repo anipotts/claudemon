@@ -252,3 +252,10 @@ body {
 .syn-punctuation { color: #abb2bf; }
 .syn-property { color: #e06c75; }
 .syn-builtin { color: #e5c07b; }
+
+/* JSON syntax highlighting — Anthropic docs palette */
+.json-key { color: #e06c75; }
+.json-str { color: #98c379; }
+.json-bool { color: #d19a66; }
+.json-num { color: #d19a66; }
+.json-punc { color: #5c6370; }
