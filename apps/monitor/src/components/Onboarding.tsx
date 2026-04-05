@@ -1,21 +1,20 @@
-import { type Component, createSignal, createEffect, onCleanup, Show } from "solid-js";
+import { type Component, createSignal, Show, For } from "solid-js";
 import {
   ShieldCheck,
   Copy,
   Check,
-  Terminal,
   ArrowRight,
-  Circle,
-  GitBranch,
-  Desktop,
+  Eye,
+  EyeSlash,
   Lightning,
   TreeStructure,
-  Eye,
 } from "./Icons";
+
+const API_URL = import.meta.env.VITE_MONITOR_API_URL || "https://api.claudemon.com";
 
 // ── Copy button ─────────────────────────────────────────────────────
 
-function CopyBlock(props: { text: string; label?: string }) {
+function CopyBlock(props: { text: string; label?: string; mono?: boolean }) {
   const [copied, setCopied] = createSignal(false);
 
   const handleCopy = () => {
@@ -27,13 +26,13 @@ function CopyBlock(props: { text: string; label?: string }) {
   return (
     <div class="group relative">
       <Show when={props.label}>
-        <div class="text-[9px] text-text-sub uppercase tracking-wider mb-1">{props.label}</div>
+        <div class="text-[9px] text-text-sub uppercase tracking-wider mb-1.5">{props.label}</div>
       </Show>
       <button
         onClick={handleCopy}
-        class="w-full text-left bg-[#0e0d0c] border border-panel-border/60 rounded-sm px-3 py-2.5 text-[12px] text-text-primary leading-5 hover:border-text-dim/40 transition-all cursor-pointer"
+        class="w-full text-left bg-[#0e0d0c] border border-panel-border/60 rounded px-3 py-2.5 text-[12px] text-text-primary leading-5 hover:border-text-dim/40 transition-all cursor-pointer"
       >
-        <pre class="whitespace-pre-wrap break-all overflow-hidden">{props.text}</pre>
+        <pre class={`whitespace-pre-wrap break-all overflow-hidden ${props.mono !== false ? "font-mono" : ""}`}>{props.text}</pre>
         <span class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
           {copied() ? (
             <Check size={14} class="text-safe" />
@@ -46,98 +45,98 @@ function CopyBlock(props: { text: string; label?: string }) {
   );
 }
 
-// ── Animated pulse ring ─────────────────────────────────────────────
+// ── Data field visualization ────────────────────────────────────────
 
-function PulseRing() {
+function DataField(props: { name: string; example: string; why: string }) {
   return (
-    <div class="relative w-20 h-20 flex items-center justify-center">
-      <div class="absolute inset-0 rounded-full border border-safe/20 animate-[ping_3s_ease-out_infinite]" />
-      <div class="absolute inset-2 rounded-full border border-safe/30 animate-[ping_3s_ease-out_0.5s_infinite]" />
-      <div class="absolute inset-4 rounded-full border border-safe/40 animate-[ping_3s_ease-out_1s_infinite]" />
-      <ShieldCheck size={32} class="text-safe relative z-10" />
-    </div>
-  );
-}
-
-// ── Fake agent map preview ──────────────────────────────────────────
-
-function MapPreview() {
-  const [step, setStep] = createSignal(0);
-
-  const interval = setInterval(() => {
-    setStep((s) => (s + 1) % 4);
-  }, 2000);
-  onCleanup(() => clearInterval(interval));
-
-  const agents = [
-    { type: "claude-code", branch: "main", action: "editing src/index.ts", color: "#a3b18a" },
-    { type: "cursor", branch: "feat/auth", action: "reading api/routes.ts", color: "#c9a96e" },
-    { type: "codex", branch: "main", action: "running tests", color: "#7ea8be" },
-  ];
-
-  return (
-    <div class="border border-panel-border/40 rounded-sm bg-card/50 p-3 text-[11px]">
-      <div class="flex items-center gap-2 mb-2 text-text-sub">
-        <Desktop size={12} />
-        <span class="font-bold text-text-label">your-machine</span>
-        <span class="text-[9px] uppercase tracking-wider">local</span>
-      </div>
-      <div class="ml-3 border-l border-panel-border/30 pl-3 space-y-1.5">
-        {agents.map((agent, i) => (
-          <div
-            class="flex items-center gap-2 transition-all duration-500"
-            style={{ opacity: i <= step() ? 1 : 0.2 }}
-          >
-            <span
-              class={`w-1.5 h-1.5 rounded-full shrink-0 ${i <= step() ? "animate-pulse" : ""}`}
-              style={{
-                background: i <= step() ? agent.color : "#3d3a34",
-                "box-shadow": i <= step() ? `0 0 4px ${agent.color}` : "none",
-              }}
-            />
-            <GitBranch size={10} class="text-text-sub" />
-            <span class="text-text-sub">{agent.branch}</span>
-            <span class="font-bold" style={{ color: agent.color }}>
-              {agent.type}
-            </span>
-            <span class="text-text-sub truncate">{agent.action}</span>
-          </div>
-        ))}
-        <Show when={step() >= 3}>
-          <div class="flex items-center gap-1.5 mt-1 step-in">
-            <Lightning size={10} class="text-attack" />
-            <span class="text-[10px] text-attack">Conflict: src/index.ts</span>
-          </div>
-        </Show>
+    <div class="flex items-start gap-3 py-1.5">
+      <span class="text-safe text-[10px] mt-0.5">
+        <Check size={10} />
+      </span>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-baseline gap-2">
+          <span class="text-[11px] text-text-primary font-bold">{props.name}</span>
+          <span class="text-[10px] text-text-sub truncate">{props.example}</span>
+        </div>
+        <div class="text-[10px] text-text-dim">{props.why}</div>
       </div>
     </div>
   );
 }
 
-// ── Step indicator ──────────────────────────────────────────────────
-
-function StepDots(props: { current: number; total: number }) {
+function BlockedField(props: { name: string }) {
   return (
-    <div class="flex items-center gap-1.5">
-      {Array.from({ length: props.total }, (_, i) => (
-        <div
-          class={`h-1 rounded-full transition-all duration-300 ${
-            i === props.current ? "w-6 bg-safe" : i < props.current ? "w-1.5 bg-safe/50" : "w-1.5 bg-panel-border"
-          }`}
-        />
-      ))}
+    <div class="flex items-center gap-3 py-1">
+      <span class="text-attack text-[10px]">
+        <EyeSlash size={10} />
+      </span>
+      <span class="text-[11px] text-text-sub line-through">{props.name}</span>
     </div>
   );
+}
+
+// ── Section divider ─────────────────────────────────────────────────
+
+function Divider() {
+  return <div class="border-t border-panel-border/30 my-8" />;
 }
 
 // ── Main onboarding ─────────────────────────────────────────────────
 
-export const Onboarding: Component<{ apiUrl: string }> = (props) => {
-  const [step, setStep] = createSignal(0);
-  const [checking, setChecking] = createSignal(false);
+interface User {
+  sub: string;
+  name: string;
+  login: string;
+  avatar_url: string;
+}
 
-  const settingsSnippet = () => `// ~/.claude/settings.json
-{
+export const Onboarding: Component<{ apiUrl: string; user: User | null; authLoading: boolean }> = (props) => {
+  const [apiKey, setApiKey] = createSignal<string | null>(null);
+  const [apiKeyLoading, setApiKeyLoading] = createSignal(false);
+  const [showHookSource, setShowHookSource] = createSignal(false);
+  const [hookSource, setHookSource] = createSignal<string | null>(null);
+
+  const createApiKey = async () => {
+    setApiKeyLoading(true);
+    try {
+      const res = await fetch(`${props.apiUrl}/auth/api-keys`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: "onboarding" }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setApiKey(data.key);
+      }
+    } catch {}
+    setApiKeyLoading(false);
+  };
+
+  const loadHookSource = async () => {
+    if (hookSource()) {
+      setShowHookSource(!showHookSource());
+      return;
+    }
+    try {
+      const res = await fetch(`${props.apiUrl}/hook.sh`);
+      setHookSource(await res.text());
+      setShowHookSource(true);
+    } catch {
+      setShowHookSource(false);
+    }
+  };
+
+  const installCmd = () => {
+    const key = apiKey();
+    const base = `curl -fsSL ${props.apiUrl}/hook.sh -o ~/.claudemon-hook.sh && chmod +x ~/.claudemon-hook.sh`;
+    if (key) {
+      return `${base}\n\n# Add your API key to your shell profile (~/.zshrc or ~/.bashrc)\nexport CLAUDEMON_API_KEY="${key}"`;
+    }
+    return base;
+  };
+
+  const settingsSnippet = () => `{
   "hooks": {
     "PreToolUse": [{ "matcher": "", "hooks": [{ "type": "command", "command": "bash ~/.claudemon-hook.sh", "async": true }] }],
     "PostToolUse": [{ "matcher": "", "hooks": [{ "type": "command", "command": "bash ~/.claudemon-hook.sh", "async": true }] }],
@@ -147,168 +146,197 @@ export const Onboarding: Component<{ apiUrl: string }> = (props) => {
 }`;
 
   return (
-    <div class="flex-1 flex items-center justify-center overflow-y-auto">
-      <div class="max-w-xl w-full px-6 py-12">
-        {/* Hero */}
-        <Show when={step() === 0}>
-          <div class="step-in flex flex-col items-center text-center gap-6">
-            <PulseRing />
+    <div class="flex-1 overflow-y-auto smooth-scroll">
+      <div class="max-w-lg mx-auto px-6 py-16 space-y-0">
+
+        {/* ── Hero ──────────────────────────────────────────────── */}
+        <div class="text-center mb-4">
+          <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-safe/10 border border-safe/20 mb-5">
+            <ShieldCheck size={28} class="text-safe" />
+          </div>
+          <h1 class="text-2xl font-bold tracking-wide mb-2">ClaudeMon</h1>
+          <p class="text-[13px] text-text-dim leading-5">
+            See every Claude Code session across machines, branches, and worktrees — in real time.
+          </p>
+        </div>
+
+        {/* ── Value props (compact) ─────────────────────────────── */}
+        <div class="flex justify-center gap-8 text-center py-4">
+          <div class="flex flex-col items-center gap-1">
+            <TreeStructure size={16} class="text-safe" />
+            <span class="text-[10px] text-text-label">Agent Map</span>
+          </div>
+          <div class="flex flex-col items-center gap-1">
+            <Eye size={16} class="text-suspicious" />
+            <span class="text-[10px] text-text-label">Live Activity</span>
+          </div>
+          <div class="flex flex-col items-center gap-1">
+            <Lightning size={16} class="text-attack" />
+            <span class="text-[10px] text-text-label">Conflicts</span>
+          </div>
+        </div>
+
+        <Divider />
+
+        {/* ── What data is sent ─────────────────────────────────── */}
+        <div>
+          <h2 class="text-sm font-bold mb-1">Exactly what the hook sends</h2>
+          <p class="text-[11px] text-text-dim mb-4">
+            The hook is a short bash script that runs on each Claude Code tool call.
+            Here is every field it transmits — nothing else.
+          </p>
+
+          <div class="bg-card/30 border border-panel-border/40 rounded p-4 mb-3">
+            <div class="text-[9px] text-text-sub uppercase tracking-wider mb-2">Sent</div>
+            <DataField name="session_id" example="e.g. a1b2c3d4" why="Which session this event belongs to" />
+            <DataField name="machine_id" example="e.g. macbook-pro" why="Your hostname, so you can see which machine" />
+            <DataField name="project_path" example="e.g. ~/Code/my-app" why="Which project directory" />
+            <DataField name="branch" example="e.g. main" why="Current git branch" />
+            <DataField name="hook_event_name" example="e.g. PostToolUse" why="What type of event (tool call, stop, etc.)" />
+            <DataField name="tool_name" example="e.g. Edit, Bash, Read" why="Which tool Claude used" />
+            <DataField name="tool_input" example="e.g. file_path, command" why="Tool arguments (file paths, commands)" />
+            <DataField name="tool_response" example="e.g. diff output" why="What the tool returned" />
+            <DataField name="model" example="e.g. opus-4" why="Which model is running" />
+          </div>
+
+          <div class="bg-card/30 border border-panel-border/40 rounded p-4 mb-4">
+            <div class="text-[9px] text-text-sub uppercase tracking-wider mb-2">Never sent</div>
+            <BlockedField name="File contents (only paths and diffs)" />
+            <BlockedField name="API keys, tokens, or secrets" />
+            <BlockedField name="Environment variables" />
+            <BlockedField name="Your conversation with Claude" />
+            <BlockedField name="Anything outside the tool call" />
+          </div>
+
+          <div class="flex flex-col gap-2 text-[11px] text-text-dim">
+            <div class="flex items-start gap-2">
+              <ShieldCheck size={12} class="text-safe shrink-0 mt-0.5" />
+              <span><strong class="text-text-label">Ephemeral.</strong> No database. Events live in memory and auto-purge after 1 hour of inactivity.</span>
+            </div>
+            <div class="flex items-start gap-2">
+              <ShieldCheck size={12} class="text-safe shrink-0 mt-0.5" />
+              <span><strong class="text-text-label">Open source.</strong> Every line — the hook, the relay, the dashboard — is on GitHub.</span>
+            </div>
+            <div class="flex items-start gap-2">
+              <ShieldCheck size={12} class="text-safe shrink-0 mt-0.5" />
+              <span><strong class="text-text-label">Self-hostable.</strong> Run your own instance on Cloudflare Workers free tier. Zero cost.</span>
+            </div>
+          </div>
+
+          <button
+            onClick={loadHookSource}
+            class="mt-4 text-[11px] text-text-sub hover:text-text-primary transition-colors cursor-pointer"
+          >
+            {showHookSource() ? "Hide hook source code" : "View the full hook source code"}
+          </button>
+
+          <Show when={showHookSource() && hookSource()}>
+            <div class="mt-2 bg-[#0e0d0c] border border-panel-border/40 rounded p-3 max-h-[300px] overflow-y-auto smooth-scroll">
+              <pre class="text-[10px] text-text-dim leading-4 whitespace-pre-wrap break-all">{hookSource()}</pre>
+            </div>
+          </Show>
+        </div>
+
+        <Divider />
+
+        {/* ── Sign in + API key ─────────────────────────────────── */}
+        <div>
+          <h2 class="text-sm font-bold mb-1">Get your API key</h2>
+          <p class="text-[11px] text-text-dim mb-4">
+            Sign in with GitHub to create an API key. The hook uses this key to authenticate
+            events to your private dashboard — without it, events are rejected.
+          </p>
+
+          <Show when={!props.authLoading}>
+            <Show when={props.user} fallback={
+              <a
+                href={`${props.apiUrl}/auth/login?redirect=${encodeURIComponent(window.location.href)}`}
+                class="inline-flex items-center gap-2 bg-[#161b22] border border-[#30363d] rounded px-5 py-2.5 text-[12px] text-white hover:bg-[#1c2128] transition-colors"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" /></svg>
+                Sign in with GitHub
+              </a>
+            }>
+              {(u) => (
+                <div class="space-y-3">
+                  <div class="flex items-center gap-3 text-[12px]">
+                    <img
+                      src={u().avatar_url}
+                      alt={u().login}
+                      class="w-6 h-6 rounded-full border border-panel-border"
+                    />
+                    <span class="text-text-label">{u().name || u().login}</span>
+                    <Check size={12} class="text-safe" />
+                  </div>
+
+                  <Show when={!apiKey()} fallback={
+                    <div class="space-y-2">
+                      <div class="text-[10px] text-safe uppercase tracking-wider font-bold">Your API key (copy it now — shown only once)</div>
+                      <CopyBlock text={apiKey()!} />
+                    </div>
+                  }>
+                    <button
+                      onClick={createApiKey}
+                      disabled={apiKeyLoading()}
+                      class="flex items-center gap-2 bg-safe/15 border border-safe/30 rounded px-4 py-2 text-[11px] font-bold text-safe hover:bg-safe/25 transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      {apiKeyLoading() ? "Creating..." : "Create API key"}
+                    </button>
+                  </Show>
+                </div>
+              )}
+            </Show>
+          </Show>
+
+          <Show when={props.authLoading}>
+            <div class="text-[11px] text-text-sub">Checking authentication...</div>
+          </Show>
+        </div>
+
+        <Divider />
+
+        {/* ── Install ──────────────────────────────────────────── */}
+        <div class={!apiKey() && props.user ? "opacity-40 pointer-events-none select-none" : !props.user ? "opacity-40 pointer-events-none select-none" : ""}>
+          <h2 class="text-sm font-bold mb-1">Install</h2>
+          <p class="text-[11px] text-text-dim mb-4">
+            Two copy-pastes. Takes 10 seconds.
+          </p>
+
+          <div class="space-y-4">
+            <div>
+              <div class="flex items-center gap-2 mb-2">
+                <span class="w-5 h-5 rounded-full bg-safe/20 text-safe flex items-center justify-center text-[10px] font-bold">1</span>
+                <span class="text-[11px] text-text-label">Download the hook + set your key</span>
+              </div>
+              <CopyBlock text={installCmd()} label="Run in terminal" />
+            </div>
 
             <div>
-              <h1 class="text-2xl font-bold tracking-wide mb-2">ClaudeMon</h1>
-              <p class="text-[13px] text-text-dim leading-5 max-w-md">
-                See every AI agent working on your codebase. Across machines, branches, and worktrees &mdash; in real time.
-              </p>
-            </div>
-
-            <MapPreview />
-
-            {/* Value props */}
-            <div class="grid grid-cols-3 gap-4 w-full text-center">
-              <div class="flex flex-col items-center gap-1.5">
-                <TreeStructure size={18} class="text-safe" />
-                <span class="text-[10px] text-text-label">Agent Map</span>
-                <span class="text-[9px] text-text-sub leading-3">See who is working where</span>
+              <div class="flex items-center gap-2 mb-2">
+                <span class="w-5 h-5 rounded-full bg-safe/20 text-safe flex items-center justify-center text-[10px] font-bold">2</span>
+                <span class="text-[11px] text-text-label">Add hooks to Claude Code</span>
               </div>
-              <div class="flex flex-col items-center gap-1.5">
-                <Eye size={18} class="text-suspicious" />
-                <span class="text-[10px] text-text-label">Live Activity</span>
-                <span class="text-[9px] text-text-sub leading-3">Every read, edit, and commit</span>
-              </div>
-              <div class="flex flex-col items-center gap-1.5">
-                <Lightning size={18} class="text-attack" />
-                <span class="text-[10px] text-text-label">Conflict Detection</span>
-                <span class="text-[9px] text-text-sub leading-3">Before merge nightmares</span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setStep(1)}
-              class="flex items-center gap-2 bg-safe/15 border border-safe/30 rounded-sm px-6 py-2.5 text-[11px] font-bold text-safe hover:bg-safe/25 transition-colors uppercase tracking-wider"
-            >
-              Connect Claude Code <ArrowRight size={13} />
-            </button>
-
-            <StepDots current={0} total={3} />
-          </div>
-        </Show>
-
-        {/* Step 1: Download hook */}
-        <Show when={step() === 1}>
-          <div class="step-in flex flex-col gap-5">
-            <div class="flex items-center gap-3">
-              <button onClick={() => setStep(0)} class="text-text-sub hover:text-text-primary transition-colors text-[11px]">&larr;</button>
-              <div>
-                <h2 class="text-lg font-bold">Install the hook</h2>
-                <p class="text-[12px] text-text-dim">One script, zero dependencies</p>
-              </div>
-            </div>
-
-            <div class="space-y-4">
-              <div>
-                <div class="flex items-center gap-2 mb-2">
-                  <span class="w-5 h-5 rounded-full bg-safe/20 text-safe flex items-center justify-center text-[10px] font-bold">1</span>
-                  <span class="text-[11px] text-text-label">Download the hook script</span>
-                </div>
-                <CopyBlock text={`curl -fsSL ${props.apiUrl}/hook.sh -o ~/.claudemon-hook.sh && chmod +x ~/.claudemon-hook.sh`} />
-              </div>
-
-              <div>
-                <div class="flex items-center gap-2 mb-2">
-                  <span class="w-5 h-5 rounded-full bg-safe/20 text-safe flex items-center justify-center text-[10px] font-bold">2</span>
-                  <span class="text-[11px] text-text-label">Add to Claude Code settings</span>
-                </div>
-                <CopyBlock label="~/.claude/settings.json" text={settingsSnippet()} />
-              </div>
-
-              <div class="bg-panel/50 rounded-sm p-3 border border-panel-border/40">
-                <div class="flex items-center gap-2 mb-1.5">
-                  <Terminal size={13} class="text-text-dim" />
-                  <span class="text-[10px] text-text-label uppercase tracking-wider">How it works</span>
-                </div>
-                <p class="text-[11px] text-text-dim leading-4">
-                  The hook runs on every Claude Code tool call. It auto-detects your machine, repo, branch, and worktree — then fires a heartbeat + event to the ClaudeMon API. Non-blocking, under 50ms overhead.
-                </p>
-              </div>
-            </div>
-
-            <div class="flex items-center gap-3 mt-2">
-              <button
-                onClick={() => setStep(2)}
-                class="flex items-center gap-2 bg-safe/15 border border-safe/30 rounded-sm px-5 py-2 text-[11px] font-bold text-safe hover:bg-safe/25 transition-colors uppercase tracking-wider"
-              >
-                Next: Verify <ArrowRight size={13} />
-              </button>
-              <StepDots current={1} total={3} />
+              <CopyBlock label="Add to ~/.claude/settings.json" text={settingsSnippet()} />
             </div>
           </div>
-        </Show>
+        </div>
 
-        {/* Step 2: Verify connection */}
-        <Show when={step() === 2}>
-          <div class="step-in flex flex-col gap-5">
-            <div class="flex items-center gap-3">
-              <button onClick={() => setStep(1)} class="text-text-sub hover:text-text-primary transition-colors text-[11px]">&larr;</button>
-              <div>
-                <h2 class="text-lg font-bold">Verify connection</h2>
-                <p class="text-[12px] text-text-dim">Start a Claude Code session &mdash; it should appear here automatically</p>
-              </div>
-            </div>
+        <Divider />
 
-            <div class="space-y-4">
-              <div class="text-[12px] text-text-label">
-                Open any project with Claude Code. The hook will start reporting immediately.
-              </div>
-
-              <div class="border border-panel-border rounded-sm p-4 bg-card/50">
-                <div class="flex items-center justify-center gap-3 mb-4">
-                  <div class="relative">
-                    <Circle
-                      size={40}
-                      class={checking() ? "text-suspicious animate-spin" : "text-panel-border"}
-                    />
-                    <ShieldCheck
-                      size={18}
-                      class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-text-dim"
-                    />
-                  </div>
-                </div>
-
-                <div class="text-center mb-4">
-                  <div class="text-[12px] text-text-dim">
-                    {checking() ? "Listening for agents..." : "Waiting for first heartbeat"}
-                  </div>
-                  <div class="text-[10px] text-text-sub mt-1">
-                    This page auto-refreshes via WebSocket
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setChecking(true)}
-                  class="w-full bg-panel border border-panel-border rounded-sm px-4 py-2 text-[11px] text-text-dim hover:text-text-primary hover:border-text-dim transition-colors"
-                >
-                  {checking() ? "Checking..." : "Check now"}
-                </button>
-              </div>
-
-              <details class="group">
-                <summary class="text-[11px] text-text-sub cursor-pointer hover:text-text-primary transition-colors">
-                  Want to test manually?
-                </summary>
-                <div class="mt-2">
-                  <CopyBlock
-                    label="Run in any terminal"
-                    text={`curl -s -X POST ${props.apiUrl}/events \\\n  -H "Content-Type: application/json" \\\n  -d '{"session_id":"manual-test","machine_id":"test","project_path":"/tmp/test","hook_event_name":"SessionStart","timestamp":'$(date +%s)000'}'`}
-                  />
-                </div>
-              </details>
-            </div>
-
-            <div class="flex items-center gap-3 mt-2">
-              <StepDots current={2} total={3} />
-            </div>
+        {/* ── Verify ───────────────────────────────────────────── */}
+        <div class={!apiKey() ? "opacity-40 pointer-events-none select-none" : ""}>
+          <h2 class="text-sm font-bold mb-1">Verify</h2>
+          <p class="text-[11px] text-text-dim mb-4">
+            Start any Claude Code session. It will appear here automatically within seconds. This page is live — no refresh needed.
+          </p>
+          <div class="flex items-center gap-3 text-[11px]">
+            <span class="w-2 h-2 rounded-full bg-safe animate-pulse" />
+            <span class="text-text-dim">Listening for events via WebSocket...</span>
           </div>
-        </Show>
+        </div>
+
+        {/* Bottom spacing */}
+        <div class="h-16" />
       </div>
     </div>
   );
