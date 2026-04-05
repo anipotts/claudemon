@@ -1,4 +1,4 @@
-import { createStore, produce } from "solid-js/store";
+import { createStore, produce, reconcile } from "solid-js/store";
 import type { MonitorEvent, SessionState, WsMessage } from "../../../../packages/types/monitor";
 import { TOOL_CATEGORIES } from "../../../../packages/types/monitor";
 import { createWebSocket } from "./websocket";
@@ -208,15 +208,20 @@ export function createSessionStore() {
       case "event":
         handleEvent(msg.event);
         break;
-      case "sessions_snapshot":
-        setSessions(
-          produce((state) => {
-            // Clear and replace
-            for (const key of Object.keys(state)) delete state[key];
-            for (const s of msg.sessions) state[s.session_id] = s;
-          }),
-        );
+      case "sessions_snapshot": {
+        // Build new state object and use reconcile for proper reactivity
+        const newState: Record<string, SessionState> = {};
+        for (const s of msg.sessions) {
+          // Ensure arrays exist (server strips them via toMetadata)
+          if (!s.events) s.events = [];
+          if (!s.subagents) s.subagents = [];
+          if (!s.files_touched) s.files_touched = [];
+          if (!s.commands_run) s.commands_run = [];
+          newState[s.session_id] = s;
+        }
+        setSessions(reconcile(newState));
         break;
+      }
       case "session_update":
         setSessions(msg.session.session_id, msg.session);
         break;
