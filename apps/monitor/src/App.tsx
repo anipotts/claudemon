@@ -1,4 +1,4 @@
-import { type Component, Show, createMemo, createSignal } from "solid-js";
+import { type Component, Show, createMemo, createSignal, onMount } from "solid-js";
 import "./globals.css";
 import { createSessionStore } from "./stores/sessions";
 import { AgentMap } from "./components/AgentMap";
@@ -10,9 +10,28 @@ import { ShieldCheck, Lightning, ListBullets, TreeStructure, Trash } from "./com
 
 const API_URL = import.meta.env.VITE_MONITOR_API_URL || "https://api.claudemon.com";
 
+interface User {
+  sub: string;
+  name: string;
+  login: string;
+  avatar_url: string;
+}
+
 const App: Component = () => {
   const { sessions, connectionStatus } = createSessionStore();
   const [selectedSessionId, setSelectedSessionId] = createSignal<string | null>(null);
+  const [user, setUser] = createSignal<User | null>(null);
+  const [authLoading, setAuthLoading] = createSignal(true);
+
+  onMount(() => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    fetch(`${API_URL}/auth/me`, { credentials: "include", signal: controller.signal })
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => { if (data) setUser(data); })
+      .catch(() => {})
+      .finally(() => { clearTimeout(timeout); setAuthLoading(false); });
+  });
 
   const allSessions = createMemo(() => Object.values(sessions));
   const totalAgents = createMemo(() => allSessions().length);
@@ -51,8 +70,9 @@ const App: Component = () => {
   const hasAgents = createMemo(() => totalAgents() > 0 || allEvents().length > 0);
   const connected = () => connectionStatus() === "connected";
 
-  const handlePurge = async () => {
-    await fetch(`${API_URL}/sessions/purge`, { method: "POST" });
+  const handlePurge = () => {
+    if (!confirm("Clear all sessions?")) return;
+    fetch(`${API_URL}/sessions/purge`, { method: "POST", credentials: "include" }).catch(() => {});
   };
 
   const handleSelectSession = (id: string) => {
@@ -99,6 +119,7 @@ const App: Component = () => {
               onClick={handlePurge}
               class="text-text-sub hover:text-text-primary transition-colors"
               title="Clear all sessions"
+              aria-label="Clear all sessions"
             >
               <Trash size={13} />
             </button>
@@ -111,6 +132,35 @@ const App: Component = () => {
               style={{ "box-shadow": connected() ? "0 0 6px var(--safe)" : "0 0 4px var(--suspicious)" }}
             />
           </div>
+
+          {/* Auth */}
+          <Show when={!authLoading()}>
+            <Show when={user()} fallback={
+              <a
+                href={`${API_URL}/auth/login`}
+                class="text-[10px] text-text-dim hover:text-text-primary transition-colors"
+              >
+                Sign in
+              </a>
+            }>
+              {(u) => (
+                <div class="flex items-center gap-2">
+                  <img
+                    src={u().avatar_url}
+                    alt={u().login}
+                    class="w-5 h-5 rounded-full border border-panel-border"
+                  />
+                  <span class="text-[10px] text-text-dim">{u().login}</span>
+                  <a
+                    href={`${API_URL}/auth/logout`}
+                    class="text-[9px] text-text-sub hover:text-text-dim transition-colors"
+                  >
+                    out
+                  </a>
+                </div>
+              )}
+            </Show>
+          </Show>
         </div>
       </header>
 
