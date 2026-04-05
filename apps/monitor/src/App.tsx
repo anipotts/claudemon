@@ -6,7 +6,8 @@ import { ActivityTimeline } from "./components/ActivityTimeline";
 import { ConflictPanel, type ConflictData } from "./components/ConflictPanel";
 import { SessionDetail } from "./components/SessionDetail";
 import { Onboarding } from "./components/Onboarding";
-import { ShieldCheck, Lightning, ListBullets, TreeStructure, Trash } from "./components/Icons";
+import { ShieldCheck, Lightning, ListBullets, TreeStructure, Trash, GearSix } from "./components/Icons";
+import { SettingsPanel } from "./components/SettingsPanel";
 import { IdleDashboard } from "./components/IdleDashboard";
 
 const API_URL = import.meta.env.VITE_MONITOR_API_URL || "https://api.claudemon.com";
@@ -41,6 +42,7 @@ const App: Component = () => {
   });
 
   const [showOnboarding, setShowOnboarding] = createSignal(false);
+  const [settingsOpen, setSettingsOpen] = createSignal(false);
 
   // Mobile responsive
   const [isMobile, setIsMobile] = createSignal(
@@ -233,6 +235,15 @@ const App: Component = () => {
             </Show>
           </button>
 
+          <button
+            onClick={() => setSettingsOpen(true)}
+            class="text-text-sub hover:text-text-primary transition-colors"
+            title="Settings"
+            aria-label="Open settings"
+          >
+            <GearSix size={14} />
+          </button>
+
           <div class="flex items-center gap-2">
             <span class="text-[10px] text-text-dim">{connected() ? "LIVE" : connectionStatus().toUpperCase()}</span>
             <span
@@ -387,6 +398,16 @@ const App: Component = () => {
             </div>
           </Show>
         </div>
+      </Show>
+
+      {/* Settings panel */}
+      <Show when={settingsOpen()}>
+        <SettingsPanel
+          apiUrl={API_URL}
+          user={user()}
+          connectionStatus={connectionStatus}
+          onClose={() => setSettingsOpen(false)}
+        />
       </Show>
     </div>
   );
