@@ -4,6 +4,7 @@ import { STATUS_LABELS, STATUS_COLORS } from "../../../../packages/types/monitor
 import { Eye, PencilSimple, Terminal, GitBranch, CaretDown, CaretRight, Circle } from "./Icons";
 import { FileBadge } from "./FileBadge";
 import { Timestamp } from "./Timestamp";
+import { MarkdownBlock } from "./Markdown";
 import { formatDuration } from "../utils/time";
 
 const TOOL_ICONS: Record<string, string> = {
@@ -287,17 +288,7 @@ export const SessionDetail: Component<{
                       </button>
                       <div class={`tool-call-body ${open() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
                         <div class="px-3 pb-2 pl-3 max-h-[300px] overflow-y-auto">
-                          <For each={text.slice(0, 1500).split("\n")}>
-                            {(line) => {
-                              const trimmed = line.trim();
-                              if (!trimmed) return <div class="h-2" />;
-                              if (trimmed.startsWith("**") && trimmed.endsWith("**"))
-                                return <div class="text-[10px] text-text-label font-bold mt-1">{trimmed.replace(/\*\*/g, "")}</div>;
-                              if (trimmed.startsWith("- "))
-                                return <div class="text-[10px] text-text-dim leading-4 pl-2 border-l border-panel-border/30">{trimmed.slice(2).replace(/\*\*/g, "")}</div>;
-                              return <div class="text-[10px] text-text-dim leading-4">{trimmed.replace(/\*\*/g, "").replace(/`([^`]+)`/g, "$1")}</div>;
-                            }}
-                          </For>
+                          <MarkdownBlock text={text} maxLength={3000} />
                         </div>
                       </div>
                     </div>
