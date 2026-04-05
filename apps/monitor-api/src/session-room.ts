@@ -4,30 +4,37 @@ import { TOOL_CATEGORIES } from "../../../packages/types/monitor";
 
 const MAX_EVENTS = 200;
 
+/** SessionState minus the heavy arrays — what we persist to DO storage. */
+type SessionMetadata = Omit<SessionState, "events" | "subagents">;
+
+function toMetadata(s: SessionState): SessionMetadata {
+  const { events, subagents, ...meta } = s;
+  return meta;
+}
+
+function toSessionState(meta: SessionMetadata): SessionState {
+  return { ...meta, events: [], subagents: [] };
+}
+
 export class SessionRoom extends DurableObject {
-  // Sessions stored in memory — rebuilt from events on wake.
-  // For persistence across hibernation, we store sessions in DO storage.
+  // Sessions stored in memory — rebuilt from storage metadata on wake.
   private sessions: Map<string, SessionState> = new Map();
   private loaded = false;
 
   private async ensureLoaded() {
     if (this.loaded) return;
     this.loaded = true;
-    // Restore sessions from DO storage
-    const stored = await this.ctx.storage.get<Record<string, SessionState>>("sessions");
-    if (stored) {
-      for (const [k, v] of Object.entries(stored)) {
-        this.sessions.set(k, v);
-      }
+    // Restore sessions from per-session DO storage keys
+    const entries = await this.ctx.storage.list<SessionMetadata>({ prefix: "session:" });
+    for (const [_key, meta] of entries) {
+      this.sessions.set(meta.session_id, toSessionState(meta));
     }
   }
 
-  private async persist() {
-    const obj: Record<string, SessionState> = {};
-    for (const [k, v] of this.sessions) {
-      obj[k] = v;
-    }
-    await this.ctx.storage.put("sessions", obj);
+  private async persist(sessionId: string) {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+    await this.ctx.storage.put(`session:${sessionId}`, toMetadata(session));
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -41,7 +48,7 @@ export class SessionRoom extends DurableObject {
     if (url.pathname === "/event" && request.method === "POST") {
       const event = (await request.json()) as MonitorEvent;
       await this.processEvent(event);
-      await this.persist();
+      await this.persist(event.session_id);
       return new Response("ok", { status: 200 });
     }
 
@@ -51,7 +58,7 @@ export class SessionRoom extends DurableObject {
 
     if (url.pathname === "/sessions/purge" && request.method === "POST") {
       this.sessions.clear();
-      await this.persist();
+      await this.ctx.storage.deleteAll();
       this.broadcast({ type: "sessions_snapshot", sessions: [] });
       return Response.json({ ok: true, purged: true });
     }
@@ -59,8 +66,8 @@ export class SessionRoom extends DurableObject {
     if (url.pathname.startsWith("/sessions/") && request.method === "DELETE") {
       const sessionId = url.pathname.split("/sessions/")[1];
       this.sessions.delete(sessionId);
-      await this.persist();
-      this.broadcast({ type: "sessions_snapshot", sessions: Array.from(this.sessions.values()) });
+      await this.ctx.storage.delete(`session:${sessionId}`);
+      this.broadcast({ type: "sessions_snapshot", sessions: Array.from(this.sessions.values()).map(toMetadata) });
       return Response.json({ ok: true });
     }
 
@@ -74,10 +81,10 @@ export class SessionRoom extends DurableObject {
     // Use Hibernation API — survives DO sleep
     this.ctx.acceptWebSocket(server);
 
-    // Send current state snapshot immediately
+    // Send current state snapshot immediately — metadata only, no events
     const snapshot: WsMessage = {
       type: "sessions_snapshot",
-      sessions: Array.from(this.sessions.values()),
+      sessions: Array.from(this.sessions.values()).map(toMetadata) as SessionState[],
     };
     server.send(JSON.stringify(snapshot));
 
@@ -85,8 +92,25 @@ export class SessionRoom extends DurableObject {
   }
 
   // Hibernation API callbacks — DO wakes to handle these
-  async webSocketMessage(_ws: WebSocket, _msg: string | ArrayBuffer) {
-    // Client-to-server messages (not used yet)
+  async webSocketMessage(ws: WebSocket, msg: string | ArrayBuffer) {
+    try {
+      const data = JSON.parse(typeof msg === "string" ? msg : new TextDecoder().decode(msg));
+      if (data.type === "ping") {
+        ws.send(JSON.stringify({ type: "pong", ts: Date.now() }));
+      }
+      if (data.type === "replay" && typeof data.last_event_at === "number") {
+        await this.ensureLoaded();
+        for (const session of this.sessions.values()) {
+          for (const event of session.events) {
+            if (event.timestamp > data.last_event_at) {
+              ws.send(JSON.stringify({ type: "event", event }));
+            }
+          }
+        }
+      }
+    } catch {
+      // ignore malformed messages
+    }
   }
 
   async webSocketClose(_ws: WebSocket, _code: number, _reason: string, _wasClean: boolean) {
