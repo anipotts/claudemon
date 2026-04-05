@@ -19,12 +19,19 @@ const STATUS_STYLES: Record<SessionStatus, { color: string; bg: string; pulse: b
 
 function SessionCard(props: { session: SessionState; selected?: boolean; onSelect?: (id: string) => void }) {
   const s = () => props.session;
-  const style = () => STATUS_STYLES[s().status] || STATUS_STYLES.offline;
-  const statusLabel = () => STATUS_LABELS[s().status] || "Unknown";
-  const isWaiting = () => s().status === "waiting";
   const [now, setNow] = createSignal(Date.now());
   const timer = setInterval(() => setNow(Date.now()), 5000);
   onCleanup(() => clearInterval(timer));
+
+  const isIdle = () => {
+    const idleMs = now() - s().last_event_at;
+    return (s().status === "thinking" || s().status === "working") && idleMs > 30_000;
+  };
+  const style = () => isIdle()
+    ? { color: "#666", bg: "#66666608", pulse: false }
+    : STATUS_STYLES[s().status] || STATUS_STYLES.offline;
+  const statusLabel = () => isIdle() ? "Idle" : (STATUS_LABELS[s().status] || "Unknown");
+  const isWaiting = () => s().status === "waiting";
 
   const lastToolEvent = () => {
     const evts = s().events;
@@ -63,8 +70,9 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
     <div
       class={`border rounded-sm p-3 transition-all cursor-pointer status-transition ${props.selected ? "ring-1 ring-safe/50" : "hover:border-text-dim/30"} ${isWaiting() ? "waiting-banner" : ""}`}
       style={{
-        "border-color": props.selected ? "var(--safe)" : isWaiting() ? undefined : style().color + "25",
+        "border-color": props.selected ? "var(--safe)" : s().status === "working" ? "rgba(163, 177, 138, 0.3)" : isWaiting() ? undefined : style().color + "25",
         background: props.selected ? "#a3b18a08" : isWaiting() ? undefined : style().bg,
+        "box-shadow": s().status === "working" ? "0 0 12px rgba(163, 177, 138, 0.12), inset 0 0 12px rgba(163, 177, 138, 0.04)" : "none",
       }}
       onClick={() => props.onSelect?.(s().session_id)}
     >
@@ -110,7 +118,7 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
 
 // ── Project Group ───────────────────────────────────────────────────
 
-function ProjectGroup(props: { projectPath: string; sessions: SessionState[]; selectedId?: string | null; onSelect?: (id: string) => void }) {
+function ProjectGroup(props: { projectPath: string; sessions: SessionState[]; selectedIds?: string[]; onSelect?: (id: string) => void }) {
   const [open, setOpen] = createSignal(true);
   const projectName = () => props.projectPath.split("/").pop() || props.projectPath;
 
@@ -128,7 +136,7 @@ function ProjectGroup(props: { projectPath: string; sessions: SessionState[]; se
       <Show when={open()}>
         <div class="px-2 pb-2 space-y-1.5">
           <For each={props.sessions}>
-            {(session) => <SessionCard session={session} selected={session.session_id === props.selectedId} onSelect={props.onSelect} />}
+            {(session) => <SessionCard session={session} selected={props.selectedIds?.includes(session.session_id)} onSelect={props.onSelect} />}
           </For>
         </div>
       </Show>
@@ -140,7 +148,7 @@ function ProjectGroup(props: { projectPath: string; sessions: SessionState[]; se
 
 const ENV_ICONS: Record<string, typeof Desktop> = { local: Desktop, cloud: Cloud, ssh: Terminal, container: Cube };
 
-function EnvironmentGroup(props: { hostname: string; envType: string; sessions: SessionState[]; selectedId?: string | null; onSelect?: (id: string) => void }) {
+function EnvironmentGroup(props: { hostname: string; envType: string; sessions: SessionState[]; selectedIds?: string[]; onSelect?: (id: string) => void }) {
   const [open, setOpen] = createSignal(true);
   const EnvIcon = () => ENV_ICONS[props.envType] || Desktop;
 
@@ -169,7 +177,7 @@ function EnvironmentGroup(props: { hostname: string; envType: string; sessions: 
       <Show when={open()}>
         <div class="space-y-1.5 mt-1">
           <For each={projectGroups()}>
-            {([path, sessions]) => <ProjectGroup projectPath={path} sessions={sessions} selectedId={props.selectedId} onSelect={props.onSelect} />}
+            {([path, sessions]) => <ProjectGroup projectPath={path} sessions={sessions} selectedIds={props.selectedIds} onSelect={props.onSelect} />}
           </For>
         </div>
       </Show>
@@ -181,7 +189,7 @@ function EnvironmentGroup(props: { hostname: string; envType: string; sessions: 
 
 export const AgentMap: Component<{
   sessions: Record<string, SessionState>;
-  selectedId?: string | null;
+  selectedIds?: string[];
   onSelect?: (id: string) => void;
   onPurge?: () => void;
 }> = (props) => {
@@ -209,7 +217,7 @@ export const AgentMap: Component<{
       <div class="space-y-2">
         <For each={envGroups()}>
           {([hostname, sessions]) => (
-            <EnvironmentGroup hostname={hostname} envType={sessions[0]?.source || "local"} sessions={sessions} selectedId={props.selectedId} onSelect={props.onSelect} />
+            <EnvironmentGroup hostname={hostname} envType={sessions[0]?.source || "local"} sessions={sessions} selectedIds={props.selectedIds} onSelect={props.onSelect} />
           )}
         </For>
       </div>
