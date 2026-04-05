@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { isValidEvent, enrichEvent } from "../events";
+import { describe, it, expect, vi } from "vitest";
+import { isValidEvent, enrichEvent, sendEvent } from "../events";
 
 // ── isValidEvent ────────────────────────────────────────────────────
 
@@ -194,5 +194,132 @@ describe("enrichEvent", () => {
     };
     enrichEvent(event, "u");
     expect(event.notification_type).toBe("completion");
+  });
+
+  it("does NOT overwrite existing notification_type", () => {
+    const event: any = {
+      session_id: "s1",
+      hook_event_name: "Notification",
+      type: "new-type",
+      notification_type: "existing-type",
+    };
+    enrichEvent(event, "u");
+    expect(event.notification_type).toBe("existing-type");
+  });
+
+  it("normalizes PostCompact summary to compact_summary", () => {
+    const event: any = {
+      session_id: "s1",
+      hook_event_name: "PostCompact",
+      summary: "Compacted 500 tokens",
+    };
+    enrichEvent(event, "u");
+    expect(event.compact_summary).toBe("Compacted 500 tokens");
+  });
+
+  it("does NOT overwrite existing compact_summary on PostCompact", () => {
+    const event: any = {
+      session_id: "s1",
+      hook_event_name: "PostCompact",
+      summary: "new summary",
+      compact_summary: "existing summary",
+    };
+    enrichEvent(event, "u");
+    expect(event.compact_summary).toBe("existing summary");
+  });
+
+  it("sets machine_id to unknown when userId is empty string", () => {
+    const event: any = { session_id: "s1", hook_event_name: "SessionStart" };
+    enrichEvent(event, "");
+    expect(event.machine_id).toBe("unknown");
+  });
+
+  it("does NOT add notification_message to a PreToolUse event", () => {
+    const event: any = {
+      session_id: "s1",
+      hook_event_name: "PreToolUse",
+      tool_name: "Edit",
+      message: "some message",
+    };
+    enrichEvent(event, "u");
+    expect(event.notification_message).toBeUndefined();
+  });
+
+  it("does NOT add end_reason to a Notification event", () => {
+    const event: any = {
+      session_id: "s1",
+      hook_event_name: "Notification",
+      reason: "some reason",
+    };
+    enrichEvent(event, "u");
+    expect(event.end_reason).toBeUndefined();
+  });
+
+  it("does NOT add compact_trigger to a SessionEnd event", () => {
+    const event: any = {
+      session_id: "s1",
+      hook_event_name: "SessionEnd",
+      trigger: "auto",
+    };
+    enrichEvent(event, "u");
+    expect(event.compact_trigger).toBeUndefined();
+  });
+
+  it("is idempotent — calling enrichEvent twice does not change values", () => {
+    const event: any = {
+      session_id: "s1",
+      hook_event_name: "Notification",
+      message: "hi",
+      title: "Alert",
+      type: "info",
+    };
+    enrichEvent(event, "user1");
+    const snapshot = { ...event };
+    enrichEvent(event, "user1");
+    expect(event.timestamp).toBe(snapshot.timestamp);
+    expect(event.machine_id).toBe(snapshot.machine_id);
+    expect(event.project_path).toBe(snapshot.project_path);
+    expect(event.notification_message).toBe(snapshot.notification_message);
+    expect(event.notification_title).toBe(snapshot.notification_title);
+    expect(event.notification_type).toBe(snapshot.notification_type);
+  });
+});
+
+// ── sendEvent ──────────────────────────────────────────────────────
+
+describe("sendEvent", () => {
+  it("calls room.fetch with correct URL, method, headers, and body", async () => {
+    const mockFetch = vi.fn().mockResolvedValue(new Response("ok"));
+    const room = { fetch: mockFetch };
+    const event = { session_id: "s1", hook_event_name: "PreToolUse", tool_name: "Edit" };
+
+    await sendEvent(room, event);
+
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const request = mockFetch.mock.calls[0][0] as Request;
+    expect(request.url).toBe("https://do/event");
+    expect(request.method).toBe("POST");
+    expect(request.headers.get("Content-Type")).toBe("application/json");
+  });
+
+  it("serializes the event as JSON in the request body", async () => {
+    const mockFetch = vi.fn().mockResolvedValue(new Response("ok"));
+    const room = { fetch: mockFetch };
+    const event = { session_id: "s1", hook_event_name: "Stop", timestamp: 12345 };
+
+    await sendEvent(room, event);
+
+    const request = mockFetch.mock.calls[0][0] as Request;
+    const body = await request.json();
+    expect(body).toEqual(event);
+  });
+
+  it("returns the Response from room.fetch", async () => {
+    const mockResponse = new Response("custom", { status: 201 });
+    const mockFetch = vi.fn().mockResolvedValue(mockResponse);
+    const room = { fetch: mockFetch };
+
+    const result = await sendEvent(room, { session_id: "s1", hook_event_name: "SessionStart" });
+    expect(result).toBe(mockResponse);
   });
 });

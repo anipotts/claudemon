@@ -80,4 +80,73 @@ describe("hashApiKey", () => {
     const b = await hashApiKey("cm_key2");
     expect(a).not.toBe(b);
   });
+
+  it("returns a 64-character hex string", async () => {
+    const hash = await hashApiKey("cm_test_key");
+    expect(hash).toHaveLength(64);
+    expect(hash).toMatch(/^[0-9a-f]{64}$/);
+  });
+});
+
+// ── JWT edge cases ─────────────────────────────────────────────────
+
+describe("verifyJwt — edge cases", () => {
+  it("returns null for token signed with a different secret", async () => {
+    const token = await signJwt(validPayload, SECRET);
+    const result = await verifyJwt(token, "completely-different-secret");
+    expect(result).toBeNull();
+  });
+
+  it("preserves all fields through a sign/verify round trip", async () => {
+    const fullPayload = {
+      sub: "github:99999",
+      name: "Full Name",
+      login: "fulluser",
+      avatar_url: "https://example.com/full-avatar.png",
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 7200,
+    };
+    const token = await signJwt(fullPayload, SECRET);
+    const result = await verifyJwt(token, SECRET);
+    expect(result).not.toBeNull();
+    expect(result!.sub).toBe(fullPayload.sub);
+    expect(result!.name).toBe(fullPayload.name);
+    expect(result!.login).toBe(fullPayload.login);
+    expect(result!.avatar_url).toBe(fullPayload.avatar_url);
+    expect(result!.iat).toBe(fullPayload.iat);
+    expect(result!.exp).toBe(fullPayload.exp);
+  });
+
+  it("returns null for token expiring in exactly 0 seconds (boundary)", async () => {
+    const now = Math.floor(Date.now() / 1000);
+    // Token with exp set to 1 second in the past to account for timing
+    const boundaryPayload = { ...validPayload, exp: now - 1 };
+    const token = await signJwt(boundaryPayload, SECRET);
+    const result = await verifyJwt(token, SECRET);
+    expect(result).toBeNull();
+  });
+
+  it("signJwt produces different tokens for different payloads", async () => {
+    const payloadA = { ...validPayload, sub: "github:111" };
+    const payloadB = { ...validPayload, sub: "github:222" };
+    const tokenA = await signJwt(payloadA, SECRET);
+    const tokenB = await signJwt(payloadB, SECRET);
+    expect(tokenA).not.toBe(tokenB);
+  });
+
+  it("signJwt produces different tokens for same payload with different secrets", async () => {
+    const tokenA = await signJwt(validPayload, "secret-one");
+    const tokenB = await signJwt(validPayload, "secret-two");
+    expect(tokenA).not.toBe(tokenB);
+  });
+});
+
+// ── generateApiKey edge cases ──────────────────────────────────────
+
+describe("generateApiKey — consistency", () => {
+  it("produces keys of consistent length", () => {
+    const keys = Array.from({ length: 10 }, () => generateApiKey());
+    const lengths = new Set(keys.map((k) => k.length));
+    expect(lengths.size).toBe(1);
+  });
 });
