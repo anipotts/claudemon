@@ -1,0 +1,203 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #0a0a0a;
+  --panel: #1a1916;
+  --panel-border: #3d3a34;
+  --card: #141210;
+  --item: #12110f;
+  --input-bg: #1f1d1a;
+
+  --text-primary: #e8e0d4;
+  --text-label: #8a8478;
+  --text-dim: #6b6560;
+  --text-sub: #4a4640;
+
+  --safe: #a3b18a;
+  --suspicious: #c9a96e;
+  --attack: #b85c4a;
+  --blocked: #8a3a2e;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel-border: var(--panel-border);
+  --color-card: var(--card);
+  --color-item: var(--item);
+  --color-input-bg: var(--input-bg);
+  --color-text-primary: var(--text-primary);
+  --color-text-label: var(--text-label);
+  --color-text-dim: var(--text-dim);
+  --color-text-sub: var(--text-sub);
+  --color-safe: var(--safe);
+  --color-suspicious: var(--suspicious);
+  --color-attack: var(--attack);
+  --color-blocked: var(--blocked);
+  --font-mono: 'Geist Mono', 'SF Mono', 'Fira Code', 'Courier New', monospace;
+}
+
+html, body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+/* Threat badge pulse */
+@keyframes badge-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+.badge-pulse {
+  animation: badge-pulse 1s ease-in-out 3;
+}
+
+/* Routing step fade-in */
+@keyframes step-in {
+  from { opacity: 0; transform: translateX(-4px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.step-in {
+  animation: step-in 0.2s ease-out forwards;
+}
+
+/* Focus-visible */
+*:focus-visible {
+  outline: 2px solid rgba(163,177,138,0.5);
+  outline-offset: 2px;
+}
+
+.glow-safe {
+  box-shadow: 0 0 6px var(--safe);
+}
+
+/* Ultra-slim custom scrollbars — all elements */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--panel-border) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--panel-border);
+  border-radius: 2px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--text-sub);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Diff highlighting */
+.diff-add { background: #1a3a1a; color: #a3b18a; padding: 1px 4px; }
+.diff-remove { background: #3a1a1a; color: #b85c4a; padding: 1px 4px; text-decoration: line-through; }
+
+/* Terminal output block */
+.terminal-block {
+  background: #0c0c0c;
+  border: 1px solid var(--panel-border);
+  border-radius: 3px;
+  padding: 6px 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+/* Waiting banner */
+.waiting-banner {
+  background: linear-gradient(135deg, #c9a96e15, #c9a96e08);
+  border: 1px solid #c9a96e40;
+  animation: waiting-pulse 2s ease-in-out infinite;
+}
+@keyframes waiting-pulse {
+  0%, 100% { border-color: #c9a96e40; box-shadow: 0 0 0 0 #c9a96e00; }
+  50% { border-color: #c9a96e80; box-shadow: 0 0 12px 0 #c9a96e15; }
+}
+
+/* File path badges */
+.file-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: default;
+  position: relative;
+}
+.file-badge-global { background: #b85c4a20; color: #b85c4a; }
+.file-badge-plan { background: #c9a96e20; color: #c9a96e; }
+.file-badge-src { background: #7b9fbf20; color: #7b9fbf; }
+.file-badge-config { background: #b07bac20; color: #b07bac; }
+.file-badge-test { background: #a3b18a20; color: #a3b18a; }
+.file-badge-default { background: #4a464020; color: #8a8478; }
+.file-badge .tooltip {
+  display: none;
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  background: #1a1916;
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 9px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  z-index: 50;
+  pointer-events: none;
+  margin-bottom: 4px;
+}
+.file-badge:hover .tooltip { display: block; }
+
+/* Live event slide-in */
+@keyframes event-slide-in {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.event-enter { animation: event-slide-in 0.08s ease-out forwards; }
+
+/* Status color transition */
+.status-transition {
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Tool call collapsible — near-instant */
+.tool-call-body {
+  overflow: hidden;
+  transition: max-height 0.1s ease-out, opacity 0.08s ease-out;
+}
+.tool-call-collapsed { max-height: 0; opacity: 0; }
+.tool-call-expanded { max-height: 600px; opacity: 1; }
+
+/* Smooth scroll */
+.smooth-scroll {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Conflict bounce */
+@keyframes conflict-bounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+.conflict-new { animation: conflict-bounce 0.3s ease-out; }
