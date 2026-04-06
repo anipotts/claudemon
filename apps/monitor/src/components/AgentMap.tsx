@@ -47,7 +47,8 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
     isIdle()
       ? { color: "#666666", bg: "transparent", border: "#3d3a3430", pulse: false }
       : STATUS_STYLES[s().status] || STATUS_STYLES.offline;
-  const statusLabel = () => (isIdle() ? "Idle" : STATUS_LABELS[s().status] || "Unknown");
+  const statusLabel = () =>
+    isIdle() ? `Idle (${timeAgo(s().last_event_at)})` : s().smart_status || STATUS_LABELS[s().status] || "Unknown";
   const isWaiting = () => s().status === "waiting";
 
   const lastToolEvent = () => {
@@ -103,8 +104,9 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
         <SessionBadge sessionId={s().session_id} status={s().status} showStatus={true} size="md" class="shrink-0" />
         <span class="text-[9px] text-text-sub ml-auto shrink-0">{formatDuration(s().started_at)}</span>
         <span
-          class={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-sm shrink-0 ${isWaiting() ? "text-[9px] px-2 py-0.5" : ""}`}
-          style={{ color: style().color, background: style().color + "20" }}
+          class={`text-[8px] font-bold tracking-wider px-1.5 py-0.5 rounded-sm truncate min-w-0 ${isWaiting() ? "text-[9px] px-2 py-0.5" : ""}`}
+          style={{ color: style().color, background: style().color + "20", "max-width": "180px" }}
+          title={statusLabel()}
         >
           {statusLabel()}
         </span>

@@ -9,8 +9,6 @@ const DEV_WS_URL = "ws://localhost:8787/ws";
 
 export type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
-let lastEventAt = 0;
-
 export function createWebSocket(onMessage: (msg: WsMessage) => void) {
   const [status, setStatus] = createSignal<ConnectionStatus>("connecting");
   let ws: WebSocket | null = null;
@@ -48,12 +46,6 @@ export function createWebSocket(onMessage: (msg: WsMessage) => void) {
     ws.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data) as WsMessage;
-        if (msg.type === "event" && msg.event?.timestamp) {
-          lastEventAt = Math.max(lastEventAt, msg.event.timestamp);
-        }
-        if (msg.type === "sessions_snapshot" && lastEventAt > 0) {
-          ws!.send(JSON.stringify({ type: "replay", last_event_at: lastEventAt }));
-        }
         onMessage(msg);
       } catch {
         // ignore malformed messages
