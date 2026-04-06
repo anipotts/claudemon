@@ -425,9 +425,8 @@ body {
   inset: 0;
   z-index: 100;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  padding-top: 10vh;
   background: rgba(0, 0, 0, 0.6);
   animation: settings-overlay-in 0.12s ease-out;
 }
