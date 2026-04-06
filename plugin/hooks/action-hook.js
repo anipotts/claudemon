@@ -8,7 +8,7 @@
 
 const API_URL = process.env.CLAUDEMON_API_URL || "wss://api.claudemon.com";
 const API_KEY = process.env.CLAUDE_PLUGIN_OPTION_API_KEY || "";
-const TIMEOUT = parseInt(process.env.CLAUDEMON_ACTION_TIMEOUT || "10000", 10);
+const TIMEOUT = Number.parseInt(process.env.CLAUDEMON_ACTION_TIMEOUT || "10000", 10);
 
 let input = "";
 process.stdin.on("data", (d) => (input += d));
@@ -20,7 +20,9 @@ process.stdin.on("end", () => {
     const ws = new WebSocket(wsUrl);
     const timeout = setTimeout(() => {
       process.stdout.write("{}");
-      try { ws.close(); } catch {}
+      try {
+        ws.close();
+      } catch {}
       process.exit(0);
     }, TIMEOUT);
 

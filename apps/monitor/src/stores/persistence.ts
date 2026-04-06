@@ -206,7 +206,7 @@ export async function loadEvents(sessionId: string): Promise<EnrichedEvent[]> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction("events", "readonly");
     const index = tx.objectStore("events").index("session_timestamp");
-    const range = IDBKeyRange.bound([sessionId, 0], [sessionId, Infinity]);
+    const range = IDBKeyRange.bound([sessionId, 0], [sessionId, Number.POSITIVE_INFINITY]);
     const request = index.getAll(range);
     request.onsuccess = () => resolve(request.result || []);
     request.onerror = () => reject(request.error);

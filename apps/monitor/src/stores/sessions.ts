@@ -123,7 +123,9 @@ function createSessionFromEvent(event: MonitorEvent): SessionState {
 
 export function createSessionStore() {
   const [sessions, setSessions] = createStore<Record<string, SessionState>>({});
-  const [pendingActions, setPendingActions] = createStore<Record<string, { id: string; session_id: string; hook_event_name: string; event_data: Record<string, unknown> }>>({});
+  const [pendingActions, setPendingActions] = createStore<
+    Record<string, { id: string; session_id: string; hook_event_name: string; event_data: Record<string, unknown> }>
+  >({});
 
   function handleEvent(event: MonitorEvent) {
     // Decrypt transit-encrypted events before processing

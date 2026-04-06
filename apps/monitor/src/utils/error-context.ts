@@ -32,10 +32,7 @@ interface ErrorContext {
  *    - Any event that reads/touches a tainted file is part of the chain
  * 4. Query IndexedDB for cross-session writes to tainted files
  */
-export async function extractErrorContext(
-  session: SessionState,
-  errorEvent: MonitorEvent,
-): Promise<ErrorContext> {
+export async function extractErrorContext(session: SessionState, errorEvent: MonitorEvent): Promise<ErrorContext> {
   const events = session.events;
   const errorIdx = events.findIndex(
     (e) => e.timestamp === errorEvent.timestamp && e.hook_event_name === errorEvent.hook_event_name,
@@ -188,7 +185,7 @@ export function formatAsMarkdown(ctx: ErrorContext): string {
   // Error section
   const errTool = error.tool_name || "unknown";
   const errMsg = error.error || error.error_details || "";
-  const errCmd = error.tool_name === "Bash" ? ((error.tool_input?.command as string) || "") : "";
+  const errCmd = error.tool_name === "Bash" ? (error.tool_input?.command as string) || "" : "";
   md += `### Error\n`;
   md += `[${error.hook_event_name}] ${errTool} at ${formatTime(error.timestamp)}\n`;
   if (errCmd) md += `$ ${errCmd}\n`;
@@ -209,9 +206,10 @@ export function formatAsMarkdown(ctx: ErrorContext): string {
   }
 
   // Causal chain
-  const duration = causalChain.length > 1
-    ? ((causalChain[causalChain.length - 1].timestamp - causalChain[0].timestamp) / 1000).toFixed(1) + "s"
-    : "0s";
+  const duration =
+    causalChain.length > 1
+      ? ((causalChain[causalChain.length - 1].timestamp - causalChain[0].timestamp) / 1000).toFixed(1) + "s"
+      : "0s";
   md += `### Causal Chain (${causalChain.length} events, ${duration})\n`;
   for (const e of causalChain) {
     md += formatEventLine(e) + "\n";
@@ -224,7 +222,9 @@ export function formatAsMarkdown(ctx: ErrorContext): string {
     for (const fp of taintedFiles) {
       const shortFp = fp.split("/").slice(-3).join("/");
       const info = relatedFiles.get(fp);
-      const extra = info ? ` — ${info.count} events across ${info.sessions.size} session${info.sessions.size > 1 ? "s" : ""}` : "";
+      const extra = info
+        ? ` — ${info.count} events across ${info.sessions.size} session${info.sessions.size > 1 ? "s" : ""}`
+        : "";
       md += `- ${shortFp}${extra}\n`;
     }
     md += `\n`;

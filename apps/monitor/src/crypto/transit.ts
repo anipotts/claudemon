@@ -16,7 +16,7 @@ function hexToAB(hex: string): ArrayBuffer {
   const buf = new ArrayBuffer(hex.length / 2);
   const view = new Uint8Array(buf);
   for (let i = 0; i < hex.length; i += 2) {
-    view[i / 2] = parseInt(hex.substring(i, i + 2), 16);
+    view[i / 2] = Number.parseInt(hex.substring(i, i + 2), 16);
   }
   return buf;
 }
@@ -33,10 +33,7 @@ function concatAB(a: ArrayBuffer, b: ArrayBuffer): ArrayBuffer {
  * Decrypt a transit-encrypted event envelope.
  * Returns the decrypted JSON object (sensitive fields).
  */
-export async function decryptTransit(
-  envelope: EncryptedEnvelope,
-  keyHex: string,
-): Promise<Record<string, unknown>> {
+export async function decryptTransit(envelope: EncryptedEnvelope, keyHex: string): Promise<Record<string, unknown>> {
   const keyBuf = hexToAB(keyHex);
 
   if (envelope.alg === "aes-256-gcm") {
@@ -57,9 +54,7 @@ export async function decryptTransit(
 
     // Verify HMAC-SHA256
     if (envelope.mac) {
-      const macKey = await crypto.subtle.importKey("raw", keyBuf, { name: "HMAC", hash: "SHA-256" }, false, [
-        "verify",
-      ]);
+      const macKey = await crypto.subtle.importKey("raw", keyBuf, { name: "HMAC", hash: "SHA-256" }, false, ["verify"]);
       const macData = new TextEncoder().encode(envelope.iv + envelope.ct);
       const expectedMac = hexToAB(envelope.mac);
       const valid = await crypto.subtle.verify("HMAC", macKey, expectedMac, macData);
