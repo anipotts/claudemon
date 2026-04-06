@@ -531,100 +531,83 @@ const App: Component = () => {
                 </div>
               </Show>
 
-              {/* Content below tabs */}
+              {/* Content below tabs — 3 fixed zones: center + activity sidebar */}
               <div class="flex flex-1 min-h-0 overflow-hidden">
-                <Show
-                  when={selectedSessions().length > 0}
-                  fallback={
-                    <div class="flex-1 flex flex-col">
-                      <Show
-                        when={allEvents().length > 0}
-                        fallback={
-                          <div class="flex-1 flex flex-col items-center justify-center gap-3">
-                            <Terminal size={28} class="text-text-sub" />
-                            <span class="text-[13px] text-text-dim">Select a session to view details</span>
-                            <span class="text-[10px] text-text-sub">or wait for new activity</span>
-                          </div>
-                        }
-                      >
-                        <div class="flex-1 overflow-y-auto smooth-scroll">
-                          <ActivityTimeline events={allEvents()} onSelectSession={handleSelectSession} />
-                        </div>
-                      </Show>
-                      <Show when={conflicts().length > 0}>
-                        <div class="shrink-0 border-t border-panel-border p-2">
-                          <div class="flex items-center gap-2 px-2 py-1">
-                            <Lightning size={12} class="text-attack" />
-                            <span class="text-[9px] text-attack font-bold">
-                              {conflicts().length} conflict{conflicts().length !== 1 ? "s" : ""}
-                            </span>
-                          </div>
-                          <ConflictPanel conflicts={conflicts()} />
-                        </div>
-                      </Show>
-                    </div>
-                  }
-                >
-                  {/* Tab view: all sessions mounted, only active visible */}
-                  <Show when={viewMode() === "tabs"}>
-                    <For each={selectedSessions()}>
-                      {(session) => (
-                        <div
-                          class="flex-1 min-w-0 flex flex-col overflow-hidden"
-                          style={{ display: session.session_id === activeTabId() ? "flex" : "none" }}
-                        >
-                          <SessionDetail
-                            session={session}
-                            onClose={() => handleCloseSession(session.session_id)}
-                            showClose={false}
-                          />
-                        </div>
-                      )}
-                    </For>
-                  </Show>
-
-                  {/* Column view: show all selected sessions side by side */}
-                  <Show when={viewMode() === "columns"}>
-                    <For each={selectedSessions()}>
-                      {(session) => (
-                        <div class="flex-1 min-w-[300px] border-r border-panel-border last:border-r-0 overflow-hidden">
-                          <SessionDetail
-                            session={session}
-                            onClose={() => handleCloseSession(session.session_id)}
-                            showClose={false}
-                          />
-                        </div>
-                      )}
-                    </For>
-                  </Show>
-
-                  {/* Activity sidebar */}
-                  <div class="w-[280px] shrink-0 flex flex-col border-l border-panel-border">
-                    <div class="flex-1 flex flex-col min-h-0">
-                      <div class="px-3 py-2 border-b border-panel-border flex items-center gap-2 shrink-0 h-[33px]">
-                        <ListBullets size={14} class="text-text-label" />
-                        <span class="text-[10px] text-text-label uppercase tracking-[2px]">Activity</span>
-                        <span class="text-[9px] text-text-sub ml-auto">{allEvents().length}</span>
+                {/* Center content area — the ONLY part that changes */}
+                <div class="flex-1 min-w-0 flex overflow-hidden">
+                  <Show
+                    when={selectedSessions().length > 0}
+                    fallback={
+                      <div class="flex-1 flex flex-col items-center justify-center gap-3">
+                        <Terminal size={28} class="text-text-sub" />
+                        <span class="text-[13px] text-text-dim">Select a session to view details</span>
+                        <span class="text-[10px] text-text-sub">or wait for new activity</span>
                       </div>
-                      <div class="flex-1 overflow-y-auto smooth-scroll">
-                        <ActivityTimeline events={allEvents()} onSelectSession={handleSelectSession} />
-                      </div>
-                    </div>
-                    <Show when={conflicts().length > 0}>
-                      <div class="shrink-0 border-t border-panel-border">
-                        <div class="px-3 py-1.5 flex items-center gap-2">
-                          <Lightning size={12} class="text-attack" />
-                          <span class="text-[9px] text-attack font-bold">
-                            {conflicts().length} conflict{conflicts().length !== 1 ? "s" : ""}
-                          </span>
-                        </div>
-                        <div class="px-2 pb-2">
-                          <ConflictPanel conflicts={conflicts()} />
-                        </div>
+                    }
+                  >
+                    {/* Tab view: all sessions mounted, only active visible */}
+                    <Show when={viewMode() === "tabs"}>
+                      <For each={selectedSessions()}>
+                        {(session) => (
+                          <div
+                            class="flex-1 min-w-0 flex flex-col overflow-hidden"
+                            style={{ display: session.session_id === activeTabId() ? "flex" : "none" }}
+                          >
+                            <SessionDetail
+                              session={session}
+                              onClose={() => handleCloseSession(session.session_id)}
+                              showClose={false}
+                            />
+                          </div>
+                        )}
+                      </For>
+                    </Show>
+
+                    {/* Column view: horizontal scroll, each column independently scrollable */}
+                    <Show when={viewMode() === "columns"}>
+                      <div class="flex flex-1 min-w-0 overflow-x-auto">
+                        <For each={selectedSessions()}>
+                          {(session) => (
+                            <div class="flex-1 min-w-[320px] max-w-[50vw] border-r border-panel-border last:border-r-0 flex flex-col overflow-hidden">
+                              <SessionDetail
+                                session={session}
+                                onClose={() => handleCloseSession(session.session_id)}
+                                showClose={true}
+                              />
+                            </div>
+                          )}
+                        </For>
                       </div>
                     </Show>
+                  </Show>
+                </div>
+
+                {/* Activity sidebar — ALWAYS present, fixed 280px, never moves */}
+                <div class="w-[280px] shrink-0 flex flex-col border-l border-panel-border">
+                  <div class="flex-1 flex flex-col min-h-0">
+                    <div class="px-3 py-2 border-b border-panel-border flex items-center gap-2 shrink-0 h-[33px]">
+                      <ListBullets size={14} class="text-text-label" />
+                      <span class="text-[10px] text-text-label uppercase tracking-[2px]">Activity</span>
+                      <span class="text-[9px] text-text-sub ml-auto">{allEvents().length}</span>
+                    </div>
+                    <div class="flex-1 overflow-y-auto smooth-scroll">
+                      <ActivityTimeline events={allEvents()} onSelectSession={handleSelectSession} />
+                    </div>
                   </div>
-                </Show>
+                  <Show when={conflicts().length > 0}>
+                    <div class="shrink-0 border-t border-panel-border">
+                      <div class="px-3 py-1.5 flex items-center gap-2">
+                        <Lightning size={12} class="text-attack" />
+                        <span class="text-[9px] text-attack font-bold">
+                          {conflicts().length} conflict{conflicts().length !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                      <div class="px-2 pb-2">
+                        <ConflictPanel conflicts={conflicts()} />
+                      </div>
+                    </div>
+                  </Show>
+                </div>
               </div>
             </div>
           </Show>
