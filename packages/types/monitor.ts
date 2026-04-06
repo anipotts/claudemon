@@ -126,6 +126,21 @@ export interface MonitorEvent {
 
   // Branch (sent from hook)
   branch?: string;
+
+  // E2E encryption envelope (transit)
+  _encrypted?: EncryptedEnvelope;
+  _decrypt_failed?: boolean;
+}
+
+// ── E2E Encryption ──────────────────────────────────────────────
+
+export interface EncryptedEnvelope {
+  v: 1;
+  alg: "aes-256-gcm" | "aes-256-cbc-hmac";
+  iv: string; // base64
+  ct: string; // base64 ciphertext (JSON of all sensitive fields)
+  tag?: string; // base64 GCM auth tag (GCM only)
+  mac?: string; // hex HMAC-SHA256 (CBC fallback only)
 }
 
 export type SessionStatus = "working" | "thinking" | "waiting" | "done" | "error" | "offline";
@@ -167,6 +182,9 @@ export interface SessionState {
   files_touched: string[]; // unique file paths edited
   commands_run: string[]; // recent bash commands (last 20)
 
+  // Smart contextual status string (computed client-side)
+  smart_status?: string;
+
   // Recent events (ring buffer, last N)
   events: MonitorEvent[];
 
@@ -178,11 +196,22 @@ export interface SessionState {
   source: SessionSource;
 }
 
+// ── Action Bridge ────────────────────────────────────────────────
+
+export interface PendingAction {
+  id: string;
+  session_id: string;
+  hook_event_name: string;
+  event_data: Record<string, unknown>;
+}
+
 // WebSocket message types (server → client)
 export type WsMessage =
   | { type: "event"; event: MonitorEvent }
   | { type: "session_update"; session: SessionState }
   | { type: "sessions_snapshot"; sessions: SessionState[] }
+  | { type: "action_request"; action: PendingAction }
+  | { type: "action_resolved"; action_id: string }
   | { type: "ping"; ts: number };
 
 // All 27 Claude Code hook events — the type union above covers all of them.
