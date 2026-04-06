@@ -13,13 +13,75 @@ import type { MonitorEvent, SessionState } from "../../../../packages/types/moni
 import { queryByFile, queryWritesBefore } from "../stores/persistence";
 import { formatTime } from "./time";
 
+type TaintConfidence = "high" | "medium" | "low";
+
+interface CausalEntry {
+  event: MonitorEvent;
+  confidence: TaintConfidence;
+}
+
+interface CrossSessionCause {
+  file: string;
+  event: MonitorEvent;
+  session_id: string;
+  bridge?: MonitorEvent; // the Read event in current session that connects the cross-session write to the error
+}
+
 interface ErrorContext {
   error: MonitorEvent;
-  causalChain: MonitorEvent[];
+  causalChain: CausalEntry[];
   taintedFiles: Set<string>;
-  crossSessionCauses: Array<{ file: string; event: MonitorEvent; session_id: string }>;
+  crossSessionCauses: CrossSessionCause[];
   relatedFiles: Map<string, { sessions: Set<string>; count: number }>;
   session: SessionState;
+}
+
+/**
+ * Extract file paths from an event's various fields.
+ */
+function extractFilePath(event: MonitorEvent): string | null {
+  if (event.file_path) return event.file_path;
+  const input = event.tool_input || {};
+  if (input.file_path) return input.file_path as string;
+  return null;
+}
+
+/**
+ * Match a file path against text using last 2 segments for precision.
+ * Falls back to basename match if 2-segment match fails.
+ */
+function fileMatchesText(filePath: string, text: string): boolean {
+  const segments = filePath.split("/");
+  // Try last 2 segments first (e.g., "src/auth.ts")
+  if (segments.length >= 2) {
+    const twoSeg = segments.slice(-2).join("/");
+    if (text.includes(twoSeg)) return true;
+  }
+  // Fallback to basename
+  const basename = segments.pop()!;
+  return text.includes(basename);
+}
+
+/**
+ * Determine taint confidence for a causal chain event.
+ */
+function getConfidence(event: MonitorEvent, taintedFiles: Set<string>): TaintConfidence {
+  const fp = extractFilePath(event);
+  const tool = event.tool_name || "";
+
+  // Direct mutation = high confidence
+  if (fp && (tool === "Edit" || tool === "Write" || tool === "NotebookEdit")) return "high";
+
+  // Bash output/command mention = medium
+  if (tool === "Bash") return "medium";
+
+  // Read/Grep/Glob of tainted file = low (passive involvement)
+  if (fp && taintedFiles.has(fp) && (tool === "Read" || tool === "Grep" || tool === "Glob")) return "low";
+
+  // Default for tool events touching tainted files
+  if (fp && taintedFiles.has(fp)) return "medium";
+
+  return "medium";
 }
 
 /**
@@ -44,46 +106,54 @@ export async function extractErrorContext(session: SessionState, errorEvent: Mon
   const errorFp = extractFilePath(errorEvent);
   if (errorFp) taintedFiles.add(errorFp);
 
-  // Also check if a Bash command references tainted files
-  if (errorEvent.tool_name === "Bash" && errorEvent.tool_response) {
-    const output = JSON.stringify(errorEvent.tool_response);
-    // Scan for file paths in error output (heuristic: look for paths with extensions)
+  // Scan Bash error output AND command for file paths
+  if (errorEvent.tool_name === "Bash") {
+    const output = errorEvent.tool_response ? JSON.stringify(errorEvent.tool_response) : "";
+    const command = (errorEvent.tool_input?.command as string) || "";
+    const scanText = output + " " + command;
+
     for (const fp of events.map(extractFilePath).filter(Boolean) as string[]) {
-      if (output.includes(fp.split("/").pop()!)) taintedFiles.add(fp);
+      if (fileMatchesText(fp, scanText)) taintedFiles.add(fp);
     }
   }
 
   // Step 2: Backward taint walk — go all the way back, not just to nearest prompt
-  const chain: MonitorEvent[] = [];
+  const chain: CausalEntry[] = [];
+  // Track reads of tainted files for cross-session bridge detection
+  const taintedReads: Map<string, MonitorEvent> = new Map();
   let promptFound = false;
+
   for (let i = startIdx; i >= 0 && chain.length < 30; i--) {
     const e = events[i];
     const fp = extractFilePath(e);
 
     // If this event touches a tainted file, include it in the chain
     if (fp && taintedFiles.has(fp)) {
-      chain.unshift(e);
+      const confidence = getConfidence(e, taintedFiles);
+      chain.unshift({ event: e, confidence });
+      // Track reads for bridge detection
+      if (e.tool_name === "Read" || e.tool_name === "Grep" || e.tool_name === "Glob") {
+        if (!taintedReads.has(fp)) taintedReads.set(fp, e);
+      }
       continue;
     }
 
     // If this event MUTATES a file, taint that file
     if (fp && (e.tool_name === "Edit" || e.tool_name === "Write")) {
-      // Check if any later event in the chain reads this file
-      // → taint propagation: write to X, later read from X → X is tainted
       taintedFiles.add(fp);
-      chain.unshift(e);
+      chain.unshift({ event: e, confidence: "high" });
       continue;
     }
 
-    // Always include the error event itself and prompts
+    // Always include the error event itself
     if (i === startIdx) {
-      chain.unshift(e);
+      chain.unshift({ event: e, confidence: "high" });
       continue;
     }
 
     // Include UserPromptSubmit as context markers
     if (e.hook_event_name === "UserPromptSubmit") {
-      chain.unshift(e);
+      chain.unshift({ event: e, confidence: "high" });
       if (promptFound) break; // Stop at second prompt
       promptFound = true;
       continue;
@@ -91,20 +161,39 @@ export async function extractErrorContext(session: SessionState, errorEvent: Mon
 
     // Include events between prompts if they're tool events
     if (!promptFound && (e.hook_event_name === "PreToolUse" || e.hook_event_name === "PostToolUse")) {
-      chain.unshift(e);
+      chain.unshift({ event: e, confidence: "low" });
     }
   }
 
-  // Step 3: Cross-session write-before-read
-  const crossSessionCauses: Array<{ file: string; event: MonitorEvent; session_id: string }> = [];
+  // Step 3: Cross-session write-before-read with bridge detection
+  const crossSessionCauses: CrossSessionCause[] = [];
   for (const fp of taintedFiles) {
     try {
+      // First: query before the error timestamp (original behavior)
       const writes = await queryWritesBefore(fp, errorEvent.timestamp);
-      // Find writes from OTHER sessions
       for (const w of writes) {
         if (w.session_id !== session.session_id) {
-          crossSessionCauses.push({ file: fp, event: w, session_id: w.session_id });
+          const bridge = taintedReads.get(fp); // Read event that bridges cross-session write to error
+          crossSessionCauses.push({ file: fp, event: w, session_id: w.session_id, bridge });
           break; // Most recent cross-session write is the likely cause
+        }
+      }
+
+      // Enhanced: if we have a bridge (Read) event, also query writes before the Read
+      // This captures: A writes file at T=100, B reads at T=150, B errors at T=200
+      // The original query finds writes before T=200, but querying before T=150
+      // narrows to the actual causal write
+      const bridgeEvent = taintedReads.get(fp);
+      if (bridgeEvent && bridgeEvent.timestamp < errorEvent.timestamp) {
+        const bridgeWrites = await queryWritesBefore(fp, bridgeEvent.timestamp);
+        for (const w of bridgeWrites) {
+          if (w.session_id !== session.session_id) {
+            // Only add if not already found (avoid duplicates)
+            if (!crossSessionCauses.some((c) => c.file === fp && c.event.timestamp === w.timestamp)) {
+              crossSessionCauses.push({ file: fp, event: w, session_id: w.session_id, bridge: bridgeEvent });
+            }
+            break;
+          }
         }
       }
     } catch {
@@ -126,17 +215,12 @@ export async function extractErrorContext(session: SessionState, errorEvent: Mon
   return { error: errorEvent, causalChain: chain, taintedFiles, crossSessionCauses, relatedFiles, session };
 }
 
-function extractFilePath(event: MonitorEvent): string | null {
-  if (event.file_path) return event.file_path;
-  const input = event.tool_input || {};
-  if (input.file_path) return input.file_path as string;
-  return null;
-}
-
-function formatEventLine(event: MonitorEvent): string {
+function formatEventLine(entry: CausalEntry): string {
+  const { event, confidence } = entry;
   const ts = formatTime(event.timestamp);
   const name = event.hook_event_name;
   const tool = event.tool_name || "";
+  const tag = confidence === "high" ? "" : confidence === "medium" ? " [MED]" : " [LOW]";
 
   if (name === "UserPromptSubmit") {
     const prompt = event.prompt?.slice(0, 80) || "";
@@ -147,7 +231,7 @@ function formatEventLine(event: MonitorEvent): string {
     const detail = fp ? fp.split("/").slice(-2).join("/") : "";
     if (tool === "Bash") {
       const cmd = ((event.tool_input?.command as string) || "").slice(0, 80);
-      return `[${ts}] ${tool}: ${cmd}`;
+      return `[${ts}]${tag} ${tool}: ${cmd}`;
     }
     if (tool === "Edit" || tool === "Write") {
       const old = (event.tool_input?.old_string as string) || "";
@@ -156,9 +240,9 @@ function formatEventLine(event: MonitorEvent): string {
       if (old || nw) {
         diff = `\n  -${old.split("\n")[0]?.slice(0, 60) || ""}\n  +${nw.split("\n")[0]?.slice(0, 60) || ""}`;
       }
-      return `[${ts}] ${tool} ${detail}${diff}`;
+      return `[${ts}]${tag} ${tool} ${detail}${diff}`;
     }
-    return `[${ts}] ${tool} ${detail}`;
+    return `[${ts}]${tag} ${tool} ${detail}`;
   }
   if (name === "PostToolUseFailure") {
     const cmd = tool === "Bash" ? ((event.tool_input?.command as string) || "").slice(0, 60) : "";
@@ -169,7 +253,7 @@ function formatEventLine(event: MonitorEvent): string {
     return `[${ts}] StopFailure: ${(event.error || "").slice(0, 80)}`;
   }
   if (name === "SessionStart") return `[${ts}] Session started`;
-  return `[${ts}] ${name}${tool ? ` ${tool}` : ""}`;
+  return `[${ts}]${tag} ${name}${tool ? ` ${tool}` : ""}`;
 }
 
 /**
@@ -200,7 +284,13 @@ export function formatAsMarkdown(ctx: ErrorContext): string {
       const causeTs = formatTime(cause.event.timestamp);
       const deltaMs = error.timestamp - cause.event.timestamp;
       const deltaStr = deltaMs < 60000 ? `${Math.round(deltaMs / 1000)}s` : `${Math.round(deltaMs / 60000)}m`;
-      md += `- ${shortFp} was edited in session ${cause.session_id.slice(0, 8)} at ${causeTs} (${deltaStr} before this error)\n`;
+      let line = `- ${shortFp} was edited in session ${cause.session_id.slice(0, 8)} at ${causeTs} (${deltaStr} before this error)`;
+      if (cause.bridge) {
+        const bridgeTs = formatTime(cause.bridge.timestamp);
+        const bridgeTool = cause.bridge.tool_name || "tool";
+        line += `\n  Bridge: this session ${bridgeTool} read the file at ${bridgeTs}`;
+      }
+      md += line + "\n";
     }
     md += `\n`;
   }
@@ -208,11 +298,11 @@ export function formatAsMarkdown(ctx: ErrorContext): string {
   // Causal chain
   const duration =
     causalChain.length > 1
-      ? ((causalChain[causalChain.length - 1].timestamp - causalChain[0].timestamp) / 1000).toFixed(1) + "s"
+      ? ((causalChain[causalChain.length - 1].event.timestamp - causalChain[0].event.timestamp) / 1000).toFixed(1) + "s"
       : "0s";
   md += `### Causal Chain (${causalChain.length} events, ${duration})\n`;
-  for (const e of causalChain) {
-    md += formatEventLine(e) + "\n";
+  for (const entry of causalChain) {
+    md += formatEventLine(entry) + "\n";
   }
   md += `\n`;
 

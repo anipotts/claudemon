@@ -6,6 +6,7 @@ import { createWebSocket } from "./websocket";
 import { formatDuration } from "../utils/time";
 import { openDB, saveSession, saveEvent, loadSessions } from "./persistence";
 import { decryptTransit, getTransitKey } from "../crypto/transit";
+import { normalizeEvent } from "../utils/normalize";
 
 const MAX_EVENTS = 100;
 
@@ -90,6 +91,23 @@ function computeSmartStatus(session: SessionState, event: MonitorEvent): string 
   }
   if (name === "CwdChanged") return session.smart_status || "Working...";
   if (name === "FileChanged") return session.smart_status || "Working...";
+  if (name === "Setup") return "Initializing...";
+  if (name === "WorktreeCreate") {
+    const wt = (event as any).worktree_name || "";
+    return wt ? `Worktree created: ${wt}` : "Worktree created";
+  }
+  if (name === "WorktreeRemove") {
+    const wt = (event as any).worktree_name || "";
+    return wt ? `Worktree removed: ${wt}` : "Worktree removed";
+  }
+  if (name === "TaskCreated") {
+    const subj = event.task_subject?.slice(0, 40) || "";
+    return subj ? `Task: ${subj}` : "Task created";
+  }
+  if (name === "TaskCompleted") {
+    const subj = event.task_subject?.slice(0, 40) || "";
+    return subj ? `Task done: ${subj}` : "Task completed";
+  }
 
   // Fallback: keep previous smart_status or generic
   return session.smart_status || "Working...";
@@ -113,6 +131,8 @@ function createSessionFromEvent(event: MonitorEvent): SessionState {
     error_count: 0,
     compaction_count: 0,
     permission_denied_count: 0,
+    task_count: 0,
+    instructions_loaded_count: 0,
     files_touched: [],
     commands_run: [],
     events: [],
@@ -145,6 +165,9 @@ export function createSessionStore() {
         if (!event._decrypt_failed) return; // async decrypt in progress
       }
     }
+
+    // Normalize CC-native field names → ClaudeMon namespaced fields
+    normalizeEvent(event);
 
     const sid = event.session_id;
 
@@ -205,6 +228,9 @@ export function createSessionStore() {
             session.end_reason = undefined;
             session.compact_summary = undefined;
             session.last_prompt = undefined;
+            session.config_source = undefined;
+            session.task_count = 0;
+            session.instructions_loaded_count = 0;
             session.events = [];
             session.started_at = event.timestamp;
             break;
@@ -239,16 +265,34 @@ export function createSessionStore() {
               }
             }
             break;
+          case "ConfigChange":
+            if (event.config_source) session.config_source = event.config_source;
+            break;
+          case "WorktreeCreate":
+            session.worktree_count = (session.worktree_count || 0) + 1;
+            break;
+          case "WorktreeRemove":
+            session.worktree_count = Math.max(0, (session.worktree_count || 1) - 1);
+            break;
+          case "Elicitation":
+            session.status = "waiting";
+            break;
+          case "ElicitationResult":
+            session.status = "working";
+            break;
+          case "Setup":
+            session.status = "thinking";
+            if (event.model) session.model = event.model;
+            if (event.permission_mode) session.permission_mode = event.permission_mode;
+            break;
+          case "InstructionsLoaded":
+            session.instructions_loaded_count = (session.instructions_loaded_count || 0) + 1;
+            break;
           case "TaskCreated":
+            session.task_count = (session.task_count || 0) + 1;
+            break;
           case "TaskCompleted":
           case "TeammateIdle":
-          case "ConfigChange":
-          case "WorktreeCreate":
-          case "WorktreeRemove":
-          case "InstructionsLoaded":
-          case "Elicitation":
-          case "ElicitationResult":
-          case "Setup":
             break;
         }
 

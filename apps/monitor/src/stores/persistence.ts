@@ -1,6 +1,7 @@
 // ── IndexedDB Persistence Layer ─────────────────────────────────
 // Local-first storage for ClaudeMon events and sessions.
 // All data lives in the browser — server is a pure relay.
+// Events are encrypted at rest with a non-exportable device-bound AES-GCM key.
 
 import type { MonitorEvent, SessionState, HookEventName } from "../../../../packages/types/monitor";
 
@@ -86,6 +87,114 @@ export function enrichEvent(event: MonitorEvent): EnrichedEvent {
   return enriched;
 }
 
+// ── At-Rest Encryption ───────────────────────────────────────────
+// Non-exportable AES-256-GCM key stored in IndexedDB config store.
+// Plaintext index fields coexist with encrypted payload blob.
+
+let cachedDeviceKey: CryptoKey | null = null;
+
+async function getDeviceKey(db: IDBDatabase): Promise<CryptoKey> {
+  if (cachedDeviceKey) return cachedDeviceKey;
+
+  // Try to load existing key
+  const existing = await new Promise<CryptoKey | null>((resolve) => {
+    const tx = db.transaction("config", "readonly");
+    const request = tx.objectStore("config").get("device_key");
+    request.onsuccess = () => {
+      const record = request.result;
+      resolve(record?.value ?? null);
+    };
+    request.onerror = () => resolve(null);
+  });
+
+  if (existing) {
+    cachedDeviceKey = existing;
+    return existing;
+  }
+
+  // Generate new non-exportable key
+  const key = await crypto.subtle.generateKey(
+    { name: "AES-GCM", length: 256 },
+    false, // non-exportable
+    ["encrypt", "decrypt"],
+  );
+
+  // Store in config
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction("config", "readwrite");
+    tx.objectStore("config").put({ key: "device_key", value: key });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+
+  cachedDeviceKey = key;
+  return key;
+}
+
+async function encryptPayload(data: Record<string, unknown>, key: CryptoKey): Promise<{ _encrypted_payload: ArrayBuffer; _iv: ArrayBuffer }> {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encoded = new TextEncoder().encode(JSON.stringify(data));
+  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoded);
+  return { _encrypted_payload: ciphertext, _iv: iv.buffer };
+}
+
+async function decryptPayload(encrypted: ArrayBuffer, iv: ArrayBuffer, key: CryptoKey): Promise<Record<string, unknown>> {
+  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, encrypted);
+  return JSON.parse(new TextDecoder().decode(decrypted));
+}
+
+// Plaintext fields kept for event indexing
+const EVENT_INDEX_FIELDS = [
+  "session_id", "timestamp", "hook_event_name", "_file_path",
+  "tool_use_id", "project_path", "_tier", "_is_error", "tool_name",
+] as const;
+
+// Plaintext fields kept for session indexing
+const SESSION_INDEX_FIELDS = [
+  "session_id", "last_event_at", "project_path",
+] as const;
+
+interface EncryptedRecord {
+  _encrypted_payload: ArrayBuffer;
+  _iv: ArrayBuffer;
+  [key: string]: unknown;
+}
+
+function isEncrypted(record: unknown): record is EncryptedRecord {
+  return !!record && typeof record === "object" && "_encrypted_payload" in record;
+}
+
+async function decryptEventRecord(record: unknown, key: CryptoKey): Promise<EnrichedEvent> {
+  if (!isEncrypted(record)) return record as EnrichedEvent; // plaintext (pre-encryption data)
+  try {
+    const decrypted = await decryptPayload(record._encrypted_payload, record._iv, key);
+    return decrypted as unknown as EnrichedEvent;
+  } catch {
+    // Key loss or corruption — return what we can from plaintext index fields
+    console.warn("ClaudeMon: failed to decrypt event record, returning index fields only");
+    const partial: Record<string, unknown> = {};
+    for (const f of EVENT_INDEX_FIELDS) {
+      if (f in (record as Record<string, unknown>)) partial[f] = (record as Record<string, unknown>)[f];
+    }
+    return partial as unknown as EnrichedEvent;
+  }
+}
+
+async function decryptSessionRecord(record: unknown, key: CryptoKey): Promise<SessionState> {
+  if (!isEncrypted(record)) return record as SessionState;
+  try {
+    const decrypted = await decryptPayload(record._encrypted_payload, record._iv, key);
+    return decrypted as unknown as SessionState;
+  } catch {
+    console.warn("ClaudeMon: failed to decrypt session record, returning index fields only");
+    const partial: Record<string, unknown> = {};
+    for (const f of SESSION_INDEX_FIELDS) {
+      if (f in (record as Record<string, unknown>)) partial[f] = (record as Record<string, unknown>)[f];
+    }
+    return partial as unknown as SessionState;
+  }
+}
+
 // ── IndexedDB Operations ──────────────────────────────────────────
 
 let dbInstance: IDBDatabase | null = null;
@@ -145,11 +254,22 @@ export function openDB(): Promise<IDBDatabase> {
 
 export async function saveSession(session: SessionState): Promise<void> {
   const db = await openDB();
+  const key = await getDeviceKey(db);
+
   // Store session without the events array (too large)
   const { events, ...meta } = session;
+
+  // Extract plaintext index fields, encrypt everything else
+  const plaintext: Record<string, unknown> = {};
+  for (const f of SESSION_INDEX_FIELDS) {
+    if (f in meta) plaintext[f] = (meta as Record<string, unknown>)[f];
+  }
+
+  const encrypted = await encryptPayload(meta as Record<string, unknown>, key);
+
   return new Promise((resolve, reject) => {
     const tx = db.transaction("sessions", "readwrite");
-    tx.objectStore("sessions").put(meta);
+    tx.objectStore("sessions").put({ ...plaintext, ...encrypted });
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
@@ -157,31 +277,49 @@ export async function saveSession(session: SessionState): Promise<void> {
 
 export async function loadSessions(): Promise<SessionState[]> {
   const db = await openDB();
-  return new Promise((resolve, reject) => {
+  const key = await getDeviceKey(db);
+
+  const records = await new Promise<unknown[]>((resolve, reject) => {
     const tx = db.transaction("sessions", "readonly");
     const request = tx.objectStore("sessions").getAll();
-    request.onsuccess = () => {
-      const sessions = (request.result || []).map((s: SessionState) => ({
-        ...s,
-        events: s.events || [],
-        subagents: s.subagents || [],
-        files_touched: s.files_touched || [],
-        commands_run: s.commands_run || [],
-      }));
-      resolve(sessions);
-    };
+    request.onsuccess = () => resolve(request.result || []);
     request.onerror = () => reject(request.error);
   });
+
+  const sessions = await Promise.all(records.map((r) => decryptSessionRecord(r, key)));
+  return sessions.map((s) => ({
+    ...s,
+    events: s.events || [],
+    subagents: s.subagents || [],
+    files_touched: s.files_touched || [],
+    commands_run: s.commands_run || [],
+  }));
 }
 
 // ── Event CRUD ────────────────────────────────────────────────────
 
+async function encryptEventForStorage(event: MonitorEvent, key: CryptoKey): Promise<Record<string, unknown>> {
+  const enriched = enrichEvent(event);
+
+  // Extract plaintext index fields
+  const plaintext: Record<string, unknown> = {};
+  for (const f of EVENT_INDEX_FIELDS) {
+    if (f in enriched) plaintext[f] = (enriched as unknown as Record<string, unknown>)[f];
+  }
+
+  // Encrypt full event
+  const encrypted = await encryptPayload(enriched as unknown as Record<string, unknown>, key);
+  return { ...plaintext, ...encrypted };
+}
+
 export async function saveEvent(event: MonitorEvent): Promise<void> {
   const db = await openDB();
-  const enriched = enrichEvent(event);
+  const key = await getDeviceKey(db);
+  const record = await encryptEventForStorage(event, key);
+
   return new Promise((resolve, reject) => {
     const tx = db.transaction("events", "readwrite");
-    tx.objectStore("events").add(enriched);
+    tx.objectStore("events").add(record);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
@@ -190,11 +328,14 @@ export async function saveEvent(event: MonitorEvent): Promise<void> {
 export async function saveBatch(events: MonitorEvent[]): Promise<void> {
   if (events.length === 0) return;
   const db = await openDB();
+  const key = await getDeviceKey(db);
+  const records = await Promise.all(events.map((e) => encryptEventForStorage(e, key)));
+
   return new Promise((resolve, reject) => {
     const tx = db.transaction("events", "readwrite");
     const store = tx.objectStore("events");
-    for (const event of events) {
-      store.add(enrichEvent(event));
+    for (const record of records) {
+      store.add(record);
     }
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
@@ -203,7 +344,9 @@ export async function saveBatch(events: MonitorEvent[]): Promise<void> {
 
 export async function loadEvents(sessionId: string): Promise<EnrichedEvent[]> {
   const db = await openDB();
-  return new Promise((resolve, reject) => {
+  const key = await getDeviceKey(db);
+
+  const records = await new Promise<unknown[]>((resolve, reject) => {
     const tx = db.transaction("events", "readonly");
     const index = tx.objectStore("events").index("session_timestamp");
     const range = IDBKeyRange.bound([sessionId, 0], [sessionId, Number.POSITIVE_INFINITY]);
@@ -211,29 +354,38 @@ export async function loadEvents(sessionId: string): Promise<EnrichedEvent[]> {
     request.onsuccess = () => resolve(request.result || []);
     request.onerror = () => reject(request.error);
   });
+
+  return Promise.all(records.map((r) => decryptEventRecord(r, key)));
 }
 
 // ── Cross-Session Queries ─────────────────────────────────────────
 
 export async function queryByFile(filePath: string): Promise<EnrichedEvent[]> {
   const db = await openDB();
-  return new Promise((resolve, reject) => {
+  const key = await getDeviceKey(db);
+
+  const records = await new Promise<unknown[]>((resolve, reject) => {
     const tx = db.transaction("events", "readonly");
     const index = tx.objectStore("events").index("_file_path");
     const request = index.getAll(filePath);
     request.onsuccess = () => resolve(request.result || []);
     request.onerror = () => reject(request.error);
   });
+
+  return Promise.all(records.map((r) => decryptEventRecord(r, key)));
 }
 
 /** Find all writes to a file BEFORE a given timestamp (cross-session mutation history) */
 export async function queryWritesBefore(filePath: string, beforeTimestamp: number): Promise<EnrichedEvent[]> {
   const db = await openDB();
-  return new Promise((resolve, reject) => {
+  const key = await getDeviceKey(db);
+
+  // Collect candidate records using cursor (tool_name is plaintext)
+  const records = await new Promise<unknown[]>((resolve, reject) => {
     const tx = db.transaction("events", "readonly");
     const index = tx.objectStore("events").index("file_timestamp");
     const range = IDBKeyRange.bound([filePath, 0], [filePath, beforeTimestamp], false, true);
-    const results: EnrichedEvent[] = [];
+    const results: unknown[] = [];
     const request = index.openCursor(range, "prev"); // newest first
     request.onsuccess = () => {
       const cursor = request.result;
@@ -241,22 +393,26 @@ export async function queryWritesBefore(filePath: string, beforeTimestamp: numbe
         resolve(results);
         return;
       }
-      const event = cursor.value as EnrichedEvent;
-      // Only collect Edit/Write events (mutations)
-      if (event.tool_name === "Edit" || event.tool_name === "Write") {
-        results.push(event);
+      const record = cursor.value as Record<string, unknown>;
+      // tool_name is plaintext — filter for mutations before decrypting
+      if (record.tool_name === "Edit" || record.tool_name === "Write") {
+        results.push(record);
       }
       cursor.continue();
     };
     request.onerror = () => reject(request.error);
   });
+
+  return Promise.all(records.map((r) => decryptEventRecord(r, key)));
 }
 
 export async function queryErrors(projectPath: string): Promise<EnrichedEvent[]> {
   const db = await openDB();
-  return new Promise((resolve, reject) => {
+  const key = await getDeviceKey(db);
+
+  const records = await new Promise<unknown[]>((resolve, reject) => {
     const tx = db.transaction("events", "readonly");
-    const results: EnrichedEvent[] = [];
+    const results: unknown[] = [];
 
     // Query PostToolUseFailure events for this project
     const index = tx.objectStore("events").index("project_hook");
@@ -279,9 +435,12 @@ export async function queryErrors(projectPath: string): Promise<EnrichedEvent[]>
       }
     };
 
-    tx.oncomplete = () => resolve(results.sort((a, b) => a.timestamp - b.timestamp));
+    tx.oncomplete = () => resolve(results);
     tx.onerror = () => reject(tx.error);
   });
+
+  const decrypted = await Promise.all(records.map((r) => decryptEventRecord(r, key)));
+  return decrypted.sort((a, b) => a.timestamp - b.timestamp);
 }
 
 // ── Pruning ───────────────────────────────────────────────────────
@@ -294,7 +453,7 @@ export async function pruneOld(): Promise<{ sessions: number; events: number }> 
   let eventsPruned = 0;
   let sessionsPruned = 0;
 
-  // Prune events
+  // Prune events — _is_error is plaintext, no decryption needed
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction("events", "readwrite");
     const store = tx.objectStore("events");
@@ -305,10 +464,10 @@ export async function pruneOld(): Promise<{ sessions: number; events: number }> 
     request.onsuccess = () => {
       const cursor = request.result;
       if (!cursor) return;
-      const event = cursor.value as EnrichedEvent;
-      // Error events: use error retention. Normal: use normal retention.
-      const cutoff = event._is_error ? errorCutoff : normalCutoff;
-      if (event.timestamp < cutoff) {
+      const record = cursor.value as Record<string, unknown>;
+      // _is_error is a plaintext index field
+      const cutoff = record._is_error ? errorCutoff : normalCutoff;
+      if ((record.timestamp as number) < cutoff) {
         cursor.delete();
         eventsPruned++;
       }
@@ -350,14 +509,28 @@ export async function getStorageEstimate(): Promise<{ used: number; quota: numbe
   return { used: 0, quota: 0 };
 }
 
+// ── Encryption Health ────────────────────────────────────────────
+
+export async function isEncryptionHealthy(): Promise<boolean> {
+  try {
+    const db = await openDB();
+    await getDeviceKey(db);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ── Clear All ─────────────────────────────────────────────────────
 
 export async function clearAll(): Promise<void> {
   const db = await openDB();
+  cachedDeviceKey = null; // force key regeneration on next use
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(["sessions", "events"], "readwrite");
+    const tx = db.transaction(["sessions", "events", "config"], "readwrite");
     tx.objectStore("sessions").clear();
     tx.objectStore("events").clear();
+    tx.objectStore("config").clear();
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
