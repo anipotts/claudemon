@@ -21,7 +21,7 @@ interface User {
 }
 
 const App: Component = () => {
-  const { sessions, connectionStatus } = createSessionStore();
+  const { sessions, connectionStatus, pendingActions, respondToAction } = createSessionStore();
   const [selectedSessionIds, setSelectedSessionIds] = createSignal<string[]>([]);
   const [user, setUser] = createSignal<User | null>(null);
   const [authLoading, setAuthLoading] = createSignal(true);
@@ -352,6 +352,23 @@ const App: Component = () => {
             />
           </div>
 
+          {/* Global pending actions badge */}
+          <Show when={Object.keys(pendingActions).length > 0}>
+            {(() => {
+              const actionList = () => Object.values(pendingActions).filter(Boolean);
+              const firstSessionId = () => actionList()[0]?.session_id;
+              return (
+                <button
+                  class="flex items-center gap-1.5 px-2 py-1 rounded border border-suspicious/40 bg-suspicious/10 action-banner text-[9px] font-bold text-suspicious uppercase"
+                  onClick={() => firstSessionId() && handleSelectSession(firstSessionId()!)}
+                  title="Click to view session with pending action"
+                >
+                  {actionList().length} action{actionList().length !== 1 ? "s" : ""} pending
+                </button>
+              );
+            })()}
+          </Show>
+
           {/* Auth */}
           <Show when={!authLoading()}>
             <Show
@@ -427,6 +444,8 @@ const App: Component = () => {
                 session={selectedSessions()[0]}
                 onClose={() => handleCloseSession(selectedSessions()[0].session_id)}
                 isMobile={true}
+                pendingActions={pendingActions}
+                onActionRespond={respondToAction}
               />
             </div>
           </Show>
@@ -573,6 +592,8 @@ const App: Component = () => {
                               session={session}
                               onClose={() => handleCloseSession(session.session_id)}
                               showClose={false}
+                              pendingActions={pendingActions}
+                              onActionRespond={respondToAction}
                             />
                           </div>
                         )}
@@ -589,6 +610,8 @@ const App: Component = () => {
                                 session={session}
                                 onClose={() => handleCloseSession(session.session_id)}
                                 showClose={true}
+                                pendingActions={pendingActions}
+                                onActionRespond={respondToAction}
                               />
                             </div>
                           )}

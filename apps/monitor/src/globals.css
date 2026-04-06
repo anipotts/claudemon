@@ -266,6 +266,20 @@ body {
   overflow-y: auto;
 }
 
+/* Action banner pulse */
+.action-banner {
+  animation: action-pulse 2s ease-in-out infinite;
+}
+@keyframes action-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(201, 169, 110, 0);
+  }
+  50% {
+    box-shadow: 0 0 8px 2px rgba(201, 169, 110, 0.15);
+  }
+}
+
 /* Activity sidebar collapse transition */
 .activity-sidebar {
   transition: width 0.15s ease-out;
