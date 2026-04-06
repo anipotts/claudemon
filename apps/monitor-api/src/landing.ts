@@ -1017,7 +1017,7 @@ footer .sep { color: var(--panel-border); }
                 <div class="mock-env-header">
                   <svg width="10" height="10" viewBox="0 0 256 256" fill="none" stroke="currentColor" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"><rect x="32" y="48" width="192" height="140" rx="16"/><path d="M160 232H96"/><path d="M128 188v44"/></svg>
                   <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="var(--text-sub)" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-                  <span class="mock-env-name">anipotts-mbp</span>
+                  <span class="mock-env-name">dev-machine</span>
                   <span class="mock-env-type">local</span>
                   <span class="mock-env-count">
                     <svg width="8" height="8" viewBox="0 0 256 256" fill="none" stroke="var(--safe)" stroke-width="20"><path d="M128 128a40 40 0 1 1 0-1"/><path d="M128 28a100 100 0 1 1 0 200"/></svg>

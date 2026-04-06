@@ -17,6 +17,9 @@ dist/
 # Biome
 .biome/
 
+# Development mockups
+marketplace/
+
 # TypeScript build artifacts in source dirs
 apps/*/src/**/*.js
 apps/*/src/**/*.jsx

@@ -1,65 +1,86 @@
 # ClaudeMon
 
-[![GitHub stars](https://img.shields.io/github/stars/anipotts/claudemon?style=flat&color=a3b18a&labelColor=1a1916)](https://github.com/anipotts/claudemon)
 [![npm](https://img.shields.io/npm/dw/claudemon-cli?style=flat&color=a3b18a&labelColor=1a1916&label=npm)](https://www.npmjs.com/package/claudemon-cli)
-[![CI](https://img.shields.io/github/actions/workflow/status/anipotts/claudemon/ci.yml?style=flat&labelColor=1a1916)](https://github.com/anipotts/claudemon/actions)
+[![License: MIT](https://img.shields.io/badge/license-MIT-a3b18a?labelColor=1a1916)](LICENSE)
 
-Monitor your Claude Code sessions in real time.
+Real-time session monitoring for [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
-See what every session is doing across machines, branches, and projects. Detect file conflicts. Know when Claude needs your input.
+See what every session is doing across projects, branches, and machines. Track tool calls, agent hierarchies, and context compactions. Know when Claude needs your input.
 
-## Install
+**[app.claudemon.com](https://app.claudemon.com)**
+
+## Quick Start
 
 ```bash
 npm install -g claudemon-cli
 claudemon-cli init
 ```
 
-This adds hooks to your Claude Code config and saves your API key. Get your key at [app.claudemon.com](https://app.claudemon.com).
+Get your API key at [app.claudemon.com](https://app.claudemon.com), then open Claude Code. Sessions appear on the dashboard immediately.
 
-## How it works
+## How It Works
 
-Claude Code fires [hook events](https://docs.anthropic.com/en/docs/claude-code/hooks) on every tool use, session start/end, notification, and more. ClaudeMon registers HTTP hooks for all 27 events, forwarding them to a lightweight WebSocket relay. The dashboard connects via WebSocket and renders session state in real time.
+Claude Code fires [hook events](https://docs.anthropic.com/en/docs/claude-code/hooks) on every tool use, session lifecycle change, and notification. ClaudeMon registers async command hooks for 12 core events, forwarding them to a lightweight WebSocket relay. The dashboard connects via WebSocket and renders session state in real time.
 
-**Privacy-first:** No persistent database. No file contents, API keys, or conversations are ever sent. Events are ephemeral WebSocket messages — nothing is stored.
+**Privacy-first:** No persistent database. No file contents stored. Events are ephemeral WebSocket messages that exist only while you're connected.
+
+## Features
+
+- Live session timeline with tool calls, diffs, and bash output
+- Conversation-style display (user prompts, Claude responses, tool work)
+- Agent hierarchy nesting (SubagentStart/Stop with collapsible blocks)
+- Tool call duration tracking (Pre/Post timestamp diff)
+- Bash command classification (git, npm, test, docker, curl)
+- Model and permission mode badges (color-coded by family/risk)
+- Multi-session tabs and side-by-side column view
+- Cross-session activity feed with filters (tools, lifecycle, prompts, agents, errors)
+- File conflict detection across concurrent sessions
+- Browser push notifications when Claude needs input
+- Keyboard navigation (j/k to move, Enter to expand)
 
 ## Architecture
 
 ```
-apps/monitor/        SolidJS frontend         app.claudemon.com
-apps/monitor-api/    Hono + Durable Objects   api.claudemon.com
-packages/cli/        claudemon-cli on npm
+apps/monitor/        SolidJS + Tailwind v4 frontend     app.claudemon.com
+apps/monitor-api/    Hono + Durable Objects relay        api.claudemon.com
+packages/cli/        claudemon-cli (zero dependencies)
 packages/types/      Shared TypeScript types
 ```
+
+All components deploy to Cloudflare (Pages + Workers). The API uses Durable Objects with the Hibernation API for persistent WebSocket connections that survive DO sleep.
 
 ## Development
 
 ```bash
-cd apps/monitor && npm run dev       # Frontend
-cd apps/monitor-api && npm run dev   # API
+git clone https://github.com/anipotts/claudemon.git
+cd claudemon && npm install
+
+cd apps/monitor && npm run dev       # Frontend at localhost:5173
+cd apps/monitor-api && npm run dev   # API at localhost:8787
 ```
 
-## Deploy
-
 ```bash
-cd apps/monitor-api && wrangler deploy
-cd apps/monitor && npm run build && wrangler deploy
+npm run test        # 121 tests (vitest)
+npm run build       # Production build
+npm run lint        # Biome check
 ```
 
 ## Self-Hosting
 
-Run your own ClaudeMon instance on Cloudflare Workers (free tier):
+Run your own instance on Cloudflare Workers (free tier):
 
 ```bash
-# Clone and deploy
-git clone https://github.com/anipotts/claudemon.git
-cd claudemon/apps/monitor-api
+cd apps/monitor-api
 wrangler deploy -c wrangler.self-hosted.toml
 ```
 
-Self-hosted mode runs in `SINGLE_USER` mode — no GitHub OAuth or API keys required. All sessions are visible to anyone with the URL.
+Self-hosted mode runs in `SINGLE_USER` mode -- no OAuth or API keys required.
 
-For the frontend, deploy `apps/monitor` to Cloudflare Pages and set `VITE_MONITOR_API_URL` to your worker URL.
+For the frontend, deploy `apps/monitor` to Cloudflare Pages with `VITE_MONITOR_API_URL` set to your worker URL.
+
+## Contributing
+
+PRs welcome. Please follow the conventions in [CLAUDE.md](CLAUDE.md).
 
 ## License
 
