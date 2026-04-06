@@ -6,7 +6,7 @@ import { ActivityTimeline } from "./components/ActivityTimeline";
 import { ConflictPanel, type ConflictData } from "./components/ConflictPanel";
 import { SessionDetail } from "./components/SessionDetail";
 import { Onboarding } from "./components/Onboarding";
-import { ShieldCheck, Lightning, ListBullets, Trash, GearSix, Terminal } from "./components/Icons";
+import { ShieldCheck, Lightning, ListBullets, Trash, GearSix, Terminal, Pulse, CaretRight } from "./components/Icons";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { IdleDashboard } from "./components/IdleDashboard";
 
@@ -49,6 +49,9 @@ const App: Component = () => {
     typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches,
   );
   const [showMobileActivity, setShowMobileActivity] = createSignal(false);
+  const [activityCollapsed, setActivityCollapsed] = createSignal(
+    typeof localStorage !== "undefined" && localStorage.getItem("claudemon_activity_collapsed") === "true",
+  );
 
   onMount(() => {
     const mq = window.matchMedia("(max-width: 768px)");
@@ -179,6 +182,12 @@ const App: Component = () => {
     } else {
       localStorage.removeItem("claudemon_active_tab");
     }
+  });
+
+  // Persist activity sidebar collapse state
+  createEffect(() => {
+    if (typeof localStorage === "undefined") return;
+    localStorage.setItem("claudemon_activity_collapsed", activityCollapsed() ? "true" : "false");
   });
 
   const handleSelectSession = (id: string) => {
@@ -472,7 +481,7 @@ const App: Component = () => {
                                       }}
                                     >
                                       <Show when={pinnedTabs().has(id)}>
-                                        <span class="text-[7px] text-safe shrink-0">*</span>
+                                        <span class="text-[9px] text-safe shrink-0">*</span>
                                       </Show>
                                       <span
                                         class="w-1.5 h-1.5 rounded-full shrink-0"
@@ -494,7 +503,14 @@ const App: Component = () => {
                                           transition: "background 0.3s ease, box-shadow 0.3s ease",
                                         }}
                                       />
-                                      <span class="text-[9px] font-mono text-text-dim">{id.slice(0, 8)}</span>
+                                      <span
+                                        class="text-[9px] font-mono text-text-dim truncate max-w-[120px]"
+                                        title={id}
+                                      >
+                                        {s()!.last_prompt?.slice(0, 20) ||
+                                          s()!.smart_status?.slice(0, 20) ||
+                                          id.slice(0, 8)}
+                                      </span>
                                       <Show when={!pinnedTabs().has(id)}>
                                         <span
                                           class="text-text-sub hover:text-text-primary text-[9px] ml-0.5"
@@ -582,30 +598,55 @@ const App: Component = () => {
                   </Show>
                 </div>
 
-                {/* Activity sidebar — ALWAYS present, fixed 280px, never moves */}
-                <div class="w-[280px] shrink-0 flex flex-col border-l border-panel-border">
-                  <div class="flex-1 flex flex-col min-h-0">
-                    <div class="px-3 py-2 border-b border-panel-border flex items-center gap-2 shrink-0 h-[33px]">
-                      <ListBullets size={14} class="text-text-label" />
-                      <span class="text-[10px] text-text-label uppercase tracking-[2px]">Activity</span>
-                      <span class="text-[9px] text-text-sub ml-auto">{allEvents().length}</span>
-                    </div>
-                    <div class="flex-1 overflow-y-auto smooth-scroll">
-                      <ActivityTimeline events={allEvents()} onSelectSession={handleSelectSession} />
-                    </div>
-                  </div>
-                  <Show when={conflicts().length > 0}>
-                    <div class="shrink-0 border-t border-panel-border">
-                      <div class="px-3 py-1.5 flex items-center gap-2">
-                        <Lightning size={12} class="text-attack" />
-                        <span class="text-[9px] text-attack font-bold">
-                          {conflicts().length} conflict{conflicts().length !== 1 ? "s" : ""}
-                        </span>
+                {/* Activity sidebar — collapsible, persisted to localStorage */}
+                <div
+                  class="activity-sidebar shrink-0 flex flex-col border-l border-panel-border"
+                  style={{ width: activityCollapsed() ? "36px" : "280px" }}
+                >
+                  <Show
+                    when={!activityCollapsed()}
+                    fallback={
+                      <button
+                        class="flex-1 flex flex-col items-center gap-3 py-3 hover:bg-panel/40 transition-colors cursor-pointer"
+                        onClick={() => setActivityCollapsed(false)}
+                        title="Expand activity feed"
+                      >
+                        <Pulse size={14} class="text-text-label" />
+                        <span class="text-[9px] text-text-sub font-bold">{allEvents().length}</span>
+                        <CaretRight size={10} class="text-text-sub" />
+                      </button>
+                    }
+                  >
+                    <div class="flex-1 flex flex-col min-h-0">
+                      <div class="px-3 py-2 border-b border-panel-border flex items-center gap-2 shrink-0 h-[33px]">
+                        <ListBullets size={14} class="text-text-label" />
+                        <span class="text-[10px] text-text-label uppercase tracking-[2px]">Activity</span>
+                        <span class="text-[9px] text-text-sub ml-auto">{allEvents().length}</span>
+                        <button
+                          class="text-text-sub hover:text-text-primary transition-colors p-0.5"
+                          onClick={() => setActivityCollapsed(true)}
+                          title="Collapse activity feed"
+                        >
+                          <CaretRight size={10} />
+                        </button>
                       </div>
-                      <div class="px-2 pb-2">
-                        <ConflictPanel conflicts={conflicts()} />
+                      <div class="flex-1 overflow-y-auto smooth-scroll">
+                        <ActivityTimeline events={allEvents()} onSelectSession={handleSelectSession} />
                       </div>
                     </div>
+                    <Show when={conflicts().length > 0}>
+                      <div class="shrink-0 border-t border-panel-border">
+                        <div class="px-3 py-1.5 flex items-center gap-2">
+                          <Lightning size={12} class="text-attack" />
+                          <span class="text-[9px] text-attack font-bold">
+                            {conflicts().length} conflict{conflicts().length !== 1 ? "s" : ""}
+                          </span>
+                        </div>
+                        <div class="px-2 pb-2">
+                          <ConflictPanel conflicts={conflicts()} />
+                        </div>
+                      </div>
+                    </Show>
                   </Show>
                 </div>
               </div>

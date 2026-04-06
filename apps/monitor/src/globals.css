@@ -266,6 +266,12 @@ body {
   overflow-y: auto;
 }
 
+/* Activity sidebar collapse transition */
+.activity-sidebar {
+  transition: width 0.15s ease-out;
+  overflow: hidden;
+}
+
 /* Prevent wrapping in session cards and stats */
 .session-stats {
   white-space: nowrap;
