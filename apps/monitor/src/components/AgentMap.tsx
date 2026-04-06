@@ -82,12 +82,21 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
     if (s().search_count) parts.push(`${s().search_count}s`);
     return parts.length > 0 ? parts.join(" \u00b7 ") : null;
   };
+  const counterTooltip = () => {
+    const parts: string[] = [];
+    if (s().edit_count) parts.push(`${s().edit_count} edits`);
+    if (s().command_count) parts.push(`${s().command_count} commands`);
+    if (s().read_count) parts.push(`${s().read_count} reads`);
+    if (s().search_count) parts.push(`${s().search_count} searches`);
+    return parts.join(", ");
+  };
+  const isOffline = () => s().status === "offline" || s().status === "done";
 
   const activeAgentCount = () => s().subagents.filter((a) => a.status !== "done" && a.status !== "offline").length;
 
   return (
     <div
-      class={`border rounded-sm p-3 transition-all cursor-pointer status-transition hover:brightness-110 ${isWaiting() ? "waiting-banner" : ""}`}
+      class={`border rounded-sm p-3 transition-all cursor-pointer status-transition hover:brightness-110 ${isWaiting() ? "waiting-banner" : ""} ${isOffline() ? "opacity-50" : ""}`}
       style={{
         "border-color": props.selected ? "#a3b18a60" : isWaiting() ? undefined : style().border,
         background: props.selected ? "#a3b18a0a" : isWaiting() ? undefined : style().bg,
@@ -126,7 +135,9 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
           </span>
         </Show>
         <Show when={counters()}>
-          <span class="text-text-sub shrink-0">{counters()}</span>
+          <span class="text-text-sub shrink-0" title={counterTooltip()}>
+            {counters()}
+          </span>
         </Show>
         <Show when={activeAgentCount() > 0}>
           <span class="text-[8px] font-bold shrink-0" style={{ color: "#b07bac" }}>
@@ -308,7 +319,6 @@ function EnvironmentGroup(props: {
           return <I size={14} class="text-text-label" />;
         })()}
         <span class="text-[11px] font-bold text-text-primary truncate">{props.hostname}</span>
-        <span class="text-[9px] text-text-sub uppercase tracking-wider">{props.envType}</span>
         <span class="ml-auto flex items-center gap-1">
           <Pulse size={10} class="text-safe" />
           <span class="text-[9px] text-text-label">{props.sessions.length}</span>
@@ -376,11 +386,12 @@ export const AgentMap: Component<{
           title={hideInactive() ? "Show all sessions" : "Hide inactive sessions"}
         >
           {hideInactive() ? <EyeSlash size={11} /> : <Eye size={11} />}
-          {hideInactive() ? "Hiding inactive" : "Showing all"}
+          {hideInactive() && hiddenCount() > 0
+            ? `Show ${hiddenCount()} inactive`
+            : hideInactive()
+              ? "Show inactive"
+              : "Hide inactive"}
         </button>
-        <Show when={hiddenCount() > 0}>
-          <span class="text-[8px] text-text-sub">({hiddenCount()} hidden)</span>
-        </Show>
       </div>
 
       <Show
