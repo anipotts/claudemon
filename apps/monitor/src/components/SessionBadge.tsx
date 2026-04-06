@@ -6,12 +6,26 @@ import { SmartTooltip } from "./SmartTooltip";
 // Consistent session color hashing — same color for same session everywhere
 const SESSION_COLORS = ["#a3b18a", "#c9a96e", "#7ea8be", "#b07bac", "#8a8478", "#7b9fbf"];
 
-export function hashSessionColor(sessionId: string): string {
+function hashString(str: string): number {
   let hash = 0;
-  for (let i = 0; i < sessionId.length; i++) {
-    hash = ((hash << 5) - hash + sessionId.charCodeAt(i)) | 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
   }
-  return SESSION_COLORS[Math.abs(hash) % SESSION_COLORS.length];
+  return Math.abs(hash);
+}
+
+export function hashSessionColor(sessionId: string): string {
+  return SESSION_COLORS[hashString(sessionId) % SESSION_COLORS.length];
+}
+
+// Broader palette for file heat map — more colors for better discrimination
+const FILE_COLORS = [
+  "#a3b18a", "#c9a96e", "#7ea8be", "#b07bac", "#8a8478",
+  "#7b9fbf", "#b85c4a", "#6b9080", "#c4856e", "#8b7ec8",
+];
+
+export function hashFileColor(filePath: string): string {
+  return FILE_COLORS[hashString(filePath) % FILE_COLORS.length];
 }
 
 const STATUS_DOT_COLORS: Record<SessionStatus, string> = {
