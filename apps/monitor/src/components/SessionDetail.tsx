@@ -10,10 +10,10 @@ import type { PendingAction } from "../../../../packages/types/monitor";
 import { PermissionBadge } from "./PermissionBadge";
 import { ModelBadge } from "./ModelBadge";
 import { FileBadge } from "./FileBadge";
-import { SessionBadge } from "./SessionBadge";
+import { SessionBadge, hashFileColor } from "./SessionBadge";
 import { Timestamp } from "./Timestamp";
 import { MarkdownBlock } from "./Markdown";
-import { formatDuration } from "../utils/time";
+import { formatDuration, formatGapDuration } from "../utils/time";
 import { extractErrorContext, formatAsMarkdown } from "../utils/error-context";
 
 type IconComp = Component<{ size?: number; class?: string; style?: Record<string, string> }>;
@@ -283,9 +283,186 @@ function QuestionBatchBlock(props: { events: MonitorEvent[]; defaultExpanded: bo
   );
 }
 
+// ── Tool Rate Sparkline ───────────────────────────────────────────
+
+function Sparkline(props: { events: MonitorEvent[] }) {
+  const WIDTH = 60;
+  const HEIGHT = 12;
+  const BUCKET_MS = 10000; // 10-second buckets
+
+  const points = createMemo(() => {
+    const events = props.events;
+    if (events.length < 2) return "";
+    const now = Date.now();
+    const windowMs = 600000; // 10 minutes
+    const start = now - windowMs;
+    const buckets = new Array(Math.ceil(windowMs / BUCKET_MS)).fill(0);
+
+    for (const ev of events) {
+      if (ev.timestamp < start || !ev.tool_name) continue;
+      const idx = Math.floor((ev.timestamp - start) / BUCKET_MS);
+      if (idx >= 0 && idx < buckets.length) buckets[idx]++;
+    }
+
+    const max = Math.max(...buckets, 1);
+    const xStep = WIDTH / (buckets.length - 1 || 1);
+
+    return buckets
+      .map((count, i) => `${(i * xStep).toFixed(1)},${(HEIGHT - (count / max) * HEIGHT).toFixed(1)}`)
+      .join(" ");
+  });
+
+  const peakRate = createMemo(() => {
+    const events = props.events;
+    if (events.length < 2) return 0;
+    const now = Date.now();
+    const windowMs = 600000;
+    const start = now - windowMs;
+    const buckets = new Array(Math.ceil(windowMs / BUCKET_MS)).fill(0);
+    for (const ev of events) {
+      if (ev.timestamp < start || !ev.tool_name) continue;
+      const idx = Math.floor((ev.timestamp - start) / BUCKET_MS);
+      if (idx >= 0 && idx < buckets.length) buckets[idx]++;
+    }
+    return Math.max(...buckets) * (60 / (BUCKET_MS / 1000)); // tools/min
+  });
+
+  const color = () => {
+    const rate = peakRate();
+    if (rate < 1) return "var(--text-sub)";
+    if (rate <= 5) return "#a3b18a";
+    return "#c9a96e";
+  };
+
+  return (
+    <Show when={points()}>
+      <svg
+        width={WIDTH}
+        height={HEIGHT}
+        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+        class="shrink-0"
+        style={{ opacity: "0.7" }}
+      >
+        <polyline
+          points={points()}
+          fill="none"
+          stroke={color()}
+          stroke-width="1.2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+    </Show>
+  );
+}
+
+// ── File Group Block ──────────────────────────────────────────────
+
+function FileGroupBlock(props: { events: MonitorEvent[]; defaultExpanded: boolean }) {
+  const [expanded, setExpanded] = createSignal(props.defaultExpanded);
+  const count = () => props.events.length;
+  const filePath = () => (props.events[0]?.tool_input?.file_path as string) || "";
+  const fileColor = () => hashFileColor(filePath());
+  const totalDuration = () => {
+    let total = 0;
+    for (const ev of props.events) {
+      if (ev.duration_ms) total += ev.duration_ms;
+    }
+    return total;
+  };
+  const durationLabel = () => {
+    const ms = totalDuration();
+    if (!ms) return null;
+    if (ms < 1000) return "<1s";
+    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+    const m = Math.floor(ms / 60000);
+    const s = Math.round((ms % 60000) / 1000);
+    return `${m}m ${s}s`;
+  };
+  const opSummary = () => {
+    const ops: Record<string, number> = {};
+    for (const ev of props.events) {
+      const name = ev.tool_name || "?";
+      ops[name] = (ops[name] || 0) + 1;
+    }
+    return Object.entries(ops).map(([k, v]) => `${v} ${k}`).join(", ");
+  };
+
+  return (
+    <div class="border-b border-panel-border/30 event-enter" style={{ position: "relative" }}>
+      {/* File heat map rail */}
+      <span
+        style={{
+          position: "absolute",
+          left: "0",
+          top: "0",
+          bottom: "0",
+          width: "3px",
+          background: fileColor(),
+          opacity: "0.6",
+          "border-radius": "0 1px 1px 0",
+        }}
+      />
+      {/* Group header */}
+      <button
+        class="tool-row-grid w-full text-left hover:bg-panel/20 cursor-pointer"
+        style={{
+          display: "grid",
+          "grid-template-columns": "6px 16px 52px 1fr auto 40px 14px",
+          "align-items": "center",
+          "min-height": "1.75rem",
+          height: "1.75rem",
+          "max-height": "1.75rem",
+          padding: "0 8px 0 6px",
+          overflow: "hidden",
+          "white-space": "nowrap",
+        }}
+        onClick={() => setExpanded(!expanded())}
+      >
+        {/* Col 1: empty */}
+        <span />
+        {/* Col 2: Folder icon */}
+        <span class="flex items-center justify-center">
+          <Folder size={11} style={{ color: fileColor() }} />
+        </span>
+        {/* Col 3: op count */}
+        <span class="text-[10px] font-bold text-text-label truncate leading-none">
+          {count()} ops
+        </span>
+        {/* Col 4: file badge */}
+        <span class="flex items-center gap-1 overflow-hidden pl-0.5">
+          <FileBadge path={filePath()} />
+        </span>
+        {/* Col 5: duration */}
+        <span class="flex items-center justify-end gap-1 pr-1" style={{ "max-width": "72px" }}>
+          <Show when={durationLabel()}>
+            <span class="text-[9px] font-mono leading-none" style={{ color: durationColor(totalDuration()) }}>
+              {durationLabel()}
+            </span>
+          </Show>
+        </span>
+        {/* Col 6: timestamp of first event */}
+        <Timestamp ts={props.events[0]?.timestamp} class="text-[9px] text-text-sub text-right leading-none" />
+        {/* Col 7: caret */}
+        <span class="flex items-center justify-center">
+          {expanded() ? <CaretDown size={9} class="text-text-sub" /> : <CaretRight size={9} class="text-text-sub" />}
+        </span>
+      </button>
+      {/* Expanded children — indented with left border */}
+      <div class={`tool-call-body ${expanded() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
+        <div class="ml-5 border-l-2 bg-panel/10" style={{ "border-color": fileColor() + "40" }}>
+          <For each={props.events}>
+            {(ev) => <ToolCallBlock event={ev} defaultExpanded={false} />}
+          </For>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Collapsible Tool Call ───────────────────────────────────────────
 
-function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean; focused?: boolean }) {
+function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean; focused?: boolean; compact?: boolean }) {
   const [expanded, setExpanded] = createSignal(props.defaultExpanded);
   const e = () => props.event;
   const input = () => e().tool_input || {};
@@ -483,17 +660,32 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean; f
         </div>
       }
     >
-    <div class={`border-b border-panel-border/30 event-enter ${props.focused ? "ring-1 ring-safe/30" : ""}`}>
+    <div class={`border-b border-panel-border/30 event-enter ${props.focused ? "ring-1 ring-safe/30" : ""}`} style={{ position: "relative" }}>
+      {/* File heat map rail — 3px colored strip on left edge */}
+      <Show when={filePath()}>
+        <span
+          style={{
+            position: "absolute",
+            left: "0",
+            top: "0",
+            bottom: "0",
+            width: "3px",
+            background: hashFileColor(filePath()!),
+            opacity: "0.6",
+            "border-radius": "0 1px 1px 0",
+          }}
+        />
+      </Show>
       {/* Header row — CSS Grid with fixed columns for visual rhythm */}
       <button
         class={`tool-row-grid w-full text-left ${isPassiveTool() ? "opacity-60" : ""} ${isRunning() && !timedOut() ? "tool-row-shimmer" : ""} ${hasExpandableContent() ? "hover:bg-panel/20 cursor-pointer" : "cursor-default"}`}
         style={{
           display: "grid",
-          "grid-template-columns": "6px 16px 44px 1fr auto 40px 14px",
+          "grid-template-columns": props.compact ? "6px 14px 52px 1fr 42px 12px" : "6px 16px 52px 1fr auto 40px 14px",
           "align-items": "center",
-          "min-height": "1.75rem",
-          height: "1.75rem",
-          "max-height": "1.75rem",
+          "min-height": props.compact ? "1.375rem" : "1.75rem",
+          height: props.compact ? "1.375rem" : "1.75rem",
+          "max-height": props.compact ? "1.375rem" : "1.75rem",
           padding: "0 8px 0 6px",
           overflow: "hidden",
           "white-space": "nowrap",
@@ -552,7 +744,8 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean; f
           </Show>
         </span>
 
-        {/* Col 5: Meta (mutual exclusion — highest priority wins) */}
+        {/* Col 5: Meta (hidden in compact mode — no column allocated) */}
+        <Show when={!props.compact}>
         <span class="flex items-center justify-end gap-1 pr-1" style={{ "max-width": "72px" }}>
           <Show when={bashOutput()?.exitCode != null && bashOutput()!.exitCode !== 0}>
             <span class="text-[9px] font-bold text-attack bg-attack/15 px-1 rounded-sm leading-none">
@@ -574,8 +767,9 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean; f
             <span class="text-[9px] text-text-sub leading-none">{readInfo() || writeInfo()}</span>
           </Show>
         </span>
+        </Show>
 
-        {/* Col 6: Timestamp */}
+        {/* Col 6: Timestamp (or Col 5 in compact) */}
         <Timestamp ts={e().timestamp} class="text-[9px] text-text-sub text-right leading-none" />
 
         {/* Col 7: Caret */}
@@ -588,7 +782,7 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean; f
 
       {/* Body — collapsible, aligned to content zone start */}
       <div class={`tool-call-body ${expanded() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
-        <div class="px-3 pb-2" style={{ "padding-left": "68px" }}>
+        <div class="px-3 pt-2 pb-2" style={{ "padding-left": "68px" }}>
           {/* Bash command (full, when expanded) */}
           <Show when={primaryDetail() && e().tool_name === "Bash"}>
             <div class="text-[10px] text-text-dim font-mono mb-1">
@@ -803,6 +997,7 @@ export const SessionDetail: Component<{
   let scrollRef: HTMLDivElement | undefined;
   const [autoScroll, setAutoScroll] = createSignal(true);
   const [duration, setDuration] = createSignal(formatDuration(s().started_at));
+  const [compactMode, setCompactMode] = createSignal(false);
 
   // Auto-update duration
   const timer = setInterval(() => setDuration(formatDuration(s().started_at)), 5000);
@@ -831,21 +1026,37 @@ export const SessionDetail: Component<{
       )
       .sort((a, b) => a.timestamp - b.timestamp);
 
-    // Deduplicate: when PostToolUse arrives, merge into PreToolUse and drop the Post row
+    // Pass 1: Deduplicate identical events (3x hook registration bug)
+    // Key: tool_use_id+hook_event_name for tool events, timestamp+hook_event_name+prompt_hash for others
+    const seen = new Set<string>();
+    const deduped: MonitorEvent[] = [];
+    for (const e of filtered) {
+      let key: string;
+      if (e.tool_use_id) {
+        key = `${e.tool_use_id}:${e.hook_event_name}`;
+      } else {
+        // For non-tool events, use timestamp + event name + first 40 chars of distinguishing content
+        const content = e.prompt || e.last_assistant_message || e.compact_summary || e.agent_id || "";
+        key = `${e.timestamp}:${e.hook_event_name}:${(typeof content === "string" ? content : "").slice(0, 40)}`;
+      }
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(e);
+    }
+
+    // Pass 2: Merge PreToolUse + PostToolUse by tool_use_id into single events
     const mergedByToolUseId = new Map<string, number>(); // tool_use_id → index in result
     const result: MonitorEvent[] = [];
-    for (const e of filtered) {
+    for (const e of deduped) {
       const tuid = e.tool_use_id;
       if (tuid && e.hook_event_name === "PreToolUse") {
         mergedByToolUseId.set(tuid, result.length);
         result.push(e);
       } else if (tuid && (e.hook_event_name === "PostToolUse" || e.hook_event_name === "PostToolUseFailure") && mergedByToolUseId.has(tuid)) {
-        // Merge Post into Pre's slot: keep Pre's identity fields, add Post's response data
         const idx = mergedByToolUseId.get(tuid)!;
         const pre = result[idx];
         result[idx] = {
           ...pre,
-          // Only copy response-specific fields from Post — preserve Pre's hook_event_name, timestamp, agent_id
           hook_event_name: e.hook_event_name === "PostToolUseFailure" ? "PostToolUseFailure" : "PostToolUse",
           tool_response: e.tool_response,
           duration_ms: e.duration_ms,
@@ -936,6 +1147,88 @@ export const SessionDetail: Component<{
     return set;
   });
 
+  // File grouping: consecutive same-file_path events (2+ in a row)
+  const fileGroups = createMemo(() => {
+    const groups = new Map<number, number[]>(); // first index → [indices...]
+    const events = timeline();
+    let currentFile = "";
+    let currentGroup: number[] = [];
+
+    const flushGroup = () => {
+      if (currentGroup.length >= 2) {
+        groups.set(currentGroup[0], [...currentGroup]);
+      }
+      currentGroup = [];
+      currentFile = "";
+    };
+
+    for (let i = 0; i < events.length; i++) {
+      if (nestedIndices().has(i) || batchedIndices().has(i)) continue;
+      const ev = events[i];
+      const fp = (ev.tool_input?.file_path as string) || "";
+      if (fp && fp === currentFile) {
+        currentGroup.push(i);
+      } else {
+        flushGroup();
+        if (fp) {
+          currentFile = fp;
+          currentGroup = [i];
+        }
+      }
+    }
+    flushGroup();
+    return groups;
+  });
+
+  // Set of indices that are non-first members of a file group (skip in main loop)
+  const fileGroupedIndices = createMemo(() => {
+    const set = new Set<number>();
+    for (const indices of fileGroups().values()) {
+      for (let j = 1; j < indices.length; j++) set.add(indices[j]);
+    }
+    return set;
+  });
+
+  // Gap detection: find indices where time gap > 60s from previous visible event
+  const gapsBefore = createMemo(() => {
+    const gaps = new Map<number, number>(); // index → gap in ms
+    const events = timeline();
+    let prevTs = 0;
+    for (let i = 0; i < events.length; i++) {
+      if (nestedIndices().has(i) || batchedIndices().has(i)) continue;
+      if (prevTs > 0) {
+        const gap = events[i].timestamp - prevTs;
+        if (gap > 60000) gaps.set(i, gap);
+      }
+      prevTs = events[i].timestamp;
+    }
+    return gaps;
+  });
+
+  // Error chain: indices of events following a Bash failure (up to 3 events after)
+  const errorChainIndices = createMemo(() => {
+    const set = new Set<number>();
+    const events = timeline();
+    let failChainEnd = -1;
+    for (let i = 0; i < events.length; i++) {
+      if (nestedIndices().has(i)) continue;
+      const ev = events[i];
+      // Detect Bash failure
+      if (ev.tool_name === "Bash") {
+        const resp = ev.tool_response || {};
+        const exitCode = resp.exitCode ?? resp.exit_code;
+        if (exitCode != null && exitCode !== 0) {
+          failChainEnd = i + 3;
+        }
+      }
+      // Mark events in the chain (but not the failed Bash itself)
+      if (i > 0 && i <= failChainEnd && !(ev.tool_name === "Bash" && ((ev.tool_response || {}).exitCode ?? (ev.tool_response || {}).exit_code) !== 0)) {
+        set.add(i);
+      }
+    }
+    return set;
+  });
+
   // Per-agent open/close state — persists across agentBlocks() recomputation
   const [agentOpenState, setAgentOpenState] = createSignal<Map<string, boolean>>(new Map());
   const getAgentOpen = (agentId: string, defaultOpen: boolean) => {
@@ -948,11 +1241,27 @@ export const SessionDetail: Component<{
     setAgentOpenState(map);
   };
 
-  // Auto-scroll to bottom on new events
+  // Auto-enable compact mode at 100+ events
   createEffect(() => {
-    const _ = timeline().length;
+    if (timeline().length >= 100 && !compactMode()) setCompactMode(true);
+  });
+
+  // Track new messages when scrolled up
+  const [newMessageCount, setNewMessageCount] = createSignal(0);
+  let prevTimelineLen = 0;
+
+  // Auto-scroll to bottom on new events — smooth animation so items "pop in" from bottom
+  createEffect(() => {
+    const len = timeline().length;
+    const delta = len - prevTimelineLen;
+    prevTimelineLen = len;
+    if (delta <= 0) return;
     if (autoScroll() && scrollRef) {
-      requestAnimationFrame(() => (scrollRef!.scrollTop = scrollRef!.scrollHeight));
+      requestAnimationFrame(() => {
+        scrollRef!.scrollTo({ top: scrollRef!.scrollHeight, behavior: "smooth" });
+      });
+    } else if (delta > 0) {
+      setNewMessageCount((c) => c + delta);
     }
   });
 
@@ -960,6 +1269,7 @@ export const SessionDetail: Component<{
     if (!scrollRef) return;
     const atBottom = scrollRef.scrollHeight - scrollRef.scrollTop - scrollRef.clientHeight < 50;
     setAutoScroll(atBottom);
+    if (atBottom) setNewMessageCount(0);
   };
 
   // Auto-load history from IDB when session has no in-memory events
@@ -971,8 +1281,9 @@ export const SessionDetail: Component<{
 
   const jumpToLatest = () => {
     if (scrollRef) {
-      scrollRef.scrollTop = scrollRef.scrollHeight;
+      scrollRef.scrollTo({ top: scrollRef.scrollHeight, behavior: "smooth" });
       setAutoScroll(true);
+      setNewMessageCount(0);
     }
   };
 
@@ -985,6 +1296,8 @@ export const SessionDetail: Component<{
   const handleKeyDown = (ev: KeyboardEvent) => {
     const len = timeline().length;
     if (len === 0) return;
+    const idx = focusedIdx();
+
     if (ev.key === "j" || ev.key === "ArrowDown") {
       ev.preventDefault();
       setFocusedIdx((i) => Math.min(i + 1, len - 1));
@@ -993,6 +1306,26 @@ export const SessionDetail: Component<{
       setFocusedIdx((i) => Math.max(i - 1, 0));
     } else if (ev.key === "Escape") {
       setFocusedIdx(-1);
+    } else if ((ev.key === "Enter" || ev.key === " ") && idx >= 0) {
+      // Toggle expand/collapse of focused row
+      ev.preventDefault();
+      const el = scrollRef?.querySelector(`[data-tl-idx="${idx}"] button`) as HTMLElement | null;
+      el?.click();
+    } else if (ev.key === "y" && idx >= 0) {
+      // Copy primary content: file_path for file tools, command for Bash, pattern for Grep
+      ev.preventDefault();
+      const event = timeline()[idx];
+      const inp = event?.tool_input || {};
+      const text = (inp.file_path as string) || (inp.command as string) || (inp.pattern as string) || "";
+      if (text) navigator.clipboard.writeText(text);
+    } else if (ev.key === "e" && idx >= 0) {
+      // Copy new_string for Edit tools
+      ev.preventDefault();
+      const event = timeline()[idx];
+      if (event?.tool_name === "Edit") {
+        const text = (event.tool_input?.new_string as string) || "";
+        if (text) navigator.clipboard.writeText(text);
+      }
     }
   };
 
@@ -1028,12 +1361,91 @@ export const SessionDetail: Component<{
         <Show when={s().permission_mode}>
           <PermissionBadge mode={s().permission_mode!} compact={true} />
         </Show>
-        <Show when={s().model}>
-          <span class="ml-auto shrink-0">
+        <span class="ml-auto flex items-center gap-2 shrink-0">
+          <Sparkline events={s().events} />
+          <Show when={s().model}>
             <ModelBadge model={s().model!} />
-          </span>
-        </Show>
+          </Show>
+        </span>
+        <button
+          class="text-[8px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-sm transition-colors shrink-0"
+          style={{
+            color: compactMode() ? "#a3b18a" : "var(--text-sub)",
+            background: compactMode() ? "#a3b18a15" : "var(--panel-border-color, #333)",
+          }}
+          onClick={() => setCompactMode(!compactMode())}
+          title={compactMode() ? "Switch to normal density" : "Switch to compact density"}
+        >
+          {compactMode() ? "dense" : "normal"}
+        </button>
       </div>
+
+      {/* Task checklist — from TaskCreate/TaskUpdate tool calls */}
+      {(() => {
+        const tasks = createMemo(() => {
+          const byId = new Map<string, { subject: string; completed: boolean }>();
+          let createCount = 0;
+          for (const ev of timeline()) {
+            const inp = ev.tool_input || {};
+            // TaskCreate — IDs are 1-indexed by creation order
+            if (ev.tool_name === "TaskCreate" && inp.subject) {
+              createCount++;
+              byId.set(String(createCount), { subject: inp.subject as string, completed: false });
+            }
+            // TaskUpdate with status:"completed" or "deleted"
+            if (ev.tool_name === "TaskUpdate" && (inp.status === "completed" || inp.status === "deleted")) {
+              const taskId = inp.taskId as string;
+              if (taskId && byId.has(taskId)) {
+                byId.get(taskId)!.completed = true;
+              }
+            }
+          }
+          return [...byId.values()];
+        });
+        const [taskListOpen, setTaskListOpen] = createSignal(true);
+        const completed = () => tasks().filter((t) => t.completed).length;
+        return (
+          <Show when={tasks().length > 0}>
+            <div class="mx-2 mt-1.5 rounded-sm border border-panel-border/30 bg-panel/20">
+              <button
+                class="flex items-center gap-2 w-full px-2 py-1.5 hover:bg-panel/20 text-left"
+                onClick={() => setTaskListOpen(!taskListOpen())}
+              >
+                <span class="text-text-sub shrink-0">
+                  {taskListOpen() ? <CaretDown size={8} /> : <CaretRight size={8} />}
+                </span>
+                <span class="text-[8px] text-text-sub uppercase tracking-wider">
+                  Tasks
+                </span>
+                <span class="text-[9px] font-mono text-text-dim">
+                  {completed()}/{tasks().length}
+                </span>
+                <Show when={completed() === tasks().length}>
+                  <span class="text-[8px] text-safe/50 uppercase">done</span>
+                </Show>
+              </button>
+              <div class={`tool-call-body ${taskListOpen() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
+                <div class="px-2 pb-1.5 space-y-0.5">
+                  <For each={tasks()}>
+                    {(task) => (
+                      <div class="flex items-center gap-1.5 text-[9px]">
+                        <span class={`w-2 h-2 rounded-sm border shrink-0 flex items-center justify-center ${task.completed ? "border-safe/50 bg-safe/10" : "border-text-sub/30"}`}>
+                          <Show when={task.completed}>
+                            <Check size={7} class="text-safe" />
+                          </Show>
+                        </span>
+                        <span class={task.completed ? "text-text-dim line-through" : "text-text-primary"}>
+                          {task.subject}
+                        </span>
+                      </div>
+                    )}
+                  </For>
+                </div>
+              </div>
+            </div>
+          </Show>
+        );
+      })()}
 
       {/* Waiting banner — pinned, not scrollable */}
       <Show when={isWaiting()}>
@@ -1109,8 +1521,23 @@ export const SessionDetail: Component<{
       >
         <For each={timeline()}>
           {(event, i) => (
-            <Show when={!nestedIndices().has(i()) && !batchedIndices().has(i())}>
-              <div data-tl-idx={i()}>
+            <Show when={!nestedIndices().has(i()) && !batchedIndices().has(i()) && !fileGroupedIndices().has(i())}>
+              {/* Gap marker — visual break for 60s+ gaps */}
+              <Show when={gapsBefore().has(i())}>
+                <div
+                  class="flex items-center justify-center py-1"
+                  style={{
+                    "border-top": "1px dashed var(--panel-border)",
+                    "border-bottom": "1px dashed var(--panel-border)",
+                    margin: "2px 0",
+                  }}
+                >
+                  <span class="text-[8px] text-text-sub/40 font-mono tracking-wider">
+                    ··· {formatGapDuration(gapsBefore().get(i())!)} gap ···
+                  </span>
+                </div>
+              </Show>
+              <div data-tl-idx={i()} class={errorChainIndices().has(i()) ? "bg-attack/5" : ""}>
                 <Show
                   when={event.tool_name}
                   fallback={
@@ -1124,21 +1551,22 @@ export const SessionDetail: Component<{
                           const isSlashCmd = text.startsWith("/");
                           const hasMore = text.length > 120 || text.includes("\n");
                           return (
-                            <div class="border-l-3 border-l-[#8a8478] bg-[#1a1916] mt-2">
+                            <div class="border-l-3 border-l-[#8a8478] bg-[#1a1916]">
                               <button
-                                class="flex items-start gap-2.5 w-full px-3 py-2 hover:bg-[#8a847810] text-left"
+                                class="flex items-center gap-2 w-full px-3 hover:bg-[#8a847810] text-left"
+                                style={{ "min-height": "1.75rem", padding: "4px 12px" }}
                                 onClick={() => hasMore && setOpen(!open())}
                               >
-                                <span class="text-[10px] text-[#8a8478] font-bold shrink-0 leading-[18px]">you</span>
+                                <span class="text-[10px] text-[#8a8478] font-bold shrink-0 leading-none">you</span>
                                 <Show when={isSlashCmd}>
                                   <span class="text-[8px] font-mono font-bold text-safe bg-safe/10 px-1 rounded-sm shrink-0">
                                     {text.split(/\s/)[0]}
                                   </span>
                                 </Show>
-                                <span class="text-[10px] text-text-primary min-w-0 leading-[18px]">
+                                <span class="text-[10px] text-text-primary min-w-0 truncate leading-none">
                                   <Show when={!open()}>
-                                    <span class="line-clamp-2">
-                                      {isSlashCmd ? text.slice(text.indexOf(" ") + 1) : text}
+                                    <span class="truncate">
+                                      {isSlashCmd ? text.slice(text.indexOf(" ") + 1) : text.split("\n")[0]}
                                     </span>
                                   </Show>
                                   <Show when={open()}>
@@ -1146,7 +1574,7 @@ export const SessionDetail: Component<{
                                   </Show>
                                 </span>
                                 <Show when={hasMore}>
-                                  <span class="text-text-sub shrink-0 ml-auto leading-[18px]">
+                                  <span class="text-text-sub shrink-0 ml-auto leading-none">
                                     {open() ? <CaretDown size={9} /> : <CaretRight size={9} />}
                                   </span>
                                 </Show>
@@ -1170,9 +1598,10 @@ export const SessionDetail: Component<{
                               ?.replace(/\*\*/g, "")
                               ?.slice(0, 120) || "";
                           return (
-                            <div class="border-l-3 border-l-safe/40 bg-[#161412] mt-1">
+                            <div class="border-l-3 border-l-safe/40 bg-[#161412]">
                               <button
-                                class="flex items-center gap-2.5 w-full px-3 py-2 hover:bg-safe/8 text-left"
+                                class="flex items-center gap-2 w-full px-3 hover:bg-safe/8 text-left"
+                                style={{ "min-height": "1.75rem", padding: "4px 12px" }}
                                 onClick={() => hasText && setOpen(!open())}
                               >
                                 <span class="text-[10px] text-safe font-bold shrink-0 leading-none">Claude</span>
@@ -1209,7 +1638,7 @@ export const SessionDetail: Component<{
 
                       {/* ── StopFailure: error card ──────────────────────────── */}
                       <Show when={event.hook_event_name === "StopFailure"}>
-                        <div class="border-l-2 border-l-attack bg-attack/5 px-3 py-2">
+                        <div class="border-l-2 border-l-attack bg-attack/5 px-3" style={{ "min-height": "1.75rem", padding: "4px 12px" }}>
                           <div class="flex items-center gap-2">
                             <span class="text-[10px] font-bold text-attack">Error</span>
                             <span class="text-[9px] text-attack/80 truncate">
@@ -1226,7 +1655,7 @@ export const SessionDetail: Component<{
 
                       {/* ── SessionStart: banner ──────────────────────────────── */}
                       <Show when={event.hook_event_name === "SessionStart"}>
-                        <div class="border-b border-safe/20 bg-safe/5 px-3 py-2 flex items-center gap-2">
+                        <div class="border-b border-safe/20 bg-safe/5 flex items-center gap-2" style={{ "min-height": "1.75rem", padding: "4px 12px" }}>
                           <span class="text-[10px] font-bold text-safe">
                             Session{" "}
                             {event.source === "resume"
@@ -1324,7 +1753,7 @@ export const SessionDetail: Component<{
                                           </div>
                                         }
                                       >
-                                        <ToolCallBlock event={childEvent} defaultExpanded={false} />
+                                        <ToolCallBlock event={childEvent} defaultExpanded={false} compact={compactMode()} />
                                       </Show>
                                     )}
                                   </For>
@@ -1362,42 +1791,48 @@ export const SessionDetail: Component<{
                         })()}
                       </Show>
 
-                      {/* ── Compact events ────────────────────────────────────── */}
-                      <Show when={event.hook_event_name === "PreCompact" || event.hook_event_name === "PostCompact"}>
+                      {/* ── PreCompact: still loading ─────────────────────────── */}
+                      <Show when={event.hook_event_name === "PreCompact"}>
+                        <div class="flex items-center gap-2 px-3 py-1.5 bg-[#7b9fbf08]">
+                          <span class="text-[9px] font-bold text-[#7b9fbf]">Compacting...</span>
+                          <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
+                        </div>
+                      </Show>
+
+                      {/* ── PostCompact: watermark divider ─────────────────────── */}
+                      <Show when={event.hook_event_name === "PostCompact"}>
                         {(() => {
                           const [open, setOpen] = createSignal(false);
-                          const isPre = event.hook_event_name === "PreCompact";
                           const summary = event.compact_summary;
                           return (
-                            <div class="border-l-2 border-l-[#7b9fbf]/40 bg-[#7b9fbf08]">
-                              <button
-                                class="flex items-center gap-2 w-full px-3 py-1.5 hover:bg-[#7b9fbf10] text-left"
+                            <>
+                              <div
+                                class="flex items-center gap-3 py-2 my-1 cursor-pointer"
+                                style={{
+                                  "border-top": "1px dashed #7b9fbf66",
+                                  "border-bottom": "1px dashed #7b9fbf66",
+                                }}
                                 onClick={() => summary && setOpen(!open())}
                               >
-                                <span class="text-[9px] font-bold text-[#7b9fbf]">
-                                  {isPre ? "Compacting..." : "Compacted"}
+                                <span class="flex-1 border-t border-dashed border-[#7b9fbf]/25" />
+                                <span class="text-[8px] font-mono text-[#7b9fbf]/40 tracking-wider shrink-0">
+                                  context compacted
                                 </span>
-                                <span class="text-[8px] text-[#7b9fbf]/60">
-                                  {event.compact_trigger === "auto" ? "auto" : "manual"}
-                                </span>
-                                <Show when={summary && !open()}>
-                                  <span class="text-[8px] text-text-dim truncate min-w-0">{summary!.slice(0, 60)}</span>
-                                </Show>
-                                <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
                                 <Show when={summary}>
-                                  <span class="text-text-sub shrink-0">
-                                    {open() ? <CaretDown size={9} /> : <CaretRight size={9} />}
+                                  <span class="text-text-sub/30 shrink-0">
+                                    {open() ? <CaretDown size={8} /> : <CaretRight size={8} />}
                                   </span>
                                 </Show>
-                              </button>
+                                <span class="flex-1 border-t border-dashed border-[#7b9fbf]/25" />
+                              </div>
                               <Show when={summary}>
                                 <div class={`tool-call-body ${open() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
-                                  <div class="px-3 pb-2 pl-3 max-h-[200px] overflow-y-auto">
+                                  <div class="px-3 pb-2 max-h-[200px] overflow-y-auto">
                                     <MarkdownBlock text={summary!} maxLength={2000} />
                                   </div>
                                 </div>
                               </Show>
-                            </div>
+                            </>
                           );
                         })()}
                       </Show>
@@ -1468,7 +1903,7 @@ export const SessionDetail: Component<{
                           !event.tool_name
                         }
                       >
-                        <div class="border-b border-panel-border/20 px-3 py-1.5 flex items-center gap-2">
+                        <div class="border-b border-panel-border/20 flex items-center gap-2" style={{ "min-height": "1.75rem", padding: "4px 12px" }}>
                           <span
                             class={`text-[10px] font-bold uppercase ${
                               event.hook_event_name === "PostToolUseFailure"
@@ -1510,11 +1945,24 @@ export const SessionDetail: Component<{
                   <Show
                     when={questionBatches().has(i())}
                     fallback={
-                      <ToolCallBlock
-                        event={event}
-                        defaultExpanded={i() >= timeline().length - 5}
-                        focused={focusedIdx() === i()}
-                      />
+                      <Show
+                        when={fileGroups().has(i())}
+                        fallback={
+                          <ToolCallBlock
+                            event={event}
+                            defaultExpanded={i() >= timeline().length - 5}
+                            focused={focusedIdx() === i()}
+                            compact={compactMode()}
+                          />
+                        }
+                      >
+                        <FileGroupBlock
+                          events={fileGroups()
+                            .get(i())!
+                            .map((idx) => timeline()[idx])}
+                          defaultExpanded={false}
+                        />
+                      </Show>
                     }
                   >
                     <QuestionBatchBlock
@@ -1667,14 +2115,25 @@ export const SessionDetail: Component<{
         </Show>
       </div>
 
-      {/* Jump to latest button */}
+      {/* New messages indicator / Jump to latest */}
       <Show when={!autoScroll()}>
         <div class="absolute bottom-[68px] left-1/2 -translate-x-1/2 z-10">
           <button
             onClick={jumpToLatest}
-            class="bg-panel border border-panel-border rounded-full px-3 py-1 text-[10px] text-text-label hover:text-text-primary hover:border-text-dim transition-colors shadow-lg"
+            class="bg-panel border border-panel-border rounded-full px-3 py-1 text-[10px] text-text-label hover:text-text-primary hover:border-text-dim transition-colors shadow-lg flex items-center gap-1.5"
           >
-            Jump to latest
+            <Show when={newMessageCount() > 0}>
+              <span
+                class="inline-flex items-center justify-center min-w-[16px] h-[16px] rounded-full text-[9px] font-bold px-1"
+                style={{ background: "#a3b18a25", color: "#a3b18a" }}
+              >
+                {newMessageCount()}
+              </span>
+              <span>new</span>
+            </Show>
+            <Show when={newMessageCount() === 0}>
+              Jump to latest
+            </Show>
           </button>
         </div>
       </Show>
