@@ -1,7 +1,8 @@
 import { type Component, For, Show, createMemo, createSignal, createEffect, onCleanup } from "solid-js";
 import type { MonitorEvent, SessionState } from "../../../../packages/types/monitor";
 import { STATUS_COLORS } from "../../../../packages/types/monitor";
-import { GitBranch, CaretDown, CaretRight, Key } from "./Icons";
+import { GitBranch, CaretDown, CaretRight, Key, ShieldCheck, Warning, Check, X } from "./Icons";
+import type { PendingAction } from "../../../../packages/types/monitor";
 import { PermissionBadge } from "./PermissionBadge";
 import { ModelBadge } from "./ModelBadge";
 import { FileBadge } from "./FileBadge";
@@ -85,6 +86,101 @@ const AGENT_TYPE_COLORS: Record<string, string> = {
 
 function agentColor(type: string): string {
   return AGENT_TYPE_COLORS[type] || "#b07bac";
+}
+
+// ── Action Bridge Banner ───────────────────────────────────────────
+
+function ActionBanner(props: {
+  actions: PendingAction[];
+  onRespond: (actionId: string, hookResponse: Record<string, unknown>) => void;
+}) {
+  return (
+    <For each={props.actions}>
+      {(action) => {
+        const eventName = () => action.hook_event_name;
+        const data = () => action.event_data;
+        const toolName = () => (data().tool_name as string) || "";
+        const toolInput = () => (data().tool_input as Record<string, unknown>) || {};
+
+        // Countdown from 30s (server timeout)
+        const createdAt = Date.now();
+        const [remaining, setRemaining] = createSignal(30);
+        const tick = setInterval(() => {
+          const left = Math.max(0, 30 - Math.floor((Date.now() - createdAt) / 1000));
+          setRemaining(left);
+          if (left <= 0) clearInterval(tick);
+        }, 1000);
+        onCleanup(() => clearInterval(tick));
+
+        const description = () => {
+          if (eventName() === "PermissionRequest") {
+            const cmd = toolInput().command as string | undefined;
+            const filePath = toolInput().file_path as string | undefined;
+            if (cmd) return `$ ${cmd.slice(0, 80)}`;
+            if (filePath) return filePath.split("/").slice(-3).join("/");
+            return toolName();
+          }
+          if (eventName() === "Notification") {
+            return (data().notification_message as string) || "Notification";
+          }
+          return (data().prompt as string) || eventName();
+        };
+
+        return (
+          <div class="mx-2 mt-2 rounded border border-suspicious/40 bg-[#c9a96e0a] action-banner overflow-hidden">
+            <div class="flex items-center gap-2 px-3 py-2">
+              <Show
+                when={eventName() === "PermissionRequest"}
+                fallback={<Warning size={14} class="text-suspicious shrink-0" />}
+              >
+                <ShieldCheck size={14} class="text-suspicious shrink-0" />
+              </Show>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-[10px] font-bold text-suspicious uppercase">
+                    {eventName() === "PermissionRequest"
+                      ? "Permission Request"
+                      : eventName() === "Notification"
+                        ? "Notification"
+                        : "Elicitation"}
+                  </span>
+                  <Show when={toolName()}>
+                    <span class="text-[9px] font-mono text-text-dim bg-panel-border/20 px-1 rounded-sm">
+                      {toolName()}
+                    </span>
+                  </Show>
+                </div>
+                <div class="text-[9px] text-text-dim mt-0.5 truncate">{description()}</div>
+              </div>
+              <span
+                class="text-[10px] font-mono font-bold shrink-0"
+                style={{ color: remaining() <= 5 ? "#b85c4a" : "#c9a96e" }}
+              >
+                {remaining()}s
+              </span>
+            </div>
+            <div class="flex border-t border-suspicious/20">
+              <button
+                class="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[10px] font-bold uppercase text-safe hover:bg-safe/10 transition-colors"
+                onClick={() => props.onRespond(action.id, {})}
+              >
+                <Check size={11} />
+                Allow
+              </button>
+              <div class="w-px bg-suspicious/20" />
+              <button
+                class="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[10px] font-bold uppercase text-attack hover:bg-attack/10 transition-colors"
+                onClick={() => props.onRespond(action.id, { decision: "block", reason: "Denied from ClaudeMon" })}
+              >
+                <X size={11} />
+                Deny
+              </button>
+            </div>
+          </div>
+        );
+      }}
+    </For>
+  );
 }
 
 // ── AskUserQuestion Batch ──────────────────────────────────────────
@@ -478,6 +574,8 @@ export const SessionDetail: Component<{
   onClose: () => void;
   isMobile?: boolean;
   showClose?: boolean;
+  pendingActions?: Record<string, PendingAction>;
+  onActionRespond?: (actionId: string, hookResponse: Record<string, unknown>) => void;
 }> = (props) => {
   const s = () => props.session;
   let scrollRef: HTMLDivElement | undefined;
@@ -541,10 +639,11 @@ export const SessionDetail: Component<{
   });
 
   // Set of event indices that are nested inside an agent block (skip at top level)
+  // Hide child events and SubagentStop from main timeline — but NOT SubagentStart
+  // SubagentStart renders inline at its chronological position with nested children
   const nestedIndices = createMemo(() => {
     const set = new Set<number>();
     for (const block of agentBlocks().values()) {
-      set.add(block.startIdx);
       if (block.stopIdx >= 0) set.add(block.stopIdx);
       for (const idx of block.childIndices) set.add(idx);
     }
@@ -587,17 +686,17 @@ export const SessionDetail: Component<{
     return set;
   });
 
-  // Subagent section toggle — user-controlled collapse persists across updates
-  const [userToggledSubagents, setUserToggledSubagents] = createSignal(false);
-  const [subagentsOpen, setSubagentsOpen] = createSignal(true);
-  const toggleSubagents = () => {
-    setUserToggledSubagents(true);
-    setSubagentsOpen(!subagentsOpen());
+  // Per-agent open/close state — persists across agentBlocks() recomputation
+  const [agentOpenState, setAgentOpenState] = createSignal<Map<string, boolean>>(new Map());
+  const getAgentOpen = (agentId: string, defaultOpen: boolean) => {
+    const map = agentOpenState();
+    return map.has(agentId) ? map.get(agentId)! : defaultOpen;
   };
-  createEffect(() => {
-    const anyRunning = Array.from(agentBlocks().values()).some((b) => b.stopIdx < 0);
-    if (!userToggledSubagents()) setSubagentsOpen(anyRunning || agentBlocks().size === 0);
-  });
+  const toggleAgentOpen = (agentId: string) => {
+    const map = new Map(agentOpenState());
+    map.set(agentId, !getAgentOpen(agentId, true));
+    setAgentOpenState(map);
+  };
 
   // Auto-scroll to bottom on new events
   createEffect(() => {
@@ -721,6 +820,19 @@ export const SessionDetail: Component<{
         <div class="mx-2 mt-2 rounded-sm px-3 py-1.5 bg-panel/30 text-[10px] text-text-dim">
           Session ended: <span class="text-text-sub">{s().end_reason}</span>
         </div>
+      </Show>
+
+      {/* Action bridge — pending approvals for this session */}
+      <Show when={props.pendingActions && props.onActionRespond}>
+        {(() => {
+          const sessionActions = () =>
+            Object.values(props.pendingActions!).filter((a) => a && a.session_id === s().session_id);
+          return (
+            <Show when={sessionActions().length > 0}>
+              <ActionBanner actions={sessionActions()} onRespond={props.onActionRespond!} />
+            </Show>
+          );
+        })()}
       </Show>
 
       {/* Scrollable tool call timeline — j/k keyboard nav */}
@@ -871,15 +983,15 @@ export const SessionDetail: Component<{
                         </div>
                       </Show>
 
-                      {/* ── SubagentStart: agent block with nested children ──── */}
+                      {/* ── SubagentStart: inline at chronological position ──── */}
                       <Show when={event.hook_event_name === "SubagentStart" && event.agent_id}>
                         {(() => {
-                          const block = () => agentBlocks().get(event.agent_id!);
+                          const agentId = event.agent_id!;
+                          const block = () => agentBlocks().get(agentId);
                           const isDone = () => block()?.stopIdx !== undefined && block()!.stopIdx >= 0;
-                          const [open, setOpen] = createSignal(!isDone());
+                          const isOpen = () => getAgentOpen(agentId, !isDone());
                           const childEvents = () =>
                             (block()?.childIndices || []).map((idx) => timeline()[idx]).filter(Boolean);
-                          // Find the SubagentStop event for this agent
                           const stopEvent = () => {
                             const b = block();
                             return b && b.stopIdx >= 0 ? timeline()[b.stopIdx] : undefined;
@@ -898,7 +1010,7 @@ export const SessionDetail: Component<{
                             <div class="border-l-2 border-l-[#b07bac]/40 bg-[#b07bac08]">
                               <button
                                 class="flex items-center gap-2 w-full px-3 py-1.5 hover:bg-[#b07bac10] text-left"
-                                onClick={() => setOpen(!open())}
+                                onClick={() => toggleAgentOpen(agentId)}
                               >
                                 <span
                                   class="text-[9px] font-bold"
@@ -907,7 +1019,7 @@ export const SessionDetail: Component<{
                                   @
                                 </span>
                                 <span
-                                  class="text-[8px] font-mono font-bold px-1 rounded-sm"
+                                  class="text-[9px] font-mono font-bold px-1 rounded-sm"
                                   style={{
                                     color: agentColor(event.agent_type || ""),
                                     background: agentColor(event.agent_type || "") + "18",
@@ -922,17 +1034,17 @@ export const SessionDetail: Component<{
                                   <span class="text-[9px] text-[#b07bac]/50 uppercase">done</span>
                                 </Show>
                                 <Show when={childEvents().length > 0}>
-                                  <span class="text-[8px] text-text-sub">{childEvents().length} tools</span>
+                                  <span class="text-[9px] text-text-sub">{childEvents().length} tools</span>
                                 </Show>
                                 <Show when={agentDuration()}>
-                                  <span class="text-[8px] text-text-sub font-mono">{agentDuration()}</span>
+                                  <span class="text-[9px] text-text-sub font-mono">{agentDuration()}</span>
                                 </Show>
                                 <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
                                 <span class="text-text-sub shrink-0">
-                                  {open() ? <CaretDown size={9} /> : <CaretRight size={9} />}
+                                  {isOpen() ? <CaretDown size={9} /> : <CaretRight size={9} />}
                                 </span>
                               </button>
-                              <div class={`tool-call-body ${open() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
+                              <div class={`tool-call-body ${isOpen() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
                                 <div class="ml-3 border-l border-[#b07bac]/20">
                                   <For each={childEvents()}>
                                     {(childEvent) => (
@@ -943,7 +1055,7 @@ export const SessionDetail: Component<{
                                             <span class="text-[9px] text-text-sub">{childEvent.hook_event_name}</span>
                                             <Timestamp
                                               ts={childEvent.timestamp}
-                                              class="text-[8px] text-text-sub ml-auto"
+                                              class="text-[9px] text-text-sub ml-auto"
                                             />
                                           </div>
                                         }
@@ -952,7 +1064,6 @@ export const SessionDetail: Component<{
                                       </Show>
                                     )}
                                   </For>
-                                  {/* Agent result from SubagentStop */}
                                   <Show when={stopEvent()?.last_assistant_message}>
                                     {(() => {
                                       const [resultOpen, setResultOpen] = createSignal(false);
@@ -963,8 +1074,8 @@ export const SessionDetail: Component<{
                                             class="flex items-center gap-2 w-full px-3 py-1 hover:bg-[#b07bac08] text-left"
                                             onClick={() => setResultOpen(!resultOpen())}
                                           >
-                                            <span class="text-[8px] font-bold text-[#b07bac]/60">Result</span>
-                                            <span class="text-[8px] text-text-dim truncate">{text.slice(0, 60)}</span>
+                                            <span class="text-[9px] font-bold text-[#b07bac]/60">Result</span>
+                                            <span class="text-[9px] text-text-dim truncate">{text.slice(0, 60)}</span>
                                             <span class="text-text-sub shrink-0 ml-auto">
                                               {resultOpen() ? <CaretDown size={8} /> : <CaretRight size={8} />}
                                             </span>
@@ -985,23 +1096,6 @@ export const SessionDetail: Component<{
                             </div>
                           );
                         })()}
-                      </Show>
-
-                      {/* ── SubagentStop rendered standalone (if no matching Start) ── */}
-                      <Show
-                        when={
-                          event.hook_event_name === "SubagentStop" &&
-                          (!event.agent_id || !agentBlocks().has(event.agent_id))
-                        }
-                      >
-                        <div class="border-l-2 border-l-[#b07bac]/40 bg-[#b07bac08] px-3 py-1.5 flex items-center gap-2">
-                          <span class="text-[9px] font-bold text-[#b07bac]">@-</span>
-                          <span class="text-[9px] font-bold text-[#b07bac]">Agent done</span>
-                          <span class="text-[8px] font-mono text-[#b07bac]/70 bg-[#b07bac]/10 px-1 rounded-sm">
-                            {event.agent_type || "agent"}
-                          </span>
-                          <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
-                        </div>
                       </Show>
 
                       {/* ── Compact events ────────────────────────────────────── */}
@@ -1171,128 +1265,6 @@ export const SessionDetail: Component<{
             </Show>
           )}
         </For>
-
-        {/* ── Separated Subagents Section ──────────────────────── */}
-        <Show when={agentBlocks().size > 0}>
-          <div class="border-t border-[#b07bac]/20 mt-1">
-            <button
-              class="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#b07bac08] text-left"
-              onClick={toggleSubagents}
-            >
-              <span class="text-[10px] font-bold text-[#b07bac]">Subagents</span>
-              <span class="text-[9px] text-text-sub bg-[#b07bac]/10 px-1 rounded-sm">{agentBlocks().size}</span>
-              <Show when={Array.from(agentBlocks().values()).some((b) => b.stopIdx < 0)}>
-                <span class="w-1.5 h-1.5 rounded-full bg-[#b07bac] tool-running shrink-0" />
-              </Show>
-              <span class="text-text-sub shrink-0 ml-auto">
-                {subagentsOpen() ? <CaretDown size={9} /> : <CaretRight size={9} />}
-              </span>
-            </button>
-            <div class={`tool-call-body ${subagentsOpen() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
-              <For each={Array.from(agentBlocks().entries())}>
-                {([_agentId, block]) => {
-                  const startEvent = () => timeline()[block.startIdx];
-                  const isDone = () => block.stopIdx >= 0;
-                  const [open, setOpen] = createSignal(!isDone());
-                  const childEvents = () => block.childIndices.map((idx) => timeline()[idx]).filter(Boolean);
-                  const stopEvent = () => (block.stopIdx >= 0 ? timeline()[block.stopIdx] : undefined);
-                  const agentDuration = () => {
-                    const stop = stopEvent();
-                    if (!stop || !startEvent()) return null;
-                    const ms = stop.timestamp - startEvent().timestamp;
-                    if (ms < 1000) return "<1s";
-                    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-                    const m = Math.floor(ms / 60000);
-                    const s = Math.round((ms % 60000) / 1000);
-                    return `${m}m ${s}s`;
-                  };
-                  return (
-                    <Show when={startEvent()}>
-                      <div class="border-l-2 border-l-[#b07bac]/40 bg-[#b07bac08] ml-2">
-                        <button
-                          class="flex items-center gap-2 w-full px-3 py-1.5 hover:bg-[#b07bac10] text-left"
-                          onClick={() => setOpen(!open())}
-                        >
-                          <span class="text-[9px] font-bold" style={{ color: agentColor(block.type) }}>
-                            @
-                          </span>
-                          <span
-                            class="text-[9px] font-mono font-bold px-1 rounded-sm"
-                            style={{ color: agentColor(block.type), background: agentColor(block.type) + "18" }}
-                          >
-                            {block.type || "general-purpose"}
-                          </span>
-                          <Show when={!isDone()}>
-                            <span class="w-1.5 h-1.5 rounded-full bg-[#b07bac] tool-running shrink-0" />
-                          </Show>
-                          <Show when={isDone()}>
-                            <span class="text-[9px] text-[#b07bac]/50 uppercase">done</span>
-                          </Show>
-                          <Show when={childEvents().length > 0}>
-                            <span class="text-[9px] text-text-sub">{childEvents().length} tools</span>
-                          </Show>
-                          <Show when={agentDuration()}>
-                            <span class="text-[9px] text-text-sub font-mono">{agentDuration()}</span>
-                          </Show>
-                          <Timestamp ts={startEvent().timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
-                          <span class="text-text-sub shrink-0">
-                            {open() ? <CaretDown size={9} /> : <CaretRight size={9} />}
-                          </span>
-                        </button>
-                        <div class={`tool-call-body ${open() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
-                          <div class="ml-3 border-l border-[#b07bac]/20">
-                            <For each={childEvents()}>
-                              {(childEvent) => (
-                                <Show
-                                  when={childEvent.tool_name}
-                                  fallback={
-                                    <div class="border-b border-panel-border/10 px-3 py-1 flex items-center gap-2">
-                                      <span class="text-[9px] text-text-sub">{childEvent.hook_event_name}</span>
-                                      <Timestamp ts={childEvent.timestamp} class="text-[9px] text-text-sub ml-auto" />
-                                    </div>
-                                  }
-                                >
-                                  <ToolCallBlock event={childEvent} defaultExpanded={false} />
-                                </Show>
-                              )}
-                            </For>
-                            <Show when={stopEvent()?.last_assistant_message}>
-                              {(() => {
-                                const [resultOpen, setResultOpen] = createSignal(false);
-                                const text = stopEvent()!.last_assistant_message!;
-                                return (
-                                  <div class="border-t border-[#b07bac]/20">
-                                    <button
-                                      class="flex items-center gap-2 w-full px-3 py-1 hover:bg-[#b07bac08] text-left"
-                                      onClick={() => setResultOpen(!resultOpen())}
-                                    >
-                                      <span class="text-[9px] font-bold text-[#b07bac]/60">Result</span>
-                                      <span class="text-[9px] text-text-dim truncate">{text.slice(0, 60)}</span>
-                                      <span class="text-text-sub shrink-0 ml-auto">
-                                        {resultOpen() ? <CaretDown size={8} /> : <CaretRight size={8} />}
-                                      </span>
-                                    </button>
-                                    <div
-                                      class={`tool-call-body ${resultOpen() ? "tool-call-expanded" : "tool-call-collapsed"}`}
-                                    >
-                                      <div class="px-3 pb-2 max-h-[200px] overflow-y-auto">
-                                        <MarkdownBlock text={text} maxLength={2000} />
-                                      </div>
-                                    </div>
-                                  </div>
-                                );
-                              })()}
-                            </Show>
-                          </div>
-                        </div>
-                      </div>
-                    </Show>
-                  );
-                }}
-              </For>
-            </div>
-          </div>
-        </Show>
 
         <Show when={timeline().length === 0}>
           <div class="p-4 space-y-3">
