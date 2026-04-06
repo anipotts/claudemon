@@ -162,7 +162,15 @@ function ActionBanner(props: {
             <div class="flex border-t border-suspicious/20">
               <button
                 class="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[10px] font-bold uppercase text-safe hover:bg-safe/10 transition-colors"
-                onClick={() => props.onRespond(action.id, {})}
+                onClick={() => {
+                  const resp =
+                    eventName() === "PermissionRequest"
+                      ? { hookSpecificOutput: { hookEventName: "PermissionRequest", decision: { behavior: "allow" } } }
+                      : eventName() === "Elicitation"
+                        ? { hookSpecificOutput: { hookEventName: "Elicitation", action: "accept" } }
+                        : {};
+                  props.onRespond(action.id, resp);
+                }}
               >
                 <Check size={11} />
                 Allow
@@ -170,7 +178,15 @@ function ActionBanner(props: {
               <div class="w-px bg-suspicious/20" />
               <button
                 class="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[10px] font-bold uppercase text-attack hover:bg-attack/10 transition-colors"
-                onClick={() => props.onRespond(action.id, { decision: "block", reason: "Denied from ClaudeMon" })}
+                onClick={() => {
+                  const resp =
+                    eventName() === "PermissionRequest"
+                      ? { hookSpecificOutput: { hookEventName: "PermissionRequest", decision: { behavior: "deny" } } }
+                      : eventName() === "Elicitation"
+                        ? { hookSpecificOutput: { hookEventName: "Elicitation", action: "decline" } }
+                        : {};
+                  props.onRespond(action.id, resp);
+                }}
               >
                 <X size={11} />
                 Deny
