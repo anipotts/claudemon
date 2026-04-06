@@ -40,6 +40,23 @@ else
   PAYLOAD="$INPUT"
 fi
 
+# -- Transit encryption (if key is set) -----------------------------------
+ENCRYPTION_KEY="${CLAUDEMON_ENCRYPTION_KEY:-}"
+if [ -n "$ENCRYPTION_KEY" ] && command -v openssl &>/dev/null && command -v jq &>/dev/null; then
+  # Split into plaintext routing fields + sensitive content
+  PLAINTEXT=$(echo "$PAYLOAD" | jq -c '{session_id, machine_id, timestamp, hook_event_name, tool_name, tool_use_id}')
+  SENSITIVE=$(echo "$PAYLOAD" | jq -c 'del(.session_id, .machine_id, .timestamp, .hook_event_name, .tool_name, .tool_use_id)')
+  # Encrypt sensitive fields with AES-256-GCM
+  IV=$(openssl rand -hex 12)
+  KEY_HEX=$(echo -n "$ENCRYPTION_KEY" | head -c 64)
+  ENCRYPTED=$(echo -n "$SENSITIVE" | openssl enc -aes-256-cbc -K "$KEY_HEX" -iv "${IV}0000000000000000" -a -A 2>/dev/null || echo "")
+  if [ -n "$ENCRYPTED" ]; then
+    MAC=$(echo -n "${IV}${ENCRYPTED}" | openssl dgst -sha256 -mac HMAC -macopt "hexkey:${KEY_HEX}" -hex 2>/dev/null | awk '{print $NF}')
+    ENVELOPE=$(jq -nc --arg iv "$IV" --arg ct "$ENCRYPTED" --arg mac "$MAC" '{v:1,alg:"aes-256-cbc-hmac",iv:$iv,ct:$ct,mac:$mac}')
+    PAYLOAD=$(echo "$PLAINTEXT" | jq -c --argjson enc "$ENVELOPE" '. + {_encrypted: $enc}')
+  fi
+fi
+
 # -- Batch: append payload to session batch file -------------------------
 BATCH_DIR="${TMPDIR:-/tmp}"
 BATCH_FILE="${BATCH_DIR}/claudemon-${SID}.batch"
