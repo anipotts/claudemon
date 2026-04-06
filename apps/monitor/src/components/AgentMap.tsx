@@ -19,13 +19,14 @@ import { SessionBadge } from "./SessionBadge";
 import { ModelBadge } from "./ModelBadge";
 import { timeAgo, formatDuration } from "../utils/time";
 
-const STATUS_STYLES: Record<SessionStatus, { color: string; bg: string; pulse: boolean }> = {
-  working: { color: "#a3b18a", bg: "#a3b18a08", pulse: true },
-  thinking: { color: "#7b9fbf", bg: "#7b9fbf08", pulse: true },
-  waiting: { color: "#c9a96e", bg: "#c9a96e12", pulse: false },
-  done: { color: "#666", bg: "#66666608", pulse: false },
-  error: { color: "#b85c4a", bg: "#b85c4a08", pulse: false },
-  offline: { color: "#4a4640", bg: "#4a464008", pulse: false },
+// Full 6-char hex required — shorthand (#666) breaks the + "25" alpha concat pattern
+const STATUS_STYLES: Record<SessionStatus, { color: string; bg: string; border: string; pulse: boolean }> = {
+  working: { color: "#a3b18a", bg: "#a3b18a08", border: "#a3b18a30", pulse: true },
+  thinking: { color: "#7b9fbf", bg: "transparent", border: "#3d3a3440", pulse: true },
+  waiting: { color: "#c9a96e", bg: "#c9a96e12", border: "#c9a96e40", pulse: false },
+  done: { color: "#666666", bg: "transparent", border: "#3d3a3430", pulse: false },
+  error: { color: "#b85c4a", bg: "#b85c4a08", border: "#b85c4a30", pulse: false },
+  offline: { color: "#4a4640", bg: "transparent", border: "#3d3a3420", pulse: false },
 };
 
 const INACTIVE_STATUSES = new Set<SessionStatus>(["done", "offline"]);
@@ -43,7 +44,9 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
     return (s().status === "thinking" || s().status === "working") && idleMs > 30_000;
   };
   const style = () =>
-    isIdle() ? { color: "#666", bg: "#66666608", pulse: false } : STATUS_STYLES[s().status] || STATUS_STYLES.offline;
+    isIdle()
+      ? { color: "#666666", bg: "transparent", border: "#3d3a3430", pulse: false }
+      : STATUS_STYLES[s().status] || STATUS_STYLES.offline;
   const statusLabel = () => (isIdle() ? "Idle" : STATUS_LABELS[s().status] || "Unknown");
   const isWaiting = () => s().status === "waiting";
 
@@ -83,19 +86,14 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
 
   return (
     <div
-      class={`border rounded-sm p-3 transition-all cursor-pointer status-transition ${props.selected ? "ring-1 ring-safe/50" : "hover:border-text-dim/30"} ${isWaiting() ? "waiting-banner" : ""}`}
+      class={`border rounded-sm p-3 transition-all cursor-pointer status-transition hover:brightness-110 ${isWaiting() ? "waiting-banner" : ""}`}
       style={{
-        "border-color": props.selected
-          ? "var(--safe)"
-          : s().status === "working"
-            ? "rgba(163, 177, 138, 0.3)"
-            : isWaiting()
-              ? undefined
-              : style().color + "25",
-        background: props.selected ? "#a3b18a08" : isWaiting() ? undefined : style().bg,
-        "box-shadow":
-          s().status === "working"
-            ? "0 0 12px rgba(163, 177, 138, 0.12), inset 0 0 12px rgba(163, 177, 138, 0.04)"
+        "border-color": props.selected ? "#a3b18a60" : isWaiting() ? undefined : style().border,
+        background: props.selected ? "#a3b18a0a" : isWaiting() ? undefined : style().bg,
+        "box-shadow": props.selected
+          ? "inset 0 0 0 1px #a3b18a25"
+          : s().status === "working" && !isIdle()
+            ? "0 0 12px rgba(163, 177, 138, 0.1)"
             : "none",
       }}
       onClick={() => props.onSelect?.(s().session_id)}

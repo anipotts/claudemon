@@ -23,16 +23,18 @@ const TOOL_ICONS: Record<string, string> = {
 // ── Bash command classification ────────────────────────────────────
 
 function classifyCommand(cmd: string): { label: string; color: string } | null {
-  if (/^git\s+(commit|push|pull|checkout|merge|rebase|stash|log|diff|status|add|reset|branch)/.test(cmd))
+  // Strip leading whitespace and cd prefix for chained commands (cd /x && git status)
+  const c = cmd.trimStart().replace(/^cd\s+\S+\s*&&\s*/, "");
+  if (/^git\s+(commit|push|pull|checkout|merge|rebase|stash|log|diff|status|add|reset|branch)/.test(c))
     return { label: "git", color: "#b07bac" };
-  if (/^npm\s+(test|run\s+test|t)\b/.test(cmd)) return { label: "test", color: "#a3b18a" };
-  if (/^npm\s+(run\s+build|run\s+dev|start|install|ci)\b/.test(cmd)) return { label: "npm", color: "#cb3837" };
-  if (/^(docker|docker-compose)\s/.test(cmd)) return { label: "docker", color: "#2496ed" };
-  if (/^curl\s/.test(cmd)) return { label: "curl", color: "#7b9fbf" };
-  if (/^(python3?|node|npx|tsx|bun)\s/.test(cmd)) return { label: "run", color: "#c9a96e" };
-  if (/^(cat|head|tail|less|wc)\s/.test(cmd)) return { label: "read", color: "#6b6560" };
-  if (/^(mkdir|rm|mv|cp|chmod|ln)\s/.test(cmd)) return { label: "fs", color: "#b85c4a" };
-  if (/^(cd|ls|pwd|find|which)\s/.test(cmd)) return { label: "nav", color: "#6b6560" };
+  if (/^npm\s+(test|run\s+test|t)\b/.test(c)) return { label: "test", color: "#a3b18a" };
+  if (/^npm\s+(run\s+build|run\s+dev|start|install|ci)\b/.test(c)) return { label: "npm", color: "#c9a96e" };
+  if (/^(docker|docker-compose)\s/.test(c)) return { label: "docker", color: "#7b9fbf" };
+  if (/^curl\s/.test(c)) return { label: "curl", color: "#7b9fbf" };
+  if (/^(python3?|node|npx|tsx|bun)\s/.test(c)) return { label: "run", color: "#c9a96e" };
+  if (/^(cat|head|tail|less|wc)\s/.test(c)) return { label: "read", color: "#6b6560" };
+  if (/^(mkdir|rm|mv|cp|chmod|ln)\s/.test(c)) return { label: "fs", color: "#b85c4a" };
+  if (/^(cd|ls|pwd|find|which)\s/.test(c)) return { label: "nav", color: "#6b6560" };
   return null;
 }
 
@@ -40,7 +42,7 @@ function classifyCommand(cmd: string): { label: string; color: string } | null {
 
 const AGENT_TYPE_COLORS: Record<string, string> = {
   Explore: "#7b9fbf",
-  Plan: "#006666",
+  Plan: "#7b9fbf",
   "code-reviewer": "#a3b18a",
   "general-purpose": "#8a8478",
   debugger: "#b85c4a",
@@ -529,422 +531,426 @@ export const SessionDetail: Component<{
         <For each={timeline()}>
           {(event, i) => (
             <Show when={!nestedIndices().has(i())}>
-            <div data-tl-idx={i()}>
-              <Show
-                when={event.tool_name}
-                fallback={
-                  <>
-                    {/* ── UserPromptSubmit: conversation separator ──────────── */}
-                    <Show when={event.hook_event_name === "UserPromptSubmit" && event.prompt}>
-                      {(() => {
-                        const [open, setOpen] = createSignal(false);
-                        const text = event.prompt!;
-                        const firstLine = text.split("\n")[0]?.trim() || text.slice(0, 80);
-                        const isSlashCmd = text.startsWith("/");
-                        const hasMore = text.length > 120 || text.includes("\n");
-                        return (
-                          <div class="border-l-2 border-l-[#8a8478] bg-[#8a847808] mt-1">
-                            <button
-                              class="flex items-start gap-2 w-full px-3 py-2 hover:bg-[#8a847810] text-left"
-                              onClick={() => hasMore && setOpen(!open())}
-                            >
-                              <span class="text-[10px] text-[#8a8478] font-bold shrink-0 mt-0.5">you</span>
-                              <Show when={isSlashCmd}>
-                                <span class="text-[8px] font-mono font-bold text-safe bg-safe/10 px-1 rounded-sm shrink-0">
-                                  {text.split(/\s/)[0]}
-                                </span>
-                              </Show>
-                              <span class="text-[10px] text-text-primary min-w-0">
-                                <Show when={!open()}>
-                                  <span class="line-clamp-2">
-                                    {isSlashCmd ? text.slice(text.indexOf(" ") + 1) : text}
+              <div data-tl-idx={i()}>
+                <Show
+                  when={event.tool_name}
+                  fallback={
+                    <>
+                      {/* ── UserPromptSubmit: conversation separator ──────────── */}
+                      <Show when={event.hook_event_name === "UserPromptSubmit" && event.prompt}>
+                        {(() => {
+                          const [open, setOpen] = createSignal(false);
+                          const text = event.prompt!;
+                          const firstLine = text.split("\n")[0]?.trim() || text.slice(0, 80);
+                          const isSlashCmd = text.startsWith("/");
+                          const hasMore = text.length > 120 || text.includes("\n");
+                          return (
+                            <div class="border-l-2 border-l-[#8a8478] bg-[#8a847808] mt-1">
+                              <button
+                                class="flex items-start gap-2 w-full px-3 py-2 hover:bg-[#8a847810] text-left"
+                                onClick={() => hasMore && setOpen(!open())}
+                              >
+                                <span class="text-[10px] text-[#8a8478] font-bold shrink-0 mt-0.5">you</span>
+                                <Show when={isSlashCmd}>
+                                  <span class="text-[8px] font-mono font-bold text-safe bg-safe/10 px-1 rounded-sm shrink-0">
+                                    {text.split(/\s/)[0]}
                                   </span>
                                 </Show>
-                                <Show when={open()}>
-                                  <span class="whitespace-pre-wrap break-words">{text}</span>
+                                <span class="text-[10px] text-text-primary min-w-0">
+                                  <Show when={!open()}>
+                                    <span class="line-clamp-2">
+                                      {isSlashCmd ? text.slice(text.indexOf(" ") + 1) : text}
+                                    </span>
+                                  </Show>
+                                  <Show when={open()}>
+                                    <span class="whitespace-pre-wrap break-words">{text}</span>
+                                  </Show>
+                                </span>
+                                <Show when={hasMore}>
+                                  <span class="text-text-sub shrink-0 ml-auto mt-0.5">
+                                    {open() ? <CaretDown size={9} /> : <CaretRight size={9} />}
+                                  </span>
                                 </Show>
-                              </span>
-                              <Show when={hasMore}>
-                                <span class="text-text-sub shrink-0 ml-auto mt-0.5">
-                                  {open() ? <CaretDown size={9} /> : <CaretRight size={9} />}
-                                </span>
-                              </Show>
-                            </button>
-                          </div>
-                        );
-                      })()}
-                    </Show>
+                              </button>
+                            </div>
+                          );
+                        })()}
+                      </Show>
 
-                    {/* ── Stop: Claude's response card ─────────────────────── */}
-                    <Show when={event.hook_event_name === "Stop"}>
-                      {(() => {
-                        const [open, setOpen] = createSignal(false);
-                        const text = event.last_assistant_message || "";
-                        const hasText = text.length > 0;
-                        const firstLine =
-                          text
-                            .split("\n")
-                            .find((l) => l.trim() && !l.startsWith("#") && !l.startsWith("-") && !l.startsWith("*"))
-                            ?.trim()
-                            ?.replace(/\*\*/g, "")
-                            ?.slice(0, 120) || "";
-                        return (
-                          <div class="border-l-2 border-l-safe/40 bg-safe/5">
-                            <button
-                              class="flex items-start gap-2 w-full px-3 py-2 hover:bg-safe/8 text-left"
-                              onClick={() => hasText && setOpen(!open())}
-                            >
-                              <span class="text-[10px] text-safe font-bold shrink-0 mt-0.5">Claude</span>
-                              <Show when={event.stop_hook_active}>
-                                <span class="text-[7px] font-bold text-suspicious bg-suspicious/10 px-1 rounded-sm uppercase shrink-0">
-                                  verifying
+                      {/* ── Stop: Claude's response card ─────────────────────── */}
+                      <Show when={event.hook_event_name === "Stop"}>
+                        {(() => {
+                          const [open, setOpen] = createSignal(false);
+                          const text = event.last_assistant_message || "";
+                          const hasText = text.length > 0;
+                          const firstLine =
+                            text
+                              .split("\n")
+                              .find((l) => l.trim() && !l.startsWith("#") && !l.startsWith("-") && !l.startsWith("*"))
+                              ?.trim()
+                              ?.replace(/\*\*/g, "")
+                              ?.slice(0, 120) || "";
+                          return (
+                            <div class="border-l-2 border-l-safe/40 bg-safe/5">
+                              <button
+                                class="flex items-start gap-2 w-full px-3 py-2 hover:bg-safe/8 text-left"
+                                onClick={() => hasText && setOpen(!open())}
+                              >
+                                <span class="text-[10px] text-safe font-bold shrink-0 mt-0.5">Claude</span>
+                                <Show when={event.stop_hook_active}>
+                                  <span class="text-[7px] font-bold text-suspicious bg-suspicious/10 px-1 rounded-sm uppercase shrink-0">
+                                    verifying
+                                  </span>
+                                </Show>
+                                <Show when={hasText && !open()}>
+                                  <span class="text-[9px] text-text-dim truncate min-w-0">
+                                    {firstLine}
+                                    {text.length > 120 ? "..." : ""}
+                                  </span>
+                                </Show>
+                                <Show when={!hasText}>
+                                  <span class="text-[9px] text-text-sub italic">Done</span>
+                                </Show>
+                                <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
+                                <Show when={hasText}>
+                                  <span class="text-text-sub shrink-0">
+                                    {open() ? <CaretDown size={9} /> : <CaretRight size={9} />}
+                                  </span>
+                                </Show>
+                              </button>
+                              <div class={`tool-call-body ${open() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
+                                <div class="px-3 pb-3 pl-3 max-h-[400px] overflow-y-auto">
+                                  <MarkdownBlock text={text} maxLength={4000} />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </Show>
+
+                      {/* ── StopFailure: error card ──────────────────────────── */}
+                      <Show when={event.hook_event_name === "StopFailure"}>
+                        <div class="border-l-2 border-l-attack bg-attack/5 px-3 py-2">
+                          <div class="flex items-center gap-2">
+                            <span class="text-[10px] font-bold text-attack">Error</span>
+                            <span class="text-[9px] text-attack/80 truncate">
+                              {(event.error as string) || "API error"}
+                            </span>
+                            <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
+                          </div>
+                          <Show when={event.error_details}>
+                            <div class="text-[9px] text-text-dim mt-1 font-mono">{event.error_details}</div>
+                          </Show>
+                        </div>
+                      </Show>
+
+                      {/* ── SessionStart: banner ──────────────────────────────── */}
+                      <Show when={event.hook_event_name === "SessionStart"}>
+                        <div class="border-b border-safe/20 bg-safe/5 px-3 py-2 flex items-center gap-2">
+                          <span class="text-[10px] font-bold text-safe">
+                            Session{" "}
+                            {event.source === "resume"
+                              ? "resumed"
+                              : event.source === "clear"
+                                ? "cleared"
+                                : event.source === "compact"
+                                  ? "restarted"
+                                  : "started"}
+                          </span>
+                          <Show when={event.model}>
+                            <ModelBadge model={event.model!} />
+                          </Show>
+                          <Show when={event.permission_mode && event.permission_mode !== "default"}>
+                            <PermissionBadge mode={event.permission_mode!} compact={true} />
+                          </Show>
+                          <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
+                        </div>
+                      </Show>
+
+                      {/* ── SubagentStart: agent block with nested children ──── */}
+                      <Show when={event.hook_event_name === "SubagentStart" && event.agent_id}>
+                        {(() => {
+                          const block = () => agentBlocks().get(event.agent_id!);
+                          const isDone = () => block()?.stopIdx !== undefined && block()!.stopIdx >= 0;
+                          const [open, setOpen] = createSignal(!isDone());
+                          const childEvents = () =>
+                            (block()?.childIndices || []).map((idx) => timeline()[idx]).filter(Boolean);
+                          // Find the SubagentStop event for this agent
+                          const stopEvent = () => {
+                            const b = block();
+                            return b && b.stopIdx >= 0 ? timeline()[b.stopIdx] : undefined;
+                          };
+                          const agentDuration = () => {
+                            const stop = stopEvent();
+                            if (!stop) return null;
+                            const ms = stop.timestamp - event.timestamp;
+                            if (ms < 1000) return "<1s";
+                            if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+                            const m = Math.floor(ms / 60000);
+                            const s = Math.round((ms % 60000) / 1000);
+                            return `${m}m ${s}s`;
+                          };
+                          return (
+                            <div class="border-l-2 border-l-[#b07bac]/40 bg-[#b07bac08]">
+                              <button
+                                class="flex items-center gap-2 w-full px-3 py-1.5 hover:bg-[#b07bac10] text-left"
+                                onClick={() => setOpen(!open())}
+                              >
+                                <span
+                                  class="text-[9px] font-bold"
+                                  style={{ color: agentColor(event.agent_type || "") }}
+                                >
+                                  @
                                 </span>
-                              </Show>
-                              <Show when={hasText && !open()}>
-                                <span class="text-[9px] text-text-dim truncate min-w-0">
-                                  {firstLine}
-                                  {text.length > 120 ? "..." : ""}
+                                <span
+                                  class="text-[8px] font-mono font-bold px-1 rounded-sm"
+                                  style={{
+                                    color: agentColor(event.agent_type || ""),
+                                    background: agentColor(event.agent_type || "") + "18",
+                                  }}
+                                >
+                                  {event.agent_type || "general-purpose"}
                                 </span>
-                              </Show>
-                              <Show when={!hasText}>
-                                <span class="text-[9px] text-text-sub italic">Done</span>
-                              </Show>
-                              <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
-                              <Show when={hasText}>
+                                <Show when={!isDone()}>
+                                  <span class="w-1.5 h-1.5 rounded-full bg-[#b07bac] tool-running shrink-0" />
+                                </Show>
+                                <Show when={isDone()}>
+                                  <span class="text-[7px] text-[#b07bac]/50 uppercase">done</span>
+                                </Show>
+                                <Show when={childEvents().length > 0}>
+                                  <span class="text-[8px] text-text-sub">{childEvents().length} tools</span>
+                                </Show>
+                                <Show when={agentDuration()}>
+                                  <span class="text-[8px] text-text-sub font-mono">{agentDuration()}</span>
+                                </Show>
+                                <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
                                 <span class="text-text-sub shrink-0">
                                   {open() ? <CaretDown size={9} /> : <CaretRight size={9} />}
                                 </span>
-                              </Show>
-                            </button>
-                            <div class={`tool-call-body ${open() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
-                              <div class="px-3 pb-3 pl-3 max-h-[400px] overflow-y-auto">
-                                <MarkdownBlock text={text} maxLength={4000} />
+                              </button>
+                              <div class={`tool-call-body ${open() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
+                                <div class="ml-3 border-l border-[#b07bac]/20">
+                                  <For each={childEvents()}>
+                                    {(childEvent) => (
+                                      <Show
+                                        when={childEvent.tool_name}
+                                        fallback={
+                                          <div class="border-b border-panel-border/10 px-3 py-1 flex items-center gap-2">
+                                            <span class="text-[9px] text-text-sub">{childEvent.hook_event_name}</span>
+                                            <Timestamp
+                                              ts={childEvent.timestamp}
+                                              class="text-[8px] text-text-sub ml-auto"
+                                            />
+                                          </div>
+                                        }
+                                      >
+                                        <ToolCallBlock event={childEvent} defaultExpanded={false} />
+                                      </Show>
+                                    )}
+                                  </For>
+                                  {/* Agent result from SubagentStop */}
+                                  <Show when={stopEvent()?.last_assistant_message}>
+                                    {(() => {
+                                      const [resultOpen, setResultOpen] = createSignal(false);
+                                      const text = stopEvent()!.last_assistant_message!;
+                                      return (
+                                        <div class="border-t border-[#b07bac]/20">
+                                          <button
+                                            class="flex items-center gap-2 w-full px-3 py-1 hover:bg-[#b07bac08] text-left"
+                                            onClick={() => setResultOpen(!resultOpen())}
+                                          >
+                                            <span class="text-[8px] font-bold text-[#b07bac]/60">Result</span>
+                                            <span class="text-[8px] text-text-dim truncate">{text.slice(0, 60)}</span>
+                                            <span class="text-text-sub shrink-0 ml-auto">
+                                              {resultOpen() ? <CaretDown size={8} /> : <CaretRight size={8} />}
+                                            </span>
+                                          </button>
+                                          <div
+                                            class={`tool-call-body ${resultOpen() ? "tool-call-expanded" : "tool-call-collapsed"}`}
+                                          >
+                                            <div class="px-3 pb-2 max-h-[200px] overflow-y-auto">
+                                              <MarkdownBlock text={text} maxLength={2000} />
+                                            </div>
+                                          </div>
+                                        </div>
+                                      );
+                                    })()}
+                                  </Show>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        );
-                      })()}
-                    </Show>
+                          );
+                        })()}
+                      </Show>
 
-                    {/* ── StopFailure: error card ──────────────────────────── */}
-                    <Show when={event.hook_event_name === "StopFailure"}>
-                      <div class="border-l-2 border-l-attack bg-attack/5 px-3 py-2">
-                        <div class="flex items-center gap-2">
-                          <span class="text-[10px] font-bold text-attack">Error</span>
-                          <span class="text-[9px] text-attack/80 truncate">
-                            {(event.error as string) || "API error"}
+                      {/* ── SubagentStop rendered standalone (if no matching Start) ── */}
+                      <Show
+                        when={
+                          event.hook_event_name === "SubagentStop" &&
+                          (!event.agent_id || !agentBlocks().has(event.agent_id))
+                        }
+                      >
+                        <div class="border-l-2 border-l-[#b07bac]/40 bg-[#b07bac08] px-3 py-1.5 flex items-center gap-2">
+                          <span class="text-[9px] font-bold text-[#b07bac]">@-</span>
+                          <span class="text-[9px] font-bold text-[#b07bac]">Agent done</span>
+                          <span class="text-[8px] font-mono text-[#b07bac]/70 bg-[#b07bac]/10 px-1 rounded-sm">
+                            {event.agent_type || "agent"}
                           </span>
                           <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
                         </div>
-                        <Show when={event.error_details}>
-                          <div class="text-[9px] text-text-dim mt-1 font-mono">{event.error_details}</div>
-                        </Show>
-                      </div>
-                    </Show>
+                      </Show>
 
-                    {/* ── SessionStart: banner ──────────────────────────────── */}
-                    <Show when={event.hook_event_name === "SessionStart"}>
-                      <div class="border-b border-safe/20 bg-safe/5 px-3 py-2 flex items-center gap-2">
-                        <span class="text-[10px] font-bold text-safe">
-                          Session{" "}
-                          {event.source === "resume"
-                            ? "resumed"
-                            : event.source === "clear"
-                              ? "cleared"
-                              : event.source === "compact"
-                                ? "restarted"
-                                : "started"}
-                        </span>
-                        <Show when={event.model}>
-                          <ModelBadge model={event.model!} />
-                        </Show>
-                        <Show when={event.permission_mode && event.permission_mode !== "default"}>
-                          <PermissionBadge mode={event.permission_mode!} compact={true} />
-                        </Show>
-                        <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
-                      </div>
-                    </Show>
-
-                    {/* ── SubagentStart: agent block with nested children ──── */}
-                    <Show when={event.hook_event_name === "SubagentStart" && event.agent_id}>
-                      {(() => {
-                        const block = () => agentBlocks().get(event.agent_id!);
-                        const isDone = () => block()?.stopIdx !== undefined && block()!.stopIdx >= 0;
-                        const [open, setOpen] = createSignal(!isDone());
-                        const childEvents = () =>
-                          (block()?.childIndices || []).map((idx) => timeline()[idx]).filter(Boolean);
-                        // Find the SubagentStop event for this agent
-                        const stopEvent = () => {
-                          const b = block();
-                          return b && b.stopIdx >= 0 ? timeline()[b.stopIdx] : undefined;
-                        };
-                        const agentDuration = () => {
-                          const stop = stopEvent();
-                          if (!stop) return null;
-                          const ms = stop.timestamp - event.timestamp;
-                          if (ms < 1000) return "<1s";
-                          if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-                          const m = Math.floor(ms / 60000);
-                          const s = Math.round((ms % 60000) / 1000);
-                          return `${m}m ${s}s`;
-                        };
-                        return (
-                          <div class="border-l-2 border-l-[#b07bac]/40 bg-[#b07bac08]">
-                            <button
-                              class="flex items-center gap-2 w-full px-3 py-1.5 hover:bg-[#b07bac10] text-left"
-                              onClick={() => setOpen(!open())}
-                            >
-                              <span class="text-[9px] font-bold" style={{ color: agentColor(event.agent_type || "") }}>
-                                @
-                              </span>
-                              <span
-                                class="text-[8px] font-mono font-bold px-1 rounded-sm"
-                                style={{
-                                  color: agentColor(event.agent_type || ""),
-                                  background: agentColor(event.agent_type || "") + "18",
-                                }}
+                      {/* ── Compact events ────────────────────────────────────── */}
+                      <Show when={event.hook_event_name === "PreCompact" || event.hook_event_name === "PostCompact"}>
+                        {(() => {
+                          const [open, setOpen] = createSignal(false);
+                          const isPre = event.hook_event_name === "PreCompact";
+                          const summary = event.compact_summary;
+                          return (
+                            <div class="border-l-2 border-l-[#7b9fbf]/40 bg-[#7b9fbf08]">
+                              <button
+                                class="flex items-center gap-2 w-full px-3 py-1.5 hover:bg-[#7b9fbf10] text-left"
+                                onClick={() => summary && setOpen(!open())}
                               >
-                                {event.agent_type || "general-purpose"}
-                              </span>
-                              <Show when={!isDone()}>
-                                <span class="w-1.5 h-1.5 rounded-full bg-[#b07bac] tool-running shrink-0" />
-                              </Show>
-                              <Show when={isDone()}>
-                                <span class="text-[7px] text-[#b07bac]/50 uppercase">done</span>
-                              </Show>
-                              <Show when={childEvents().length > 0}>
-                                <span class="text-[8px] text-text-sub">{childEvents().length} tools</span>
-                              </Show>
-                              <Show when={agentDuration()}>
-                                <span class="text-[8px] text-text-sub font-mono">{agentDuration()}</span>
-                              </Show>
-                              <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
-                              <span class="text-text-sub shrink-0">
-                                {open() ? <CaretDown size={9} /> : <CaretRight size={9} />}
-                              </span>
-                            </button>
-                            <div class={`tool-call-body ${open() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
-                              <div class="ml-3 border-l border-[#b07bac]/20">
-                                <For each={childEvents()}>
-                                  {(childEvent) => (
-                                    <Show
-                                      when={childEvent.tool_name}
-                                      fallback={
-                                        <div class="border-b border-panel-border/10 px-3 py-1 flex items-center gap-2">
-                                          <span class="text-[9px] text-text-sub">{childEvent.hook_event_name}</span>
-                                          <Timestamp
-                                            ts={childEvent.timestamp}
-                                            class="text-[8px] text-text-sub ml-auto"
-                                          />
-                                        </div>
-                                      }
-                                    >
-                                      <ToolCallBlock event={childEvent} defaultExpanded={false} />
-                                    </Show>
-                                  )}
-                                </For>
-                                {/* Agent result from SubagentStop */}
-                                <Show when={stopEvent()?.last_assistant_message}>
-                                  {(() => {
-                                    const [resultOpen, setResultOpen] = createSignal(false);
-                                    const text = stopEvent()!.last_assistant_message!;
-                                    return (
-                                      <div class="border-t border-[#b07bac]/20">
-                                        <button
-                                          class="flex items-center gap-2 w-full px-3 py-1 hover:bg-[#b07bac08] text-left"
-                                          onClick={() => setResultOpen(!resultOpen())}
-                                        >
-                                          <span class="text-[8px] font-bold text-[#b07bac]/60">Result</span>
-                                          <span class="text-[8px] text-text-dim truncate">{text.slice(0, 60)}</span>
-                                          <span class="text-text-sub shrink-0 ml-auto">
-                                            {resultOpen() ? <CaretDown size={8} /> : <CaretRight size={8} />}
-                                          </span>
-                                        </button>
-                                        <div
-                                          class={`tool-call-body ${resultOpen() ? "tool-call-expanded" : "tool-call-collapsed"}`}
-                                        >
-                                          <div class="px-3 pb-2 max-h-[200px] overflow-y-auto">
-                                            <MarkdownBlock text={text} maxLength={2000} />
-                                          </div>
-                                        </div>
-                                      </div>
-                                    );
-                                  })()}
-                                </Show>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </Show>
-
-                    {/* ── SubagentStop rendered standalone (if no matching Start) ── */}
-                    <Show
-                      when={
-                        event.hook_event_name === "SubagentStop" &&
-                        (!event.agent_id || !agentBlocks().has(event.agent_id))
-                      }
-                    >
-                      <div class="border-l-2 border-l-[#b07bac]/40 bg-[#b07bac08] px-3 py-1.5 flex items-center gap-2">
-                        <span class="text-[9px] font-bold text-[#b07bac]">@-</span>
-                        <span class="text-[9px] font-bold text-[#b07bac]">Agent done</span>
-                        <span class="text-[8px] font-mono text-[#b07bac]/70 bg-[#b07bac]/10 px-1 rounded-sm">
-                          {event.agent_type || "agent"}
-                        </span>
-                        <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
-                      </div>
-                    </Show>
-
-                    {/* ── Compact events ────────────────────────────────────── */}
-                    <Show when={event.hook_event_name === "PreCompact" || event.hook_event_name === "PostCompact"}>
-                      {(() => {
-                        const [open, setOpen] = createSignal(false);
-                        const isPre = event.hook_event_name === "PreCompact";
-                        const summary = event.compact_summary;
-                        return (
-                          <div class="border-l-2 border-l-[#7b9fbf]/40 bg-[#7b9fbf08]">
-                            <button
-                              class="flex items-center gap-2 w-full px-3 py-1.5 hover:bg-[#7b9fbf10] text-left"
-                              onClick={() => summary && setOpen(!open())}
-                            >
-                              <span class="text-[9px] font-bold text-[#7b9fbf]">
-                                {isPre ? "Compacting..." : "Compacted"}
-                              </span>
-                              <span class="text-[8px] text-[#7b9fbf]/60">
-                                {event.compact_trigger === "auto" ? "auto" : "manual"}
-                              </span>
-                              <Show when={summary && !open()}>
-                                <span class="text-[8px] text-text-dim truncate min-w-0">{summary!.slice(0, 60)}</span>
-                              </Show>
-                              <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
-                              <Show when={summary}>
-                                <span class="text-text-sub shrink-0">
-                                  {open() ? <CaretDown size={9} /> : <CaretRight size={9} />}
+                                <span class="text-[9px] font-bold text-[#7b9fbf]">
+                                  {isPre ? "Compacting..." : "Compacted"}
                                 </span>
-                              </Show>
-                            </button>
-                            <Show when={summary}>
-                              <div class={`tool-call-body ${open() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
-                                <div class="px-3 pb-2 pl-3 max-h-[200px] overflow-y-auto">
-                                  <MarkdownBlock text={summary!} maxLength={2000} />
+                                <span class="text-[8px] text-[#7b9fbf]/60">
+                                  {event.compact_trigger === "auto" ? "auto" : "manual"}
+                                </span>
+                                <Show when={summary && !open()}>
+                                  <span class="text-[8px] text-text-dim truncate min-w-0">{summary!.slice(0, 60)}</span>
+                                </Show>
+                                <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
+                                <Show when={summary}>
+                                  <span class="text-text-sub shrink-0">
+                                    {open() ? <CaretDown size={9} /> : <CaretRight size={9} />}
+                                  </span>
+                                </Show>
+                              </button>
+                              <Show when={summary}>
+                                <div class={`tool-call-body ${open() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
+                                  <div class="px-3 pb-2 pl-3 max-h-[200px] overflow-y-auto">
+                                    <MarkdownBlock text={summary!} maxLength={2000} />
+                                  </div>
                                 </div>
+                              </Show>
+                            </div>
+                          );
+                        })()}
+                      </Show>
+
+                      {/* ── SessionEnd: summary receipt ───────────────────────── */}
+                      <Show when={event.hook_event_name === "SessionEnd"}>
+                        <div class="border-t border-panel-border/30 bg-panel/20 px-3 py-2 mt-1">
+                          <div class="flex items-center gap-2 mb-1.5">
+                            <span class="text-[10px] font-bold text-text-sub">Session ended</span>
+                            <Show when={event.end_reason}>
+                              <span
+                                class={`text-[8px] font-mono px-1 rounded-sm ${event.end_reason === "bypass_permissions_disabled" ? "text-attack bg-attack/10" : "text-text-dim bg-panel-border/20"}`}
+                              >
+                                {event.end_reason}
+                              </span>
+                            </Show>
+                            <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
+                          </div>
+                          <div class="grid grid-cols-3 gap-x-3 gap-y-1 text-[9px]">
+                            <div>
+                              <span class="text-text-sub">Duration:</span>{" "}
+                              <span class="text-text-dim">{duration()}</span>
+                            </div>
+                            <div>
+                              <span class="text-text-sub">Edits:</span>{" "}
+                              <span class="text-text-dim">{s().edit_count}</span>
+                            </div>
+                            <div>
+                              <span class="text-text-sub">Commands:</span>{" "}
+                              <span class="text-text-dim">{s().command_count}</span>
+                            </div>
+                            <div>
+                              <span class="text-text-sub">Reads:</span>{" "}
+                              <span class="text-text-dim">{s().read_count}</span>
+                            </div>
+                            <div>
+                              <span class="text-text-sub">Files:</span>{" "}
+                              <span class="text-text-dim">{s().files_touched?.length || 0}</span>
+                            </div>
+                            <Show when={s().error_count}>
+                              <div>
+                                <span class="text-text-sub">Errors:</span>{" "}
+                                <span class="text-attack">{s().error_count}</span>
+                              </div>
+                            </Show>
+                            <Show when={s().compaction_count}>
+                              <div>
+                                <span class="text-text-sub">Compactions:</span>{" "}
+                                <span class="text-[#7b9fbf]">{s().compaction_count}</span>
                               </div>
                             </Show>
                           </div>
-                        );
-                      })()}
-                    </Show>
+                        </div>
+                      </Show>
 
-                    {/* ── SessionEnd: summary receipt ───────────────────────── */}
-                    <Show when={event.hook_event_name === "SessionEnd"}>
-                      <div class="border-t border-panel-border/30 bg-panel/20 px-3 py-2 mt-1">
-                        <div class="flex items-center gap-2 mb-1.5">
-                          <span class="text-[10px] font-bold text-text-sub">Session ended</span>
-                          <Show when={event.end_reason}>
-                            <span
-                              class={`text-[8px] font-mono px-1 rounded-sm ${event.end_reason === "bypass_permissions_disabled" ? "text-attack bg-attack/10" : "text-text-dim bg-panel-border/20"}`}
-                            >
-                              {event.end_reason}
-                            </span>
+                      {/* ── All other lifecycle events (generic) ─────────────── */}
+                      <Show
+                        when={
+                          event.hook_event_name !== "UserPromptSubmit" &&
+                          event.hook_event_name !== "Stop" &&
+                          event.hook_event_name !== "StopFailure" &&
+                          event.hook_event_name !== "SessionStart" &&
+                          event.hook_event_name !== "SessionEnd" &&
+                          event.hook_event_name !== "SubagentStart" &&
+                          event.hook_event_name !== "SubagentStop" &&
+                          event.hook_event_name !== "PreCompact" &&
+                          event.hook_event_name !== "PostCompact" &&
+                          !event.tool_name
+                        }
+                      >
+                        <div class="border-b border-panel-border/20 px-3 py-1.5 flex items-center gap-2">
+                          <span
+                            class={`text-[10px] font-bold uppercase ${
+                              event.hook_event_name === "PostToolUseFailure"
+                                ? "text-attack"
+                                : event.hook_event_name === "Notification" ||
+                                    event.hook_event_name === "PermissionRequest"
+                                  ? "text-suspicious"
+                                  : event.hook_event_name === "PermissionDenied"
+                                    ? "text-attack"
+                                    : "text-text-sub"
+                            }`}
+                          >
+                            {event.hook_event_name}
+                          </span>
+                          <Show when={event.hook_event_name === "PostToolUseFailure" && event.error}>
+                            <span class="text-[9px] text-attack truncate">{(event.error as string)?.slice(0, 60)}</span>
+                          </Show>
+                          <Show when={event.hook_event_name === "Notification" && event.notification_message}>
+                            <span class="text-[9px] text-text-dim truncate">{event.notification_message}</span>
+                          </Show>
+                          <Show when={event.hook_event_name === "PermissionDenied"}>
+                            <span class="text-[9px] text-attack">{event.tool_name} denied</span>
+                            <Show when={event.permission_denied_reason}>
+                              <span class="text-[8px] text-text-dim truncate">
+                                {event.permission_denied_reason!.slice(0, 40)}
+                              </span>
+                            </Show>
+                          </Show>
+                          <Show when={event.hook_event_name === "PermissionRequest"}>
+                            <span class="text-[9px] text-text-dim">{event.tool_name} needs permission</span>
                           </Show>
                           <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
                         </div>
-                        <div class="grid grid-cols-3 gap-x-3 gap-y-1 text-[9px]">
-                          <div>
-                            <span class="text-text-sub">Duration:</span> <span class="text-text-dim">{duration()}</span>
-                          </div>
-                          <div>
-                            <span class="text-text-sub">Edits:</span>{" "}
-                            <span class="text-text-dim">{s().edit_count}</span>
-                          </div>
-                          <div>
-                            <span class="text-text-sub">Commands:</span>{" "}
-                            <span class="text-text-dim">{s().command_count}</span>
-                          </div>
-                          <div>
-                            <span class="text-text-sub">Reads:</span>{" "}
-                            <span class="text-text-dim">{s().read_count}</span>
-                          </div>
-                          <div>
-                            <span class="text-text-sub">Files:</span>{" "}
-                            <span class="text-text-dim">{s().files_touched?.length || 0}</span>
-                          </div>
-                          <Show when={s().error_count}>
-                            <div>
-                              <span class="text-text-sub">Errors:</span>{" "}
-                              <span class="text-attack">{s().error_count}</span>
-                            </div>
-                          </Show>
-                          <Show when={s().compaction_count}>
-                            <div>
-                              <span class="text-text-sub">Compactions:</span>{" "}
-                              <span class="text-[#7b9fbf]">{s().compaction_count}</span>
-                            </div>
-                          </Show>
-                        </div>
-                      </div>
-                    </Show>
-
-                    {/* ── All other lifecycle events (generic) ─────────────── */}
-                    <Show
-                      when={
-                        event.hook_event_name !== "UserPromptSubmit" &&
-                        event.hook_event_name !== "Stop" &&
-                        event.hook_event_name !== "StopFailure" &&
-                        event.hook_event_name !== "SessionStart" &&
-                        event.hook_event_name !== "SessionEnd" &&
-                        event.hook_event_name !== "SubagentStart" &&
-                        event.hook_event_name !== "SubagentStop" &&
-                        event.hook_event_name !== "PreCompact" &&
-                        event.hook_event_name !== "PostCompact" &&
-                        !event.tool_name
-                      }
-                    >
-                      <div class="border-b border-panel-border/20 px-3 py-1.5 flex items-center gap-2">
-                        <span
-                          class={`text-[10px] font-bold uppercase ${
-                            event.hook_event_name === "PostToolUseFailure"
-                              ? "text-attack"
-                              : event.hook_event_name === "Notification" ||
-                                  event.hook_event_name === "PermissionRequest"
-                                ? "text-suspicious"
-                                : event.hook_event_name === "PermissionDenied"
-                                  ? "text-attack"
-                                  : "text-text-sub"
-                          }`}
-                        >
-                          {event.hook_event_name}
-                        </span>
-                        <Show when={event.hook_event_name === "PostToolUseFailure" && event.error}>
-                          <span class="text-[9px] text-attack truncate">{(event.error as string)?.slice(0, 60)}</span>
-                        </Show>
-                        <Show when={event.hook_event_name === "Notification" && event.notification_message}>
-                          <span class="text-[9px] text-text-dim truncate">{event.notification_message}</span>
-                        </Show>
-                        <Show when={event.hook_event_name === "PermissionDenied"}>
-                          <span class="text-[9px] text-attack">{event.tool_name} denied</span>
-                          <Show when={event.permission_denied_reason}>
-                            <span class="text-[8px] text-text-dim truncate">
-                              {event.permission_denied_reason!.slice(0, 40)}
-                            </span>
-                          </Show>
-                        </Show>
-                        <Show when={event.hook_event_name === "PermissionRequest"}>
-                          <span class="text-[9px] text-text-dim">{event.tool_name} needs permission</span>
-                        </Show>
-                        <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
-                      </div>
-                    </Show>
-                  </>
-                }
-              >
-                <ToolCallBlock
-                  event={event}
-                  defaultExpanded={i() >= timeline().length - 5}
-                  focused={focusedIdx() === i()}
-                />
-              </Show>
-            </div>
+                      </Show>
+                    </>
+                  }
+                >
+                  <ToolCallBlock
+                    event={event}
+                    defaultExpanded={i() >= timeline().length - 5}
+                    focused={focusedIdx() === i()}
+                  />
+                </Show>
+              </div>
             </Show>
           )}
         </For>

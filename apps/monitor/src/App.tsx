@@ -183,11 +183,11 @@ const App: Component = () => {
 
   const handleSelectSession = (id: string) => {
     setSelectedSessionIds((prev) => {
+      // If already open, just switch to it — don't toggle close.
+      // Close only via X button or context menu.
       if (prev.includes(id)) {
-        if (pinnedTabs().has(id)) return prev; // Can't deselect pinned
-        const remaining = prev.filter((x) => x !== id);
-        if (activeTabId() === id) setActiveTabId(remaining.length > 0 ? remaining[remaining.length - 1] : null);
-        return remaining;
+        setActiveTabId(id);
+        return prev;
       }
       if (isMobile()) {
         setActiveTabId(id);

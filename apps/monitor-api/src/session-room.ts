@@ -218,6 +218,7 @@ export class SessionRoom extends DurableObject {
         session.notification_message = undefined;
         session.end_reason = undefined;
         session.compact_summary = undefined;
+        session.last_prompt = undefined;
         session.events = [];
         session.started_at = event.timestamp;
         // Fields only available on SessionStart — previously never received

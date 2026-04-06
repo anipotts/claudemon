@@ -93,6 +93,7 @@ export function createSessionStore() {
             session.notification_message = undefined;
             session.end_reason = undefined;
             session.compact_summary = undefined;
+            session.last_prompt = undefined;
             session.events = [];
             session.started_at = event.timestamp;
             break;
