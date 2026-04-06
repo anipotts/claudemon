@@ -1,6 +1,6 @@
 {
   "name": "claudemon",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Real-time session monitoring dashboard for Claude Code",
   "author": {
     "name": "Ani Potts",
