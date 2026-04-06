@@ -5,10 +5,13 @@ interface IdleDashboardProps {
   connectionStatus: () => string;
 }
 
+type Method = "plugin" | "npm";
+
 export const IdleDashboard: Component<IdleDashboardProps> = (props) => {
   const connected = () => props.connectionStatus() === "connected";
   const apiKey = () => (typeof localStorage !== "undefined" ? localStorage.getItem("claudemon_api_key") : null);
   const [copiedStep, setCopiedStep] = createSignal<number | null>(null);
+  const [method, setMethod] = createSignal<Method>("plugin");
 
   const copyCmd = (text: string, step: number) => {
     navigator.clipboard.writeText(text);
@@ -16,32 +19,15 @@ export const IdleDashboard: Component<IdleDashboardProps> = (props) => {
     setTimeout(() => setCopiedStep(null), 2000);
   };
 
-  const initCmd = () => {
-    const key = apiKey();
-    return key ? `claudemon-cli init --key ${key}` : "claudemon-cli init";
-  };
-
-  const CmdRow = (p: { step: number; text: string; highlight?: boolean }) => (
-    <div class="flex items-center gap-3">
-      <span class="text-[10px] font-bold text-text-sub w-4 shrink-0 text-right">{p.step}</span>
-      <button
-        class={`flex-1 flex items-center gap-2 bg-[#0c0c0c] border rounded px-3 py-2 font-mono text-[11px] hover:brightness-110 transition-all text-left group ${
-          p.highlight ? "border-safe/30 text-safe" : "border-panel-border/40 text-text-primary"
-        }`}
-        onClick={() => copyCmd(p.text, p.step)}
-      >
-        <Terminal size={12} class={p.highlight ? "text-safe/60" : "text-text-sub"} />
-        <span class="flex-1 truncate">{p.text}</span>
-        <span class="shrink-0 opacity-50 group-hover:opacity-100 transition-opacity">
-          {copiedStep() === p.step ? <Check size={12} class="text-safe" /> : <Copy size={12} />}
-        </span>
-      </button>
-    </div>
+  const CopyIcon = (p: { step: number }) => (
+    <span class="shrink-0 opacity-40 group-hover:opacity-100 transition-opacity">
+      {copiedStep() === p.step ? <Check size={12} class="text-safe" /> : <Copy size={12} />}
+    </span>
   );
 
   return (
     <div class="flex-1 flex flex-col items-center justify-center bg-bg px-6">
-      <div class="flex flex-col items-center gap-5 max-w-xl w-full">
+      <div class="w-full max-w-md space-y-6">
         {/* Status */}
         <div class="flex flex-col items-center gap-3">
           <span
@@ -53,51 +39,92 @@ export const IdleDashboard: Component<IdleDashboardProps> = (props) => {
           </h2>
         </div>
 
-        {/* API Key — show inline so user can copy without going to settings */}
+        {/* API key inline */}
         <Show when={apiKey()}>
-          <div class="flex items-center gap-2 bg-[#0c0c0c] border border-panel-border/30 rounded px-3 py-1.5 w-full max-w-sm">
+          <div class="flex items-center gap-2 bg-[#0c0c0c] border border-panel-border/30 rounded px-3 py-2">
             <Key size={11} class="text-text-sub shrink-0" />
-            <span class="text-[10px] text-text-sub">API Key</span>
-            <span class="text-[10px] font-mono text-text-dim flex-1 truncate">{apiKey()!.slice(0, 12)}...</span>
-            <button
-              class="text-text-sub hover:text-text-primary transition-colors"
-              onClick={() => copyCmd(apiKey()!, 0)}
-            >
+            <span class="text-[10px] text-text-sub shrink-0">API Key</span>
+            <span class="text-[10px] font-mono text-text-dim flex-1 truncate">{apiKey()}</span>
+            <button class="text-text-sub hover:text-text-primary transition-colors shrink-0" onClick={() => copyCmd(apiKey()!, 0)}>
               {copiedStep() === 0 ? <Check size={11} class="text-safe" /> : <Copy size={11} />}
             </button>
           </div>
         </Show>
 
-        {/* Two install methods side by side */}
-        <div class="w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-          {/* Plugin method */}
-          <div class="space-y-2.5">
-            <div class="flex items-center gap-2">
-              <span class="text-[10px] font-bold text-safe uppercase tracking-[2px]">Plugin</span>
-              <span class="text-[9px] text-safe/60 bg-safe/10 px-1.5 py-0.5 rounded-sm">recommended</span>
-            </div>
-            <CmdRow step={1} text="/plugin marketplace add https://github.com/anipotts/claudemon" />
-            <CmdRow step={2} text="/plugin install claudemon@claudemon-hub" highlight />
-            <p class="text-[9px] text-text-sub pl-7">
-              Enter API key when prompted. Auto-registers hooks, auto-cleans on uninstall.
-            </p>
-          </div>
-
-          {/* npm method */}
-          <div class="space-y-2.5">
-            <div class="flex items-center gap-2">
-              <span class="text-[10px] font-bold text-text-label uppercase tracking-[2px]">npm CLI</span>
-              <span class="text-[9px] text-text-sub/60 bg-panel-border/20 px-1.5 py-0.5 rounded-sm">alternative</span>
-            </div>
-            <CmdRow step={1} text="npm install -g claudemon-cli" />
-            <CmdRow step={2} text={initCmd()} highlight />
-            <p class="text-[9px] text-text-sub pl-7">
-              Writes hooks to ~/.claude/settings.json. Uninstall with claudemon-cli uninstall.
-            </p>
-          </div>
+        {/* Method tabs */}
+        <div class="flex items-center gap-1 border-b border-panel-border/30 pb-0">
+          <button
+            class={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-t transition-colors ${method() === "plugin" ? "bg-safe/10 text-safe border-b-2 border-safe" : "text-text-sub hover:text-text-primary"}`}
+            onClick={() => setMethod("plugin")}
+          >
+            Plugin
+          </button>
+          <button
+            class={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-t transition-colors ${method() === "npm" ? "bg-safe/10 text-safe border-b-2 border-safe" : "text-text-sub hover:text-text-primary"}`}
+            onClick={() => setMethod("npm")}
+          >
+            npm
+          </button>
         </div>
 
-        <p class="text-[10px] text-text-dim mt-1">
+        {/* Commands */}
+        <Show when={method() === "plugin"}>
+          <div class="space-y-3">
+            <div class="text-[9px] text-text-sub uppercase tracking-wider">Step 1 — Add marketplace</div>
+            <button
+              class="w-full flex items-center gap-2 bg-[#0c0c0c] border border-panel-border/40 rounded px-3 py-2.5 font-mono text-[11px] text-text-primary hover:border-panel-border transition-colors text-left group"
+              onClick={() => copyCmd("/plugin marketplace add https://github.com/anipotts/claudemon", 1)}
+            >
+              <Terminal size={12} class="text-text-sub shrink-0" />
+              <span class="flex-1">/plugin marketplace add https://github.com/anipotts/claudemon</span>
+              <CopyIcon step={1} />
+            </button>
+
+            <div class="text-[9px] text-text-sub uppercase tracking-wider">Step 2 — Install</div>
+            <button
+              class="w-full flex items-center gap-2 bg-[#0c0c0c] border border-safe/30 rounded px-3 py-2.5 font-mono text-[11px] text-safe hover:border-safe/50 transition-colors text-left group"
+              onClick={() => copyCmd("/plugin install claudemon@anipotts", 2)}
+            >
+              <Terminal size={12} class="text-safe/60 shrink-0" />
+              <span class="flex-1">/plugin install claudemon@anipotts</span>
+              <CopyIcon step={2} />
+            </button>
+
+            <p class="text-[9px] text-text-sub">
+              Enter your API key when prompted. Hooks auto-register. Uninstall: /plugin uninstall claudemon
+            </p>
+          </div>
+        </Show>
+
+        <Show when={method() === "npm"}>
+          <div class="space-y-3">
+            <div class="text-[9px] text-text-sub uppercase tracking-wider">Step 1 — Install CLI</div>
+            <button
+              class="w-full flex items-center gap-2 bg-[#0c0c0c] border border-panel-border/40 rounded px-3 py-2.5 font-mono text-[11px] text-text-primary hover:border-panel-border transition-colors text-left group"
+              onClick={() => copyCmd("npm install -g claudemon-cli", 3)}
+            >
+              <Terminal size={12} class="text-text-sub shrink-0" />
+              <span class="flex-1">npm install -g claudemon-cli</span>
+              <CopyIcon step={3} />
+            </button>
+
+            <div class="text-[9px] text-text-sub uppercase tracking-wider">Step 2 — Connect</div>
+            <button
+              class="w-full flex items-center gap-2 bg-[#0c0c0c] border border-safe/30 rounded px-3 py-2.5 font-mono text-[11px] text-safe hover:border-safe/50 transition-colors text-left group"
+              onClick={() => copyCmd(apiKey() ? `claudemon-cli init --key ${apiKey()}` : "claudemon-cli init", 4)}
+            >
+              <Terminal size={12} class="text-safe/60 shrink-0" />
+              <span class="flex-1 truncate">{apiKey() ? `claudemon-cli init --key ${apiKey()}` : "claudemon-cli init"}</span>
+              <CopyIcon step={4} />
+            </button>
+
+            <p class="text-[9px] text-text-sub">
+              Writes hooks to ~/.claude/settings.json. Uninstall: claudemon-cli uninstall
+            </p>
+          </div>
+        </Show>
+
+        <p class="text-[10px] text-text-dim text-center">
           Open a new Claude Code session after setup — it appears here automatically.
         </p>
       </div>
