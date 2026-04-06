@@ -359,7 +359,13 @@ export function createSessionStore() {
     }
   }
 
-  const { status } = createWebSocket(handleMessage);
+  const { status, send } = createWebSocket(handleMessage);
+
+  function respondToAction(actionId: string, hookResponse: Record<string, unknown>) {
+    send({ type: "action_response", action_id: actionId, hook_response: hookResponse });
+    // Optimistically remove from store (server will also send action_resolved)
+    setPendingActions(actionId, undefined!);
+  }
 
   // Load persisted sessions from IndexedDB on init
   const [persistenceReady, setPersistenceReady] = createSignal(false);
@@ -377,5 +383,5 @@ export function createSessionStore() {
     })
     .catch(() => setPersistenceReady(true)); // proceed even if IDB fails
 
-  return { sessions, connectionStatus: status, persistenceReady, pendingActions };
+  return { sessions, connectionStatus: status, persistenceReady, pendingActions, respondToAction };
 }

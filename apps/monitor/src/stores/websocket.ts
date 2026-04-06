@@ -84,5 +84,11 @@ export function createWebSocket(onMessage: (msg: WsMessage) => void) {
 
   connect();
 
-  return { status, reconnect: connect };
+  function send(data: Record<string, unknown>) {
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(data));
+    }
+  }
+
+  return { status, reconnect: connect, send };
 }
