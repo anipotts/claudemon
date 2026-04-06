@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { auth, hashApiKey } from "./auth";
-import { apiKeyAuth, optionalCookieAuth, wsTokenAuth } from "./middleware";
+import { apiKeyAuth, wsTokenAuth } from "./middleware";
 import { enrichEvent, isValidEvent, sendEvent } from "./events";
 import type { Env } from "./env";
 
@@ -119,30 +119,7 @@ app.post("/events/webhook/github", async (c) => {
   return c.json({ ok: true });
 });
 
-// -- GET /sessions -- list active sessions --------------------------------
-
-app.get("/sessions", optionalCookieAuth, async (c) => {
-  const room = getRoom(c.env, c.get("userId"));
-  const res = await room.fetch(new Request("https://do/sessions"));
-  return new Response(res.body, { headers: { "Content-Type": "application/json" } });
-});
-
-// -- POST /sessions/purge -- clear all sessions ---------------------------
-
-app.post("/sessions/purge", optionalCookieAuth, async (c) => {
-  const room = getRoom(c.env, c.get("userId"));
-  const res = await room.fetch(new Request("https://do/sessions/purge", { method: "POST" }));
-  return new Response(res.body, { headers: { "Content-Type": "application/json" } });
-});
-
-// -- DELETE /sessions/:id -- archive a session ----------------------------
-
-app.delete("/sessions/:id", optionalCookieAuth, async (c) => {
-  const id = c.req.param("id");
-  const room = getRoom(c.env, c.get("userId"));
-  const res = await room.fetch(new Request(`https://do/sessions/${id}`, { method: "DELETE" }));
-  return new Response(res.body, { headers: { "Content-Type": "application/json" } });
-});
+// Sessions are now managed client-side in IndexedDB — no server-side session routes.
 
 // -- POST /cloud/register -- manually register a cloud session ------------
 
@@ -259,7 +236,9 @@ const worker = {
     }
 
     // WebSocket upgrade -- bypass Hono CORS, auth via cookie or API key
-    if (url.pathname === "/ws" && request.headers.get("Upgrade") === "websocket") {
+    const isWsUpgrade = request.headers.get("Upgrade") === "websocket";
+    const isWsPath = url.pathname === "/ws" || url.pathname === "/ws/action";
+    if (isWsPath && isWsUpgrade) {
       let userId = "anonymous";
 
       // Try cookie auth first
@@ -284,8 +263,9 @@ const worker = {
       }
 
       const room = getRoom(env, userId);
+      const doPath = url.pathname === "/ws/action" ? "/ws/action" : "/ws";
       return room.fetch(
-        new Request("https://do/ws", {
+        new Request(`https://do${doPath}`, {
           headers: request.headers,
         }),
       );
