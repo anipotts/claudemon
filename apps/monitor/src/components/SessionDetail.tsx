@@ -9,6 +9,7 @@ import { SessionBadge } from "./SessionBadge";
 import { Timestamp } from "./Timestamp";
 import { MarkdownBlock } from "./Markdown";
 import { formatDuration } from "../utils/time";
+import { extractErrorContext, formatAsMarkdown } from "../utils/error-context";
 
 const TOOL_ICONS: Record<string, string> = {
   Read: ".",
@@ -19,6 +20,39 @@ const TOOL_ICONS: Record<string, string> = {
   Glob: "*",
   Agent: "@",
 };
+
+// ── Copy Error Context Button ─────────────────────────────────────
+
+function CopyContextBtn(props: { session: SessionState; event: MonitorEvent }) {
+  const [copied, setCopied] = createSignal(false);
+  const handleCopy = async () => {
+    try {
+      const ctx = await extractErrorContext(props.session, props.event);
+      const md = formatAsMarkdown(ctx);
+      await navigator.clipboard.writeText(md);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard write failed
+    }
+  };
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        handleCopy();
+      }}
+      class="text-[7px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-sm transition-colors shrink-0"
+      style={{
+        color: copied() ? "#a3b18a" : "#b85c4a",
+        background: copied() ? "#a3b18a15" : "#b85c4a15",
+      }}
+      title="Copy error context to clipboard (structured markdown for Claude)"
+    >
+      {copied() ? "Copied" : "Copy context"}
+    </button>
+  );
+}
 
 // ── Bash command classification ────────────────────────────────────
 
@@ -636,6 +670,7 @@ export const SessionDetail: Component<{
                             <span class="text-[9px] text-attack/80 truncate">
                               {(event.error as string) || "API error"}
                             </span>
+                            <CopyContextBtn session={s()} event={event} />
                             <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
                           </div>
                           <Show when={event.error_details}>
@@ -923,6 +958,7 @@ export const SessionDetail: Component<{
                           </span>
                           <Show when={event.hook_event_name === "PostToolUseFailure" && event.error}>
                             <span class="text-[9px] text-attack truncate">{(event.error as string)?.slice(0, 60)}</span>
+                            <CopyContextBtn session={s()} event={event} />
                           </Show>
                           <Show when={event.hook_event_name === "Notification" && event.notification_message}>
                             <span class="text-[9px] text-text-dim truncate">{event.notification_message}</span>
