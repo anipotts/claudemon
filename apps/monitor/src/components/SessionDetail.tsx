@@ -1,7 +1,11 @@
 import { type Component, For, Show, createMemo, createSignal, createEffect, onCleanup } from "solid-js";
 import type { MonitorEvent, SessionState } from "../../../../packages/types/monitor";
 import { STATUS_COLORS } from "../../../../packages/types/monitor";
-import { GitBranch, CaretDown, CaretRight, Key, ShieldCheck, Warning, Check, X } from "./Icons";
+import {
+  GitBranch, CaretDown, CaretRight, Key, ShieldCheck, Warning, Check, X,
+  Eye, PencilSimple, Plus, Terminal, MagnifyingGlass, Folder, Robot, Circle,
+} from "./Icons";
+import { Dynamic } from "solid-js/web";
 import type { PendingAction } from "../../../../packages/types/monitor";
 import { PermissionBadge } from "./PermissionBadge";
 import { ModelBadge } from "./ModelBadge";
@@ -12,15 +16,40 @@ import { MarkdownBlock } from "./Markdown";
 import { formatDuration } from "../utils/time";
 import { extractErrorContext, formatAsMarkdown } from "../utils/error-context";
 
-const TOOL_ICONS: Record<string, string> = {
-  Read: ".",
-  Edit: "~",
-  Write: "+",
-  Bash: ">_",
-  Grep: "?",
-  Glob: "*",
-  Agent: "@",
+type IconComp = Component<{ size?: number; class?: string; style?: Record<string, string> }>;
+
+const TOOL_ICON_MAP: Record<string, IconComp> = {
+  Read: Eye,
+  Edit: PencilSimple,
+  Write: Plus,
+  Bash: Terminal,
+  Grep: MagnifyingGlass,
+  Glob: Folder,
+  Agent: Robot,
 };
+
+const TOOL_COLORS: Record<string, string> = {
+  Read: "#6b6560",
+  Edit: "#c9a96e",
+  Write: "#a3b18a",
+  Bash: "#7ea8be",
+  Grep: "#6b6560",
+  Glob: "#6b6560",
+  Agent: "#b07bac",
+};
+
+function durationColor(ms: number | undefined): string {
+  if (!ms) return "var(--text-sub)";
+  if (ms < 1000) return "var(--text-sub)";
+  if (ms < 5000) return "var(--text-dim)";
+  if (ms < 15000) return "#c9a96e";
+  if (ms < 30000) return "#c9a96e";
+  return "#b85c4a";
+}
+
+function durationBold(ms: number | undefined): boolean {
+  return !!ms && ms >= 15000;
+}
 
 // ── Copy Error Context Button ─────────────────────────────────────
 
@@ -210,12 +239,12 @@ function QuestionBatchBlock(props: { events: MonitorEvent[]; defaultExpanded: bo
   return (
     <div class="border-b border-panel-border/30 event-enter">
       <button
-        class="flex items-center gap-1.5 w-full px-3 py-1.5 hover:bg-panel/20 text-left"
+        class="flex items-center gap-2 w-full px-3 py-[7px] hover:bg-panel/20 text-left"
         onClick={() => setExpanded(!expanded())}
       >
-        <span class="text-[11px] text-text-dim w-4 text-center shrink-0 font-mono">?</span>
-        <span class="text-[10px] font-bold text-suspicious shrink-0">AskUserQuestion</span>
-        <span class="text-[9px] text-text-sub bg-panel-border/20 px-1 rounded-sm">{count()} questions</span>
+        <span class="text-[10px] text-text-dim w-4 text-center shrink-0 font-mono leading-none">?</span>
+        <span class="text-[10px] font-bold text-suspicious shrink-0 leading-none">AskUserQuestion</span>
+        <span class="text-[9px] text-text-sub bg-panel-border/20 px-1 rounded-sm leading-none">{count()} questions</span>
         <Show when={pending() > 0}>
           <span class="w-1.5 h-1.5 rounded-full bg-suspicious tool-running shrink-0" />
         </Show>
@@ -261,9 +290,29 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean; f
   const e = () => props.event;
   const input = () => e().tool_input || {};
   const response = () => e().tool_response || {};
-  const icon = () => TOOL_ICONS[e().tool_name || ""] || "o";
-  const hasResponse = () => e().hook_event_name === "PostToolUse" && Object.keys(response()).length > 0;
+  const iconComp = () => TOOL_ICON_MAP[e().tool_name || ""] || Circle;
+  const hasResponse = () => (e().hook_event_name === "PostToolUse" || e().hook_event_name === "PostToolUseFailure") && Object.keys(response()).length > 0;
   const isRunning = () => e().hook_event_name === "PreToolUse";
+  const responseText = () => (response().content as string) || (response().output as string) || (response().result as string) || "";
+
+  // Determine if this row has any content worth expanding
+  const hasExpandableContent = () => {
+    if (isRunning()) return false; // still in progress, nothing to show yet
+    const name = e().tool_name || "";
+    const inp = input();
+    const resp = response();
+    // Bash: has command or output
+    if (name === "Bash") return !!(inp.command || resp.stdout || resp.output || resp.stderr);
+    // Edit/Write: has diff data
+    if (name === "Edit") return !!(inp.old_string || inp.new_string);
+    if (name === "Write") return !!inp.content;
+    // Read/Grep/Glob: has response text
+    if (name === "Read" || name === "Grep" || name === "Glob") return !!responseText();
+    // Agent: has prompt or result
+    if (name === "Agent") return !!(inp.prompt || inp.description || responseText());
+    // Generic: has any input keys or response keys
+    return Object.keys(inp).length > 0 || Object.keys(resp).length > 0;
+  };
 
   // Live elapsed + timeout detection for in-progress tools
   const [timedOut, setTimedOut] = createSignal(false);
@@ -435,101 +484,111 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean; f
       }
     >
     <div class={`border-b border-panel-border/30 event-enter ${props.focused ? "ring-1 ring-safe/30" : ""}`}>
-      {/* Header row — always visible, clickable. Shows file badge + summary inline */}
+      {/* Header row — CSS Grid with fixed columns for visual rhythm */}
       <button
-        class={`flex items-center gap-1.5 w-full px-3 py-1.5 hover:bg-panel/20 text-left ${isPassiveTool() ? "opacity-70" : ""}`}
-        onClick={() => setExpanded(!expanded())}
+        class={`tool-row-grid w-full text-left ${isPassiveTool() ? "opacity-60" : ""} ${isRunning() && !timedOut() ? "tool-row-shimmer" : ""} ${hasExpandableContent() ? "hover:bg-panel/20 cursor-pointer" : "cursor-default"}`}
+        style={{
+          display: "grid",
+          "grid-template-columns": "6px 16px 44px 1fr auto 40px 14px",
+          "align-items": "center",
+          "min-height": "1.75rem",
+          height: "1.75rem",
+          "max-height": "1.75rem",
+          padding: "0 8px 0 6px",
+          overflow: "hidden",
+          "white-space": "nowrap",
+        }}
+        onClick={() => hasExpandableContent() && setExpanded(!expanded())}
       >
-        <span class="text-[11px] text-text-dim w-4 text-center shrink-0 font-mono">{icon()}</span>
-        <span class="text-[10px] font-bold text-text-label shrink-0">{e().tool_name || e().hook_event_name}</span>
+        {/* Col 1: Status dot */}
+        <span class="flex items-center justify-center">
+          <Show when={isRunning() && !timedOut()}>
+            <span class="w-[5px] h-[5px] rounded-full bg-safe tool-running" />
+          </Show>
+          <Show when={isRunning() && timedOut()}>
+            <span class="w-[5px] h-[5px] rounded-full bg-suspicious" />
+          </Show>
+          <Show when={!isRunning() && bashOutput()?.exitCode != null && bashOutput()!.exitCode !== 0}>
+            <span class="w-[5px] h-[5px] rounded-full bg-attack" />
+          </Show>
+          <Show when={!isRunning() && hasResponse() && !(bashOutput()?.exitCode != null && bashOutput()!.exitCode !== 0)}>
+            <span class="w-[5px] h-[5px] rounded-full bg-safe/25" />
+          </Show>
+        </span>
 
-        {/* Bash command label badge */}
-        <Show when={cmdLabel()}>
-          {(cl) => (
-            <span
-              class="text-[9px] font-bold uppercase px-1 rounded-sm shrink-0"
-              style={{ color: cl().color, background: cl().color + "18" }}
-            >
-              {cl().label}
-            </span>
-          )}
-        </Show>
+        {/* Col 2: Tool icon (colored by tool type) */}
+        <span class="flex items-center justify-center">
+          <Dynamic component={iconComp()} size={11} style={{ color: TOOL_COLORS[e().tool_name || ""] || "#6b6560" }} />
+        </span>
 
-        {/* File badge inline in header */}
-        <Show when={filePath()}>
-          <FileBadge path={filePath()!} />
-        </Show>
+        {/* Col 3: Tool name */}
+        <span class="text-[10px] font-bold text-text-label truncate leading-none">
+          {e().tool_name || e().hook_event_name}
+        </span>
 
-        {/* Edit: replace_all badge */}
-        <Show when={isReplaceAll()}>
-          <span class="text-[9px] text-suspicious bg-suspicious/10 px-1 rounded-sm shrink-0">all</span>
-        </Show>
-
-        {/* Edit diff stat — always visible */}
-        <Show when={editStat()}>
-          {(stat) => (
-            <span class="text-[8px] font-mono shrink-0">
-              <span class="text-safe">+{stat().added}</span> <span class="text-attack">-{stat().removed}</span>
-            </span>
-          )}
-        </Show>
-
-        {/* Command/pattern summary inline */}
-        <Show when={!filePath() && headerSummary()}>
-          <span class="text-[9px] text-text-dim truncate font-mono">{headerSummary()}</span>
-        </Show>
-
-        {/* Info pills */}
-        <Show when={readInfo()}>
-          <span class="text-[8px] text-text-sub bg-panel-border/20 px-1 rounded-sm">{readInfo()}</span>
-        </Show>
-        <Show when={writeInfo()}>
-          <span class="text-[8px] text-text-sub bg-panel-border/20 px-1 rounded-sm">{writeInfo()}</span>
-        </Show>
-
-        {/* Bash exit code — red badge for non-zero */}
-        <Show
-          when={bashOutput()?.exitCode !== undefined && bashOutput()!.exitCode !== 0 && bashOutput()!.exitCode !== null}
-        >
-          <span class="text-[9px] font-bold text-attack bg-attack/15 px-1 rounded-sm">
-            exit {String(bashOutput()!.exitCode)}
-          </span>
-        </Show>
-
-        {/* In-progress spinner or timeout badge for PreToolUse */}
-        <Show when={isRunning()}>
-          <Show
-            when={timedOut()}
-            fallback={
-              <span class="inline-flex items-center gap-1 shrink-0">
-                <span class="w-1.5 h-1.5 rounded-full bg-safe tool-running shrink-0" />
-                <Show when={liveElapsedLabel()}>
-                  <span class="text-[9px] text-safe/60 font-mono">{liveElapsedLabel()}</span>
-                </Show>
+        {/* Col 4: Content (variable per tool type, single line, truncated) */}
+        <span class="flex items-center gap-1 overflow-hidden pl-0.5">
+          <Show when={cmdLabel()}>
+            {(cl) => (
+              <span class="text-[9px] font-bold uppercase px-1 rounded-sm shrink-0 leading-none"
+                style={{ color: cl().color, background: cl().color + "18" }}>{cl().label}</span>
+            )}
+          </Show>
+          <Show when={filePath()}>
+            <FileBadge path={filePath()!} />
+          </Show>
+          <Show when={isReplaceAll()}>
+            <span class="text-[9px] text-suspicious bg-suspicious/10 px-1 rounded-sm shrink-0 leading-none">all</span>
+          </Show>
+          <Show when={editStat()}>
+            {(stat) => (
+              <span class="text-[9px] font-mono shrink-0 leading-none">
+                <span class="text-safe">+{stat().added}</span> <span class="text-attack">-{stat().removed}</span>
               </span>
-            }
-          >
-            <span class="text-[9px] font-bold text-suspicious bg-suspicious/10 px-1 rounded-sm uppercase shrink-0">
-              timed out
+            )}
+          </Show>
+          <Show when={!filePath() && headerSummary()}>
+            <span class="text-[9px] text-text-dim truncate font-mono leading-none">{headerSummary()}</span>
+          </Show>
+        </span>
+
+        {/* Col 5: Meta (mutual exclusion — highest priority wins) */}
+        <span class="flex items-center justify-end gap-1 pr-1" style={{ "max-width": "72px" }}>
+          <Show when={bashOutput()?.exitCode != null && bashOutput()!.exitCode !== 0}>
+            <span class="text-[9px] font-bold text-attack bg-attack/15 px-1 rounded-sm leading-none">
+              exit {String(bashOutput()!.exitCode)}
             </span>
           </Show>
-        </Show>
+          <Show when={!(bashOutput()?.exitCode != null && bashOutput()!.exitCode !== 0) && isRunning() && liveElapsedLabel()}>
+            <span class="text-[9px] font-mono leading-none" style={{ color: timedOut() ? "#c9a96e" : "var(--text-sub)" }}>
+              {liveElapsedLabel()}
+            </span>
+          </Show>
+          <Show when={!(bashOutput()?.exitCode != null && bashOutput()!.exitCode !== 0) && !isRunning() && durationLabel()}>
+            <span class={`text-[9px] font-mono leading-none ${durationBold(e().duration_ms) ? "font-bold" : ""}`}
+              style={{ color: durationColor(e().duration_ms) }}>
+              {durationLabel()}
+            </span>
+          </Show>
+          <Show when={!(bashOutput()?.exitCode != null && bashOutput()!.exitCode !== 0) && !isRunning() && !durationLabel() && (readInfo() || writeInfo())}>
+            <span class="text-[9px] text-text-sub leading-none">{readInfo() || writeInfo()}</span>
+          </Show>
+        </span>
 
-        {/* Done badge + duration for completed tools */}
-        <Show when={hasResponse() && !(bashOutput()?.exitCode !== undefined && bashOutput()!.exitCode !== 0)}>
-          <span class="text-[9px] text-safe/50 uppercase tracking-wider">done</span>
-        </Show>
-        <Show when={durationLabel()}>
-          <span class="text-[8px] text-text-sub font-mono">{durationLabel()}</span>
-        </Show>
+        {/* Col 6: Timestamp */}
+        <Timestamp ts={e().timestamp} class="text-[9px] text-text-sub text-right leading-none" />
 
-        <Timestamp ts={e().timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
-        <span class="text-text-sub shrink-0 ml-1">{expanded() ? <CaretDown size={9} /> : <CaretRight size={9} />}</span>
+        {/* Col 7: Caret */}
+        <span class="flex items-center justify-center">
+          <Show when={hasExpandableContent()}>
+            {expanded() ? <CaretDown size={9} class="text-text-sub" /> : <CaretRight size={9} class="text-text-sub" />}
+          </Show>
+        </span>
       </button>
 
-      {/* Body — collapsible */}
+      {/* Body — collapsible, aligned to content zone start */}
       <div class={`tool-call-body ${expanded() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
-        <div class="px-3 pb-2 pl-8">
+        <div class="px-3 pb-2" style={{ "padding-left": "68px" }}>
           {/* Bash command (full, when expanded) */}
           <Show when={primaryDetail() && e().tool_name === "Bash"}>
             <div class="text-[10px] text-text-dim font-mono mb-1">
@@ -576,6 +635,151 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean; f
               </div>
             )}
           </Show>
+
+          {/* Read: show file content preview from response */}
+          <Show when={e().tool_name === "Read" && hasResponse()}>
+            {(() => {
+              const content = () => responseText();
+              const lines = () => content().split("\n").slice(0, 20);
+              const totalLines = () => content().split("\n").length;
+              return (
+                <Show when={content()}>
+                  <div class="terminal-block mt-1">
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="text-[8px] text-text-sub uppercase tracking-wider">Content</span>
+                      <span class="text-[8px] text-text-dim">{totalLines()} lines</span>
+                    </div>
+                    <For each={lines()}>
+                      {(line) => <div class="text-text-dim truncate">{line || "\u00a0"}</div>}
+                    </For>
+                    <Show when={totalLines() > 20}>
+                      <div class="text-text-sub mt-1">... {totalLines() - 20} more lines</div>
+                    </Show>
+                  </div>
+                </Show>
+              );
+            })()}
+          </Show>
+
+          {/* Grep: show matched files/lines from response */}
+          <Show when={e().tool_name === "Grep" && hasResponse()}>
+            {(() => {
+              const output = () => responseText();
+              const allLines = createMemo(() => output().split("\n").filter(Boolean));
+              const visibleLines = () => allLines().slice(0, 25);
+              return (
+                <Show when={output()}>
+                  <div class="terminal-block mt-1">
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="text-[8px] text-text-sub uppercase tracking-wider">Matches</span>
+                      <span class="text-[8px] text-text-dim">{allLines().length} results</span>
+                    </div>
+                    <For each={visibleLines()}>
+                      {(line) => <div class="text-text-dim truncate">{line}</div>}
+                    </For>
+                    <Show when={allLines().length > 25}>
+                      <div class="text-text-sub mt-1">... more results</div>
+                    </Show>
+                  </div>
+                </Show>
+              );
+            })()}
+          </Show>
+
+          {/* Glob: show matched file list from response */}
+          <Show when={e().tool_name === "Glob" && hasResponse()}>
+            {(() => {
+              const output = () => responseText();
+              const allFiles = createMemo(() => output().split("\n").filter(Boolean));
+              const visibleFiles = () => allFiles().slice(0, 20);
+              return (
+                <Show when={output()}>
+                  <div class="terminal-block mt-1">
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="text-[8px] text-text-sub uppercase tracking-wider">Files</span>
+                      <span class="text-[8px] text-text-dim">{allFiles().length} matched</span>
+                    </div>
+                    <For each={visibleFiles()}>
+                      {(file) => (
+                        <div class="text-text-dim truncate">
+                          <span class="text-text-sub">{file.split("/").slice(0, -1).join("/")}/</span>
+                          <span class="text-text-label">{file.split("/").pop()}</span>
+                        </div>
+                      )}
+                    </For>
+                    <Show when={allFiles().length > 20}>
+                      <div class="text-text-sub mt-1">... {allFiles().length - 20} more files</div>
+                    </Show>
+                  </div>
+                </Show>
+              );
+            })()}
+          </Show>
+
+          {/* Agent: show prompt + result */}
+          <Show when={e().tool_name === "Agent"}>
+            {(() => {
+              const prompt = () => (input().prompt as string) || "";
+              const agentType = () => (input().subagent_type as string) || (input().type as string) || "";
+              const result = () => responseText();
+              return (
+                <>
+                  <Show when={agentType()}>
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="text-[8px] font-bold uppercase tracking-wider" style={{ color: agentColor(agentType()) }}>
+                        {agentType()}
+                      </span>
+                      <Show when={input().model}>
+                        <span class="text-[8px] text-text-dim">{input().model as string}</span>
+                      </Show>
+                    </div>
+                  </Show>
+                  <Show when={prompt()}>
+                    <div class="terminal-block mt-1 mb-1">
+                      <span class="text-[8px] text-text-sub uppercase tracking-wider">Prompt</span>
+                      <div class="text-text-dim mt-0.5 whitespace-pre-wrap text-[9px] max-h-[120px] overflow-y-auto">{prompt().slice(0, 500)}</div>
+                    </div>
+                  </Show>
+                  <Show when={result()}>
+                    <div class="terminal-block mt-1">
+                      <span class="text-[8px] text-text-sub uppercase tracking-wider">Result</span>
+                      <div class="text-text-dim mt-0.5 whitespace-pre-wrap text-[9px] max-h-[200px] overflow-y-auto">{result().slice(0, 800)}</div>
+                    </div>
+                  </Show>
+                </>
+              );
+            })()}
+          </Show>
+
+          {/* Generic fallback: show tool_input keys for unknown tools */}
+          <Show when={!["Bash", "Edit", "Write", "Read", "Grep", "Glob", "Agent"].includes(e().tool_name || "") && Object.keys(input()).length > 0}>
+            <div class="terminal-block mt-1">
+              <span class="text-[8px] text-text-sub uppercase tracking-wider">Input</span>
+              <For each={Object.entries(input()).slice(0, 10)}>
+                {([key, val]) => (
+                  <div class="text-text-dim truncate mt-0.5">
+                    <span class="text-text-label">{key}:</span>{" "}
+                    <span>{typeof val === "string" ? val.slice(0, 200) : JSON.stringify(val).slice(0, 200)}</span>
+                  </div>
+                )}
+              </For>
+            </div>
+          </Show>
+
+          {/* Generic response for non-Bash tools that have response data but no specific renderer */}
+          <Show when={!["Bash", "Edit", "Write", "Read", "Grep", "Glob", "Agent"].includes(e().tool_name || "") && hasResponse() && Object.keys(response()).length > 0}>
+            <div class="terminal-block mt-1">
+              <span class="text-[8px] text-text-sub uppercase tracking-wider">Output</span>
+              <For each={Object.entries(response()).slice(0, 10)}>
+                {([key, val]) => (
+                  <div class="text-text-dim truncate mt-0.5">
+                    <span class="text-text-label">{key}:</span>{" "}
+                    <span>{typeof val === "string" ? val.slice(0, 300) : JSON.stringify(val).slice(0, 300)}</span>
+                  </div>
+                )}
+              </For>
+            </div>
+          </Show>
         </div>
       </div>
     </div>
@@ -592,6 +796,8 @@ export const SessionDetail: Component<{
   showClose?: boolean;
   pendingActions?: Record<string, PendingAction>;
   onActionRespond?: (actionId: string, hookResponse: Record<string, unknown>) => void;
+  onRequestHistory?: (sessionId: string) => void;
+  historyLoading?: boolean;
 }> = (props) => {
   const s = () => props.session;
   let scrollRef: HTMLDivElement | undefined;
@@ -603,8 +809,9 @@ export const SessionDetail: Component<{
   onCleanup(() => clearInterval(timer));
 
   // Events sorted chronologically, with agent_id for nesting
-  const timeline = createMemo(() =>
-    s()
+  // Merges PreToolUse + PostToolUse by tool_use_id into a single event
+  const timeline = createMemo(() => {
+    const filtered = s()
       .events.filter(
         (e) =>
           e.tool_name ||
@@ -622,8 +829,35 @@ export const SessionDetail: Component<{
           e.hook_event_name === "SubagentStop" ||
           e.hook_event_name === "UserPromptSubmit",
       )
-      .sort((a, b) => a.timestamp - b.timestamp),
-  );
+      .sort((a, b) => a.timestamp - b.timestamp);
+
+    // Deduplicate: when PostToolUse arrives, merge into PreToolUse and drop the Post row
+    const mergedByToolUseId = new Map<string, number>(); // tool_use_id → index in result
+    const result: MonitorEvent[] = [];
+    for (const e of filtered) {
+      const tuid = e.tool_use_id;
+      if (tuid && e.hook_event_name === "PreToolUse") {
+        mergedByToolUseId.set(tuid, result.length);
+        result.push(e);
+      } else if (tuid && (e.hook_event_name === "PostToolUse" || e.hook_event_name === "PostToolUseFailure") && mergedByToolUseId.has(tuid)) {
+        // Merge Post into Pre's slot: keep Pre's identity fields, add Post's response data
+        const idx = mergedByToolUseId.get(tuid)!;
+        const pre = result[idx];
+        result[idx] = {
+          ...pre,
+          // Only copy response-specific fields from Post — preserve Pre's hook_event_name, timestamp, agent_id
+          hook_event_name: e.hook_event_name === "PostToolUseFailure" ? "PostToolUseFailure" : "PostToolUse",
+          tool_response: e.tool_response,
+          duration_ms: e.duration_ms,
+          error: e.error,
+          error_details: e.error_details,
+        };
+      } else {
+        result.push(e);
+      }
+    }
+    return result;
+  });
 
   // Build agent nesting: track which agent_ids have active SubagentStart blocks
   const agentBlocks = createMemo(() => {
@@ -728,6 +962,13 @@ export const SessionDetail: Component<{
     setAutoScroll(atBottom);
   };
 
+  // Auto-load history from IDB when session has no in-memory events
+  createEffect(() => {
+    if (s().events.length === 0 && props.onRequestHistory) {
+      props.onRequestHistory(s().session_id);
+    }
+  });
+
   const jumpToLatest = () => {
     if (scrollRef) {
       scrollRef.scrollTop = scrollRef.scrollHeight;
@@ -766,7 +1007,7 @@ export const SessionDetail: Component<{
   });
 
   return (
-    <div class={`${props.isMobile ? "w-full flex-1" : "flex-1 min-w-0"} flex flex-col overflow-hidden bg-bg`}>
+    <div class={`cm-content ${props.isMobile ? "w-full flex-1" : "flex-1 min-w-0"} flex flex-col overflow-hidden bg-bg`}>
       {/* Header — aligned with ACTIVITY header */}
       <div class="px-3 py-2 border-b border-panel-border flex items-center gap-2 shrink-0 h-[33px]">
         <Show when={props.showClose !== false || props.isMobile}>
@@ -809,14 +1050,21 @@ export const SessionDetail: Component<{
               </Show>
             </div>
           </div>
-          <div
-            class="mt-2 bg-[#0c0c0c] border border-suspicious/20 rounded px-2.5 py-1.5 font-mono text-[10px] text-suspicious/80 cursor-pointer hover:border-suspicious/40 transition-colors select-all"
-            title="Click to copy resume command"
-            onClick={() => navigator.clipboard.writeText(`claude --resume ${s().session_id}`)}
-          >
-            claude --resume {s().session_id}
-          </div>
-          <Show when={s().cwd}>
+          <Show when={!props.isMobile}>
+            <div
+              class="mt-2 bg-[#0c0c0c] border border-suspicious/20 rounded px-2.5 py-1.5 font-mono text-[10px] text-suspicious/80 cursor-pointer hover:border-suspicious/40 transition-colors select-all"
+              title="Click to copy resume command"
+              onClick={() => navigator.clipboard.writeText(`claude --resume ${s().session_id}`)}
+            >
+              claude --resume {s().session_id}
+            </div>
+          </Show>
+          <Show when={props.isMobile}>
+            <div class="mt-1.5 text-[10px] text-suspicious/60">
+              Resume this session from your terminal to continue.
+            </div>
+          </Show>
+          <Show when={s().cwd && !props.isMobile}>
             <div class="text-[8px] text-text-sub mt-1">in {s().cwd}</div>
           </Show>
         </div>
@@ -878,16 +1126,16 @@ export const SessionDetail: Component<{
                           return (
                             <div class="border-l-3 border-l-[#8a8478] bg-[#1a1916] mt-2">
                               <button
-                                class="flex items-start gap-2 w-full px-3 py-2.5 hover:bg-[#8a847810] text-left"
+                                class="flex items-start gap-2.5 w-full px-3 py-2 hover:bg-[#8a847810] text-left"
                                 onClick={() => hasMore && setOpen(!open())}
                               >
-                                <span class="text-[11px] text-[#8a8478] font-bold shrink-0 mt-0.5">you</span>
+                                <span class="text-[10px] text-[#8a8478] font-bold shrink-0 leading-[18px]">you</span>
                                 <Show when={isSlashCmd}>
                                   <span class="text-[8px] font-mono font-bold text-safe bg-safe/10 px-1 rounded-sm shrink-0">
                                     {text.split(/\s/)[0]}
                                   </span>
                                 </Show>
-                                <span class="text-[10px] text-text-primary min-w-0">
+                                <span class="text-[10px] text-text-primary min-w-0 leading-[18px]">
                                   <Show when={!open()}>
                                     <span class="line-clamp-2">
                                       {isSlashCmd ? text.slice(text.indexOf(" ") + 1) : text}
@@ -898,7 +1146,7 @@ export const SessionDetail: Component<{
                                   </Show>
                                 </span>
                                 <Show when={hasMore}>
-                                  <span class="text-text-sub shrink-0 ml-auto mt-0.5">
+                                  <span class="text-text-sub shrink-0 ml-auto leading-[18px]">
                                     {open() ? <CaretDown size={9} /> : <CaretRight size={9} />}
                                   </span>
                                 </Show>
@@ -924,23 +1172,23 @@ export const SessionDetail: Component<{
                           return (
                             <div class="border-l-3 border-l-safe/40 bg-[#161412] mt-1">
                               <button
-                                class="flex items-start gap-2 w-full px-3 py-2.5 hover:bg-safe/8 text-left"
+                                class="flex items-center gap-2.5 w-full px-3 py-2 hover:bg-safe/8 text-left"
                                 onClick={() => hasText && setOpen(!open())}
                               >
-                                <span class="text-[11px] text-safe font-bold shrink-0 mt-0.5">Claude</span>
+                                <span class="text-[10px] text-safe font-bold shrink-0 leading-none">Claude</span>
                                 <Show when={event.stop_hook_active}>
-                                  <span class="text-[9px] font-bold text-suspicious bg-suspicious/10 px-1 rounded-sm uppercase shrink-0">
+                                  <span class="text-[9px] font-bold text-suspicious bg-suspicious/10 px-1 rounded-sm uppercase shrink-0 leading-none">
                                     verifying
                                   </span>
                                 </Show>
                                 <Show when={hasText && !open()}>
-                                  <span class="text-[9px] text-text-dim truncate min-w-0">
+                                  <span class="text-[9px] text-text-dim truncate min-w-0 leading-none">
                                     {firstLine}
                                     {text.length > 120 ? "..." : ""}
                                   </span>
                                 </Show>
                                 <Show when={!hasText}>
-                                  <span class="text-[9px] text-text-sub italic">Done</span>
+                                  <span class="text-[9px] text-text-sub italic leading-none">Done</span>
                                 </Show>
                                 <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
                                 <Show when={hasText}>
@@ -1282,7 +1530,14 @@ export const SessionDetail: Component<{
           )}
         </For>
 
-        <Show when={timeline().length === 0}>
+        <Show when={props.historyLoading && timeline().length === 0}>
+          <div class="flex items-center justify-center gap-2 py-6">
+            <span class="w-2 h-2 rounded-full bg-text-sub animate-pulse" />
+            <span class="text-[10px] text-text-dim">Loading history...</span>
+          </div>
+        </Show>
+
+        <Show when={timeline().length === 0 && !props.historyLoading}>
           <div class="p-4 space-y-3">
             {/* Session info grid */}
             <div class="border border-panel-border rounded-sm bg-card">
@@ -1426,7 +1681,7 @@ export const SessionDetail: Component<{
 
       {/* Session info bar — fixed at bottom, aligned with CONFLICTS */}
       <div
-        class={`shrink-0 border-t border-panel-border px-3 py-2 bg-item ${props.isMobile ? "sticky bottom-0 z-10" : ""}`}
+        class={`shrink-0 border-t border-panel-border px-3 py-2 bg-item ${props.isMobile ? "sticky bottom-0 z-10 mobile-footer" : ""}`}
       >
         <div class="flex items-center gap-2 text-[10px]">
           <span

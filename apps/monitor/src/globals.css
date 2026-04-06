@@ -1,5 +1,6 @@
 @import "tailwindcss";
 
+/* v2 — zero-friction onboarding rewrite */
 :root {
   --bg: #0a0a0a;
   --panel: #1a1916;
@@ -37,10 +38,14 @@
   --font-mono: "Geist Mono", "SF Mono", "Fira Code", "Courier New", monospace;
 }
 
+/* Text size — single zoom variable drives presets + pinch gestures */
+.cm-content { zoom: var(--cm-zoom, 1); }
+
 html,
 body {
   overflow: hidden;
   overscroll-behavior: none;
+  touch-action: manipulation; /* allow pan + tap, disable browser pinch-zoom (ours handles it) */
 }
 
 body {
@@ -165,11 +170,12 @@ body {
 .file-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 1px 6px;
-  border-radius: 3px;
-  font-size: 10px;
+  gap: 3px;
+  padding: 0 5px;
+  border-radius: 2px;
+  font-size: 9px;
   font-weight: 600;
+  line-height: 18px;
   cursor: default;
   position: relative;
 }
@@ -197,24 +203,42 @@ body {
   background: #4a464020;
   color: #8a8478;
 }
-.file-badge .tooltip {
-  display: none;
-  position: absolute;
-  bottom: 100%;
-  left: 0;
+/* SmartTooltip — viewport-aware, portal-based */
+.smart-tooltip {
   background: #1a1916;
   border: 1px solid var(--panel-border);
   border-radius: 4px;
-  padding: 4px 8px;
+  padding: 6px 10px;
   font-size: 9px;
+  font-family: "Geist Mono", monospace;
   color: var(--text-dim);
-  white-space: nowrap;
-  z-index: 50;
   pointer-events: none;
-  margin-bottom: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  animation: tooltip-fade 0.1s ease-out;
 }
-.file-badge:hover .tooltip {
-  display: block;
+.smart-tooltip .tt-label {
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-sub);
+  margin-bottom: 2px;
+}
+.smart-tooltip .tt-value {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+.smart-tooltip .tt-dim {
+  color: var(--text-dim);
+}
+.smart-tooltip .tt-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+}
+@keyframes tooltip-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* Live event slide-in */
@@ -232,18 +256,38 @@ body {
   animation: event-slide-in 0.08s ease-out forwards;
 }
 
-/* Tool running pulse — green dot for in-progress tools */
+/* Tool running pulse — status dot for in-progress tools */
 @keyframes tool-running-pulse {
-  0%,
-  100% {
-    opacity: 0.3;
-  }
-  50% {
-    opacity: 1;
-  }
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
 }
 .tool-running {
-  animation: tool-running-pulse 1.2s ease-in-out infinite;
+  animation: tool-running-pulse 1.5s ease-in-out infinite;
+}
+
+/* Tool row running shimmer — subtle left-to-right sweep */
+@keyframes tool-active-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.tool-row-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(163, 177, 138, 0.03) 40%,
+    rgba(163, 177, 138, 0.06) 50%,
+    rgba(163, 177, 138, 0.03) 60%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: tool-active-shimmer 3s ease-in-out infinite;
+}
+
+/* Tool row grid — children need min-width:0 for truncation in grid cells */
+.tool-row-grid > * {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Status color transition */
@@ -466,13 +510,35 @@ body {
 
 /* ── Mobile responsive ──────────────────────────────────────────── */
 @media (max-width: 768px) {
-  /* Header */
+  /* Status bar area matches header bg exactly */
+  html, body {
+    background: var(--item);
+  }
+
+  /* Safe area padding — header extends into status bar area */
   .mobile-header {
     height: auto;
     min-height: 44px;
     padding: 8px 12px;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 8px);
+    padding-left: max(12px, env(safe-area-inset-left, 12px));
+    padding-right: max(12px, env(safe-area-inset-right, 12px));
     flex-wrap: wrap;
     gap: 8px;
+  }
+
+  /* Lock body to viewport — no scroll bounce on main layout */
+  body {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Root app fills viewport */
+  #root {
+    height: 100%;
+    overflow: hidden;
   }
 
   /* Agent map session cards: full width, touch-friendly */
@@ -487,41 +553,21 @@ body {
     max-height: 120px;
   }
 
-  /* Onboarding: stack columns vertically */
-  .onboarding-grid {
-    flex-direction: column !important;
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch;
-  }
-  .onboarding-grid > div {
-    flex: none !important;
-    border-right: none !important;
-    border-bottom: 1px solid var(--panel-border);
-    overflow: visible !important;
-    min-height: auto !important;
-    padding: 20px 16px !important;
-  }
-  .onboarding-grid > div:last-child {
-    border-bottom: none;
-    padding-bottom: 40px !important;
+  /* Hide resume command on mobile — not useful on phones */
+  .mobile-hide {
+    display: none !important;
   }
 
-  /* Collapsible fields section */
-  .fields-collapsible-body {
-    overflow: hidden;
-    transition: max-height 0.2s ease-out, opacity 0.15s ease-out;
-  }
-  .fields-collapsed {
-    max-height: 0;
-    opacity: 0;
-  }
-  .fields-expanded {
-    max-height: 2000px;
-    opacity: 1;
+  /* Mobile session overlay: account for safe areas */
+  .mobile-session-overlay {
+    top: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
-  /* Idle dashboard mobile padding */
-  .flex-1.flex.flex-col.items-center.justify-center.bg-bg {
-    padding: 24px 16px;
+  /* Footer bar safe area */
+  .mobile-footer {
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 8px));
+    padding-left: max(12px, env(safe-area-inset-left, 12px));
+    padding-right: max(12px, env(safe-area-inset-right, 12px));
   }
 }
