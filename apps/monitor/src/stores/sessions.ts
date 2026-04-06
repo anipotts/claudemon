@@ -4,7 +4,7 @@ import type { MonitorEvent, SessionState, WsMessage } from "../../../../packages
 import { TOOL_CATEGORIES } from "../../../../packages/types/monitor";
 import { createWebSocket } from "./websocket";
 import { formatDuration } from "../utils/time";
-import { openDB, saveSession, saveEvent, loadSessions } from "./persistence";
+import { openDB, saveSession, saveEvent, loadSessions, pruneOld } from "./persistence";
 import { decryptTransit, getTransitKey } from "../crypto/transit";
 import { normalizeEvent } from "../utils/normalize";
 
@@ -411,19 +411,31 @@ export function createSessionStore() {
     setPendingActions(actionId, undefined!);
   }
 
-  // Load persisted sessions from IndexedDB on init
+  // Load persisted sessions from IndexedDB on init, auto-stale old ones
+  const STALE_MS = 10 * 60 * 1000; // 10 minutes
+  const PURGE_MS = 24 * 60 * 60 * 1000; // 24 hours — don't even show these
   const [persistenceReady, setPersistenceReady] = createSignal(false);
   openDB()
     .then(() => loadSessions())
     .then((saved) => {
       if (saved.length > 0) {
+        const now = Date.now();
         const newState: Record<string, SessionState> = {};
         for (const s of saved) {
+          const age = now - s.last_event_at;
+          // Skip sessions with no events for 24h+ — they're dead
+          if (age > PURGE_MS) continue;
+          // Auto-mark stale sessions as offline
+          if (age > STALE_MS && s.status !== "done" && s.status !== "offline") {
+            s.status = "offline";
+          }
           newState[s.session_id] = s;
         }
         setSessions(reconcile(newState));
       }
       setPersistenceReady(true);
+      // Run IndexedDB prune cycle
+      pruneOld().catch(() => {});
     })
     .catch(() => setPersistenceReady(true)); // proceed even if IDB fails
 
