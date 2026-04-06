@@ -1,7 +1,7 @@
 import { type Component, For, Show, createMemo, createSignal, createEffect, onCleanup } from "solid-js";
 import type { MonitorEvent, SessionState } from "../../../../packages/types/monitor";
 import { STATUS_COLORS } from "../../../../packages/types/monitor";
-import { GitBranch, CaretDown, CaretRight } from "./Icons";
+import { GitBranch, CaretDown, CaretRight, Key } from "./Icons";
 import { PermissionBadge } from "./PermissionBadge";
 import { ModelBadge } from "./ModelBadge";
 import { FileBadge } from "./FileBadge";
@@ -42,7 +42,7 @@ function CopyContextBtn(props: { session: SessionState; event: MonitorEvent }) {
         e.stopPropagation();
         handleCopy();
       }}
-      class="text-[7px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-sm transition-colors shrink-0"
+      class="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-sm transition-colors shrink-0"
       style={{
         color: copied() ? "#a3b18a" : "#b85c4a",
         background: copied() ? "#a3b18a15" : "#b85c4a15",
@@ -87,6 +87,61 @@ function agentColor(type: string): string {
   return AGENT_TYPE_COLORS[type] || "#b07bac";
 }
 
+// ── AskUserQuestion Batch ──────────────────────────────────────────
+
+function QuestionBatchBlock(props: { events: MonitorEvent[]; defaultExpanded: boolean }) {
+  const [expanded, setExpanded] = createSignal(props.defaultExpanded);
+  const count = () => props.events.length;
+  const answered = () => props.events.filter((e) => e.hook_event_name === "PostToolUse").length;
+  const pending = () => count() - answered();
+
+  return (
+    <div class="border-b border-panel-border/30 event-enter">
+      <button
+        class="flex items-center gap-1.5 w-full px-3 py-1.5 hover:bg-panel/20 text-left"
+        onClick={() => setExpanded(!expanded())}
+      >
+        <span class="text-[11px] text-text-dim w-4 text-center shrink-0 font-mono">?</span>
+        <span class="text-[10px] font-bold text-suspicious shrink-0">AskUserQuestion</span>
+        <span class="text-[9px] text-text-sub bg-panel-border/20 px-1 rounded-sm">{count()} questions</span>
+        <Show when={pending() > 0}>
+          <span class="w-1.5 h-1.5 rounded-full bg-suspicious tool-running shrink-0" />
+        </Show>
+        <Show when={answered() === count()}>
+          <span class="text-[9px] text-safe/50 uppercase tracking-wider">done</span>
+        </Show>
+        <Timestamp ts={props.events[0].timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
+        <span class="text-text-sub shrink-0 ml-1">{expanded() ? <CaretDown size={9} /> : <CaretRight size={9} />}</span>
+      </button>
+      <div class={`tool-call-body ${expanded() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
+        <div class="px-3 pb-2 pl-8">
+          <div class="border border-panel-border/30 rounded-sm overflow-hidden">
+            <For each={props.events}>
+              {(ev) => {
+                const question = () => (ev.tool_input?.question as string) || "Unknown question";
+                const hasAnswer = () => ev.hook_event_name === "PostToolUse";
+                return (
+                  <div class="flex items-center gap-2 px-2 py-1 border-b border-panel-border/10 last:border-b-0 text-[9px]">
+                    <span
+                      class={`w-1.5 h-1.5 rounded-full shrink-0 ${hasAnswer() ? "bg-safe" : "bg-suspicious tool-running"}`}
+                    />
+                    <span class="text-text-dim truncate min-w-0 flex-1">{question()}</span>
+                    <span
+                      class={`text-[9px] uppercase shrink-0 ${hasAnswer() ? "text-safe/50" : "text-suspicious/50"}`}
+                    >
+                      {hasAnswer() ? "answered" : "pending"}
+                    </span>
+                  </div>
+                );
+              }}
+            </For>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Collapsible Tool Call ───────────────────────────────────────────
 
 function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean; focused?: boolean }) {
@@ -97,6 +152,32 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean; f
   const icon = () => TOOL_ICONS[e().tool_name || ""] || "o";
   const hasResponse = () => e().hook_event_name === "PostToolUse" && Object.keys(response()).length > 0;
   const isRunning = () => e().hook_event_name === "PreToolUse";
+
+  // Live elapsed + timeout detection for in-progress tools
+  const [timedOut, setTimedOut] = createSignal(false);
+  const [liveElapsed, setLiveElapsed] = createSignal(0);
+  createEffect(() => {
+    if (!isRunning()) {
+      setTimedOut(false);
+      setLiveElapsed(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - e().timestamp;
+      setLiveElapsed(elapsed);
+      if (elapsed > 30000) setTimedOut(true);
+    }, 1000);
+    onCleanup(() => clearInterval(interval));
+  });
+
+  const liveElapsedLabel = () => {
+    const ms = liveElapsed();
+    if (ms < 1000) return null;
+    if (ms < 60000) return `${Math.floor(ms / 1000)}s`;
+    const m = Math.floor(ms / 60000);
+    const s = Math.round((ms % 60000) / 1000);
+    return `${m}m ${s}s`;
+  };
 
   const durationLabel = () => {
     const ms = e().duration_ms;
@@ -215,11 +296,37 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean; f
     return { removed, added };
   };
 
+  // Encrypted event placeholder
+  // Passive tools (observation-only) get dimmer styling
+  const isPassiveTool = () => {
+    const t = e().tool_name;
+    return t === "Read" || t === "Grep" || t === "Glob";
+  };
+
+  // Encrypted event placeholder
+  const isEncrypted = () => !!e()._encrypted && !e()._decrypt_failed;
+  const isDecryptFailed = () => !!e()._decrypt_failed;
+
+  if (isEncrypted() || isDecryptFailed()) {
+    return (
+      <div class="border-b border-panel-border/20 event-enter">
+        <div class="flex items-center gap-1.5 w-full px-3 py-1.5">
+          <Key size={11} class={isDecryptFailed() ? "text-attack/40" : "text-text-sub"} />
+          <span class="text-[10px] font-bold text-text-sub shrink-0">{e().tool_name || e().hook_event_name}</span>
+          <span class={`text-[9px] ${isDecryptFailed() ? "text-attack/40" : "text-text-sub"}`}>
+            {isDecryptFailed() ? "[encrypted — wrong key?]" : "[encrypted]"}
+          </span>
+          <Timestamp ts={e().timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div class={`border-b border-panel-border/20 event-enter ${props.focused ? "ring-1 ring-safe/30" : ""}`}>
+    <div class={`border-b border-panel-border/30 event-enter ${props.focused ? "ring-1 ring-safe/30" : ""}`}>
       {/* Header row — always visible, clickable. Shows file badge + summary inline */}
       <button
-        class="flex items-center gap-1.5 w-full px-3 py-1.5 hover:bg-panel/20 text-left"
+        class={`flex items-center gap-1.5 w-full px-3 py-1.5 hover:bg-panel/20 text-left ${isPassiveTool() ? "opacity-70" : ""}`}
         onClick={() => setExpanded(!expanded())}
       >
         <span class="text-[11px] text-text-dim w-4 text-center shrink-0 font-mono">{icon()}</span>
@@ -229,7 +336,7 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean; f
         <Show when={cmdLabel()}>
           {(cl) => (
             <span
-              class="text-[7px] font-bold uppercase px-1 rounded-sm shrink-0"
+              class="text-[9px] font-bold uppercase px-1 rounded-sm shrink-0"
               style={{ color: cl().color, background: cl().color + "18" }}
             >
               {cl().label}
@@ -244,7 +351,7 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean; f
 
         {/* Edit: replace_all badge */}
         <Show when={isReplaceAll()}>
-          <span class="text-[7px] text-suspicious bg-suspicious/10 px-1 rounded-sm shrink-0">all</span>
+          <span class="text-[9px] text-suspicious bg-suspicious/10 px-1 rounded-sm shrink-0">all</span>
         </Show>
 
         {/* Edit diff stat — always visible */}
@@ -273,21 +380,33 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean; f
         <Show
           when={bashOutput()?.exitCode !== undefined && bashOutput()!.exitCode !== 0 && bashOutput()!.exitCode !== null}
         >
-          <span class="text-[7px] font-bold text-attack bg-attack/15 px-1 rounded-sm">
+          <span class="text-[9px] font-bold text-attack bg-attack/15 px-1 rounded-sm">
             exit {String(bashOutput()!.exitCode)}
           </span>
         </Show>
 
-        {/* In-progress spinner for PreToolUse (not yet paired with PostToolUse) */}
+        {/* In-progress spinner or timeout badge for PreToolUse */}
         <Show when={isRunning()}>
-          <span class="inline-flex items-center gap-1 shrink-0">
-            <span class="w-1.5 h-1.5 rounded-full bg-safe tool-running shrink-0" />
-          </span>
+          <Show
+            when={timedOut()}
+            fallback={
+              <span class="inline-flex items-center gap-1 shrink-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-safe tool-running shrink-0" />
+                <Show when={liveElapsedLabel()}>
+                  <span class="text-[9px] text-safe/60 font-mono">{liveElapsedLabel()}</span>
+                </Show>
+              </span>
+            }
+          >
+            <span class="text-[9px] font-bold text-suspicious bg-suspicious/10 px-1 rounded-sm uppercase shrink-0">
+              timed out
+            </span>
+          </Show>
         </Show>
 
         {/* Done badge + duration for completed tools */}
         <Show when={hasResponse() && !(bashOutput()?.exitCode !== undefined && bashOutput()!.exitCode !== 0)}>
-          <span class="text-[7px] text-safe/50 uppercase tracking-wider">done</span>
+          <span class="text-[9px] text-safe/50 uppercase tracking-wider">done</span>
         </Show>
         <Show when={durationLabel()}>
           <span class="text-[8px] text-text-sub font-mono">{durationLabel()}</span>
@@ -425,9 +544,59 @@ export const SessionDetail: Component<{
   const nestedIndices = createMemo(() => {
     const set = new Set<number>();
     for (const block of agentBlocks().values()) {
+      set.add(block.startIdx);
+      if (block.stopIdx >= 0) set.add(block.stopIdx);
       for (const idx of block.childIndices) set.add(idx);
     }
     return set;
+  });
+
+  // Detect consecutive AskUserQuestion events within 2s for batch display
+  const questionBatches = createMemo(() => {
+    const events = timeline();
+    const batches = new Map<number, number[]>();
+    let currentBatch: number[] = [];
+    let lastTs = 0;
+    for (let i = 0; i < events.length; i++) {
+      const ev = events[i];
+      if (nestedIndices().has(i)) continue;
+      if (ev.tool_name === "AskUserQuestion") {
+        if (currentBatch.length === 0 || ev.timestamp - lastTs <= 2000) {
+          currentBatch.push(i);
+          lastTs = ev.timestamp;
+        } else {
+          if (currentBatch.length >= 2) batches.set(currentBatch[0], [...currentBatch]);
+          currentBatch = [i];
+          lastTs = ev.timestamp;
+        }
+      } else {
+        if (currentBatch.length >= 2) batches.set(currentBatch[0], [...currentBatch]);
+        currentBatch = [];
+        lastTs = 0;
+      }
+    }
+    if (currentBatch.length >= 2) batches.set(currentBatch[0], [...currentBatch]);
+    return batches;
+  });
+
+  const batchedIndices = createMemo(() => {
+    const set = new Set<number>();
+    for (const indices of questionBatches().values()) {
+      for (let j = 1; j < indices.length; j++) set.add(indices[j]);
+    }
+    return set;
+  });
+
+  // Subagent section toggle — user-controlled collapse persists across updates
+  const [userToggledSubagents, setUserToggledSubagents] = createSignal(false);
+  const [subagentsOpen, setSubagentsOpen] = createSignal(true);
+  const toggleSubagents = () => {
+    setUserToggledSubagents(true);
+    setSubagentsOpen(!subagentsOpen());
+  };
+  createEffect(() => {
+    const anyRunning = Array.from(agentBlocks().values()).some((b) => b.stopIdx < 0);
+    if (!userToggledSubagents()) setSubagentsOpen(anyRunning || agentBlocks().size === 0);
   });
 
   // Auto-scroll to bottom on new events
@@ -519,8 +688,8 @@ export const SessionDetail: Component<{
               style={{ "box-shadow": "0 0 8px var(--suspicious)" }}
             />
             <div class="flex-1 min-w-0">
-              <span class="text-[11px] font-bold text-suspicious">Claude needs your input</span>
-              <Show when={s().notification_message}>
+              <span class="text-[11px] font-bold text-suspicious">{s().smart_status || "Claude needs your input"}</span>
+              <Show when={s().notification_message && s().notification_message !== s().smart_status}>
                 <div class="text-[10px] text-text-dim mt-0.5">{s().notification_message}</div>
               </Show>
             </div>
@@ -564,7 +733,7 @@ export const SessionDetail: Component<{
       >
         <For each={timeline()}>
           {(event, i) => (
-            <Show when={!nestedIndices().has(i())}>
+            <Show when={!nestedIndices().has(i()) && !batchedIndices().has(i())}>
               <div data-tl-idx={i()}>
                 <Show
                   when={event.tool_name}
@@ -579,12 +748,12 @@ export const SessionDetail: Component<{
                           const isSlashCmd = text.startsWith("/");
                           const hasMore = text.length > 120 || text.includes("\n");
                           return (
-                            <div class="border-l-2 border-l-[#8a8478] bg-[#8a847808] mt-1">
+                            <div class="border-l-3 border-l-[#8a8478] bg-[#1a1916] mt-2">
                               <button
-                                class="flex items-start gap-2 w-full px-3 py-2 hover:bg-[#8a847810] text-left"
+                                class="flex items-start gap-2 w-full px-3 py-2.5 hover:bg-[#8a847810] text-left"
                                 onClick={() => hasMore && setOpen(!open())}
                               >
-                                <span class="text-[10px] text-[#8a8478] font-bold shrink-0 mt-0.5">you</span>
+                                <span class="text-[11px] text-[#8a8478] font-bold shrink-0 mt-0.5">you</span>
                                 <Show when={isSlashCmd}>
                                   <span class="text-[8px] font-mono font-bold text-safe bg-safe/10 px-1 rounded-sm shrink-0">
                                     {text.split(/\s/)[0]}
@@ -625,14 +794,14 @@ export const SessionDetail: Component<{
                               ?.replace(/\*\*/g, "")
                               ?.slice(0, 120) || "";
                           return (
-                            <div class="border-l-2 border-l-safe/40 bg-safe/5">
+                            <div class="border-l-3 border-l-safe/40 bg-[#161412] mt-1">
                               <button
-                                class="flex items-start gap-2 w-full px-3 py-2 hover:bg-safe/8 text-left"
+                                class="flex items-start gap-2 w-full px-3 py-2.5 hover:bg-safe/8 text-left"
                                 onClick={() => hasText && setOpen(!open())}
                               >
-                                <span class="text-[10px] text-safe font-bold shrink-0 mt-0.5">Claude</span>
+                                <span class="text-[11px] text-safe font-bold shrink-0 mt-0.5">Claude</span>
                                 <Show when={event.stop_hook_active}>
-                                  <span class="text-[7px] font-bold text-suspicious bg-suspicious/10 px-1 rounded-sm uppercase shrink-0">
+                                  <span class="text-[9px] font-bold text-suspicious bg-suspicious/10 px-1 rounded-sm uppercase shrink-0">
                                     verifying
                                   </span>
                                 </Show>
@@ -750,7 +919,7 @@ export const SessionDetail: Component<{
                                   <span class="w-1.5 h-1.5 rounded-full bg-[#b07bac] tool-running shrink-0" />
                                 </Show>
                                 <Show when={isDone()}>
-                                  <span class="text-[7px] text-[#b07bac]/50 uppercase">done</span>
+                                  <span class="text-[9px] text-[#b07bac]/50 uppercase">done</span>
                                 </Show>
                                 <Show when={childEvents().length > 0}>
                                   <span class="text-[8px] text-text-sub">{childEvents().length} tools</span>
@@ -980,16 +1149,150 @@ export const SessionDetail: Component<{
                     </>
                   }
                 >
-                  <ToolCallBlock
-                    event={event}
-                    defaultExpanded={i() >= timeline().length - 5}
-                    focused={focusedIdx() === i()}
-                  />
+                  <Show
+                    when={questionBatches().has(i())}
+                    fallback={
+                      <ToolCallBlock
+                        event={event}
+                        defaultExpanded={i() >= timeline().length - 5}
+                        focused={focusedIdx() === i()}
+                      />
+                    }
+                  >
+                    <QuestionBatchBlock
+                      events={questionBatches()
+                        .get(i())!
+                        .map((idx) => timeline()[idx])}
+                      defaultExpanded={i() >= timeline().length - 5}
+                    />
+                  </Show>
                 </Show>
               </div>
             </Show>
           )}
         </For>
+
+        {/* ── Separated Subagents Section ──────────────────────── */}
+        <Show when={agentBlocks().size > 0}>
+          <div class="border-t border-[#b07bac]/20 mt-1">
+            <button
+              class="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#b07bac08] text-left"
+              onClick={toggleSubagents}
+            >
+              <span class="text-[10px] font-bold text-[#b07bac]">Subagents</span>
+              <span class="text-[9px] text-text-sub bg-[#b07bac]/10 px-1 rounded-sm">{agentBlocks().size}</span>
+              <Show when={Array.from(agentBlocks().values()).some((b) => b.stopIdx < 0)}>
+                <span class="w-1.5 h-1.5 rounded-full bg-[#b07bac] tool-running shrink-0" />
+              </Show>
+              <span class="text-text-sub shrink-0 ml-auto">
+                {subagentsOpen() ? <CaretDown size={9} /> : <CaretRight size={9} />}
+              </span>
+            </button>
+            <div class={`tool-call-body ${subagentsOpen() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
+              <For each={Array.from(agentBlocks().entries())}>
+                {([_agentId, block]) => {
+                  const startEvent = () => timeline()[block.startIdx];
+                  const isDone = () => block.stopIdx >= 0;
+                  const [open, setOpen] = createSignal(!isDone());
+                  const childEvents = () => block.childIndices.map((idx) => timeline()[idx]).filter(Boolean);
+                  const stopEvent = () => (block.stopIdx >= 0 ? timeline()[block.stopIdx] : undefined);
+                  const agentDuration = () => {
+                    const stop = stopEvent();
+                    if (!stop || !startEvent()) return null;
+                    const ms = stop.timestamp - startEvent().timestamp;
+                    if (ms < 1000) return "<1s";
+                    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+                    const m = Math.floor(ms / 60000);
+                    const s = Math.round((ms % 60000) / 1000);
+                    return `${m}m ${s}s`;
+                  };
+                  return (
+                    <Show when={startEvent()}>
+                      <div class="border-l-2 border-l-[#b07bac]/40 bg-[#b07bac08] ml-2">
+                        <button
+                          class="flex items-center gap-2 w-full px-3 py-1.5 hover:bg-[#b07bac10] text-left"
+                          onClick={() => setOpen(!open())}
+                        >
+                          <span class="text-[9px] font-bold" style={{ color: agentColor(block.type) }}>
+                            @
+                          </span>
+                          <span
+                            class="text-[9px] font-mono font-bold px-1 rounded-sm"
+                            style={{ color: agentColor(block.type), background: agentColor(block.type) + "18" }}
+                          >
+                            {block.type || "general-purpose"}
+                          </span>
+                          <Show when={!isDone()}>
+                            <span class="w-1.5 h-1.5 rounded-full bg-[#b07bac] tool-running shrink-0" />
+                          </Show>
+                          <Show when={isDone()}>
+                            <span class="text-[9px] text-[#b07bac]/50 uppercase">done</span>
+                          </Show>
+                          <Show when={childEvents().length > 0}>
+                            <span class="text-[9px] text-text-sub">{childEvents().length} tools</span>
+                          </Show>
+                          <Show when={agentDuration()}>
+                            <span class="text-[9px] text-text-sub font-mono">{agentDuration()}</span>
+                          </Show>
+                          <Timestamp ts={startEvent().timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
+                          <span class="text-text-sub shrink-0">
+                            {open() ? <CaretDown size={9} /> : <CaretRight size={9} />}
+                          </span>
+                        </button>
+                        <div class={`tool-call-body ${open() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
+                          <div class="ml-3 border-l border-[#b07bac]/20">
+                            <For each={childEvents()}>
+                              {(childEvent) => (
+                                <Show
+                                  when={childEvent.tool_name}
+                                  fallback={
+                                    <div class="border-b border-panel-border/10 px-3 py-1 flex items-center gap-2">
+                                      <span class="text-[9px] text-text-sub">{childEvent.hook_event_name}</span>
+                                      <Timestamp ts={childEvent.timestamp} class="text-[9px] text-text-sub ml-auto" />
+                                    </div>
+                                  }
+                                >
+                                  <ToolCallBlock event={childEvent} defaultExpanded={false} />
+                                </Show>
+                              )}
+                            </For>
+                            <Show when={stopEvent()?.last_assistant_message}>
+                              {(() => {
+                                const [resultOpen, setResultOpen] = createSignal(false);
+                                const text = stopEvent()!.last_assistant_message!;
+                                return (
+                                  <div class="border-t border-[#b07bac]/20">
+                                    <button
+                                      class="flex items-center gap-2 w-full px-3 py-1 hover:bg-[#b07bac08] text-left"
+                                      onClick={() => setResultOpen(!resultOpen())}
+                                    >
+                                      <span class="text-[9px] font-bold text-[#b07bac]/60">Result</span>
+                                      <span class="text-[9px] text-text-dim truncate">{text.slice(0, 60)}</span>
+                                      <span class="text-text-sub shrink-0 ml-auto">
+                                        {resultOpen() ? <CaretDown size={8} /> : <CaretRight size={8} />}
+                                      </span>
+                                    </button>
+                                    <div
+                                      class={`tool-call-body ${resultOpen() ? "tool-call-expanded" : "tool-call-collapsed"}`}
+                                    >
+                                      <div class="px-3 pb-2 max-h-[200px] overflow-y-auto">
+                                        <MarkdownBlock text={text} maxLength={2000} />
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </Show>
+                          </div>
+                        </div>
+                      </div>
+                    </Show>
+                  );
+                }}
+              </For>
+            </div>
+          </div>
+        </Show>
 
         <Show when={timeline().length === 0}>
           <div class="p-4 space-y-3">
