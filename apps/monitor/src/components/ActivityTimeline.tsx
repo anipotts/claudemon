@@ -1,34 +1,41 @@
 import { type Component, For, Show, createSignal, createMemo } from "solid-js";
+import { Dynamic } from "solid-js/web";
 import type { MonitorEvent, HookEventName } from "../../../../packages/types/monitor";
-import { Terminal } from "./Icons";
+import {
+  Eye, PencilSimple, Plus, Terminal, MagnifyingGlass, Folder,
+  Robot, Play, X, Pause, Warning, Bell, ArrowsClockwise,
+  Key, ShieldCheck, ChatText, Circle,
+} from "./Icons";
 import { FileBadge } from "./FileBadge";
-import { SessionBadge, hashSessionColor } from "./SessionBadge";
-import { timeAgo } from "../utils/time";
+import { SessionBadge } from "./SessionBadge";
+import { Timestamp } from "./Timestamp";
 import { getEventTier } from "../stores/persistence";
 
 // ── Icon + color maps ──────────────────────────────────────────────
 
-const TOOL_ICONS: Record<string, string> = {
-  Read: ".",
-  Edit: "~",
-  Write: "+",
-  Bash: ">_",
-  Grep: "?",
-  Glob: "*",
-  Agent: "@",
-  SessionStart: ">>",
-  SessionEnd: "||",
-  Stop: "||",
-  StopFailure: "!!",
-  Notification: "?!",
-  PostToolUseFailure: "!!",
-  PreCompact: "<<",
-  PostCompact: ">>",
-  PermissionRequest: ">>",
-  PermissionDenied: "xx",
-  SubagentStart: "@+",
-  SubagentStop: "@-",
-  UserPromptSubmit: ">",
+type IconComp = Component<{ size?: number; class?: string; style?: Record<string, string> }>;
+
+const TOOL_ICON_MAP: Record<string, IconComp> = {
+  Read: Eye,
+  Edit: PencilSimple,
+  Write: Plus,
+  Bash: Terminal,
+  Grep: MagnifyingGlass,
+  Glob: Folder,
+  Agent: Robot,
+  SessionStart: Play,
+  SessionEnd: X,
+  Stop: Pause,
+  StopFailure: Warning,
+  Notification: Bell,
+  PostToolUseFailure: Warning,
+  PreCompact: ArrowsClockwise,
+  PostCompact: ArrowsClockwise,
+  PermissionRequest: Key,
+  PermissionDenied: ShieldCheck,
+  SubagentStart: Robot,
+  SubagentStop: Robot,
+  UserPromptSubmit: ChatText,
 };
 
 const ACTION_COLORS: Record<string, string> = {
@@ -79,9 +86,9 @@ function eventSeverity(e: MonitorEvent): Severity {
 }
 
 const SEVERITY_BG: Record<Severity, string> = {
-  error: "bg-attack/8 border-l-2 border-l-attack",
-  warning: "bg-suspicious/5 border-l-2 border-l-suspicious",
-  lifecycle: "border-l-2 border-l-text-sub/30",
+  error: "bg-attack/8",
+  warning: "bg-suspicious/5",
+  lifecycle: "",
   tool: "",
   info: "",
 };
@@ -163,31 +170,34 @@ function getEventDetail(e: MonitorEvent): {
 
 // ── Event Row ──────────────────────────────────────────────────────
 
-function EventRow(props: { event: MonitorEvent; onSelect?: (id: string) => void; compact?: boolean }) {
+function EventRow(props: { event: MonitorEvent; onSelect?: (id: string) => void }) {
   const e = () => props.event;
   const severity = () => eventSeverity(e());
   const tier = () => getEventTier(e().hook_event_name as HookEventName);
   const color = () => ACTION_COLORS[e().tool_name || ""] || ACTION_COLORS[e().hook_event_name] || "#6b6560";
-  const sessionColor = () => hashSessionColor(e().session_id);
   const detail = () => getEventDetail(e());
-  const icon = () => TOOL_ICONS[e().tool_name || ""] || TOOL_ICONS[e().hook_event_name] || "o";
+  const iconComp = () => TOOL_ICON_MAP[e().tool_name || ""] || TOOL_ICON_MAP[e().hook_event_name] || Circle;
   const toolName = () => e().tool_name || e().hook_event_name;
   const isDimmed = () => tier() >= 3;
 
   return (
     <div
-      class={`py-1 px-2 hover:bg-panel/30 rounded-sm event-enter cursor-pointer transition-colors ${SEVERITY_BG[severity()]} ${isDimmed() ? "opacity-50" : ""}`}
+      class={`py-1.5 px-2 hover:bg-panel/30 event-enter cursor-pointer transition-colors border-b border-panel-border/20 ${SEVERITY_BG[severity()]} ${isDimmed() ? "opacity-50" : ""}`}
       onClick={() => props.onSelect?.(e().session_id)}
     >
-      {/* Single row: badge · icon · tool · detail/file · time */}
-      <div class="flex items-center gap-1 overflow-hidden" style={{ "white-space": "nowrap" }}>
+      {/* Row 1: session badge + timestamp */}
+      <div class="flex items-center justify-between gap-1 overflow-hidden" style={{ "white-space": "nowrap" }}>
         <SessionBadge
           sessionId={e().session_id}
           projectName={e().project_path?.split("/").pop()}
           onClick={() => props.onSelect?.(e().session_id)}
         />
-        <span class="text-[9px] w-3 text-center font-mono shrink-0" style={{ color: color() }}>
-          {icon()}
+        <Timestamp ts={e().timestamp} class="text-[9px] text-text-sub font-mono shrink-0" />
+      </div>
+      {/* Row 2: tool icon + type + detail — single line, never wraps */}
+      <div class="flex items-center gap-1 mt-0.5 min-w-0 overflow-hidden" style={{ "white-space": "nowrap" }}>
+        <span class="shrink-0 flex items-center">
+          <Dynamic component={iconComp()} size={10} style={{ color: color() }} />
         </span>
         <span class="text-[9px] font-bold uppercase shrink-0" style={{ color: color() }}>
           {toolName()}
@@ -211,7 +221,6 @@ function EventRow(props: { event: MonitorEvent; onSelect?: (id: string) => void;
         <Show when={detail().secondary}>
           <span class="text-[9px] text-text-sub truncate min-w-0">{detail().secondary}</span>
         </Show>
-        <span class="text-[9px] text-text-sub shrink-0 ml-auto font-mono">{timeAgo(e().timestamp)}</span>
       </div>
     </div>
   );
@@ -294,7 +303,7 @@ export const ActivityTimeline: Component<{
     <div class="flex flex-col h-full">
       {/* Filter tabs */}
       <Show when={baseEvents().length > 0}>
-        <div class="flex items-center gap-0.5 px-2 py-1.5 border-b border-panel-border/50 shrink-0">
+        <div class="flex items-center gap-0.5 px-2 py-1.5 border-b border-panel-border/50 shrink-0 overflow-x-auto">
           <For each={["all", "signals", "tools", "lifecycle", "prompts", "agents", "errors"] as FilterType[]}>
             {(f) => {
               const count = () => filterCounts()[f];
