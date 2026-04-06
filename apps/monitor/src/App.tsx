@@ -264,9 +264,22 @@ const App: Component = () => {
           <span class="text-lg font-bold tracking-wider flex items-center gap-1.5">
             <ShieldCheck size={20} /> ClaudeMon
           </span>
-          <Show when={hasAgents() && !isMobile()}>
+          <Show
+            when={showOnboarding()}
+            fallback={
+              <Show when={hasAgents() && !isMobile()}>
+                <span class="text-text-sub">|</span>
+                <span class="text-[11px] text-text-dim tracking-wider">Monitor your Claude Code sessions in real time</span>
+              </Show>
+            }
+          >
             <span class="text-text-sub">|</span>
-            <span class="text-[11px] text-text-dim tracking-wider">Monitor your Claude Code sessions in real time</span>
+            <button
+              class="text-[11px] text-text-sub hover:text-text-primary transition-colors"
+              onClick={() => setShowOnboarding(false)}
+            >
+              Back to dashboard
+            </button>
           </Show>
         </div>
         <div class="flex items-center gap-4">
@@ -408,7 +421,7 @@ const App: Component = () => {
           <Show
             when={showOnboarding() || (!authLoading() && !user()?.has_api_keys)}
             fallback={
-              <IdleDashboard connectionStatus={connectionStatus} onShowSetup={() => setShowOnboarding(true)} />
+              <IdleDashboard connectionStatus={connectionStatus} />
             }
           >
             <Onboarding apiUrl={API_URL} user={user()} authLoading={authLoading()} onSetupComplete={refetchUser} onClose={() => setShowOnboarding(false)} />

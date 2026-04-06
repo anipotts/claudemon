@@ -454,18 +454,6 @@ print('Done! Restart your terminal.')
 
   return (
     <div class="flex-1 flex flex-col overflow-hidden">
-      {/* Back button when opened from idle dashboard */}
-      <Show when={props.onClose}>
-        <div class="shrink-0 border-b border-panel-border/30 px-4 py-2 flex items-center gap-2">
-          <button
-            onClick={() => props.onClose!()}
-            class="text-[10px] text-text-sub hover:text-text-primary transition-colors flex items-center gap-1.5"
-          >
-            <CaretRight size={10} style={{ transform: "rotate(180deg)" }} />
-            Back to dashboard
-          </button>
-        </div>
-      </Show>
       {/* 3-column grid fills viewport below header — stacks on mobile */}
       <div class={`flex-1 flex min-h-0 onboarding-grid ${isMobile() ? "flex-col overflow-y-auto" : ""}`}>
         {/* ── COL 1: Auth + API key ──────────────────────────── */}
