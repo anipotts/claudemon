@@ -10,7 +10,11 @@
 set -euo pipefail
 
 API_URL="${CLAUDEMON_API_URL:-https://api.claudemon.com}"
+# API key: try plugin userConfig first, then file-based fallback
 API_KEY="${CLAUDE_PLUGIN_OPTION_API_KEY:-}"
+if [ -z "$API_KEY" ] && [ -f "$HOME/.claudemon/api-key" ]; then
+  API_KEY="$(cat "$HOME/.claudemon/api-key" 2>/dev/null || true)"
+fi
 INPUT="$(cat)"
 
 # Extract session_id for batch file naming
