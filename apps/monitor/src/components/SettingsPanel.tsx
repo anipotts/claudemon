@@ -1,5 +1,7 @@
 import { type Component, createSignal, Show, For, onMount, onCleanup } from "solid-js";
-import { X, Copy, Check, Trash, Plus, Key, Info, ArrowSquareOut, Warning } from "./Icons";
+import { X, Copy, Check, Trash, Plus, Key, Info, ArrowSquareOut, Warning, ShieldCheck } from "./Icons";
+import { getTransitKey, setTransitKey, clearTransitKey } from "../crypto/transit";
+import { getStorageEstimate } from "../stores/persistence";
 
 // ── Helpers ────────────────────────────────────────────────────────
 
@@ -78,7 +80,7 @@ interface HealthResponse {
   status?: string;
 }
 
-type TabId = "connection" | "api-keys" | "about";
+type TabId = "connection" | "api-keys" | "privacy" | "history" | "about";
 
 // ── Settings Panel ────────────────────────────────────────────────
 
@@ -100,6 +102,8 @@ export const SettingsPanel: Component<{
   const tabs: Array<{ id: TabId; label: string }> = [
     { id: "connection", label: "Connection" },
     { id: "api-keys", label: "API Keys" },
+    { id: "privacy", label: "Privacy" },
+    { id: "history", label: "History" },
     { id: "about", label: "About" },
   ];
 
@@ -142,6 +146,12 @@ export const SettingsPanel: Component<{
           </Show>
           <Show when={activeTab() === "api-keys"}>
             <ApiKeysTab apiUrl={props.apiUrl} />
+          </Show>
+          <Show when={activeTab() === "privacy"}>
+            <PrivacyTab />
+          </Show>
+          <Show when={activeTab() === "history"}>
+            <HistoryTab />
           </Show>
           <Show when={activeTab() === "about"}>
             <AboutTab apiUrl={props.apiUrl} />
@@ -521,6 +531,165 @@ const ApiKeysTab: Component<{ apiUrl: string }> = (props) => {
           </div>
         </div>
       </Show>
+    </div>
+  );
+};
+
+// ── Privacy Tab ───────────────────────────────────────────────────
+
+const PrivacyTab: Component = () => {
+  const [keyInput, setKeyInput] = createSignal("");
+  const [hasKey, setHasKey] = createSignal(!!getTransitKey());
+  const [saved, setSaved] = createSignal(false);
+
+  const handleSave = () => {
+    const key = keyInput().trim();
+    if (key.length >= 32) {
+      setTransitKey(key);
+      setHasKey(true);
+      setKeyInput("");
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }
+  };
+
+  const handleClear = () => {
+    clearTransitKey();
+    setHasKey(false);
+  };
+
+  return (
+    <div class="space-y-4">
+      <div class="flex items-center gap-2 mb-3">
+        <ShieldCheck size={16} class="text-safe" />
+        <span class="text-[12px] font-bold text-text-primary">Transit Encryption</span>
+      </div>
+
+      <DiagRow label="Status">
+        <div class="flex items-center gap-2">
+          <StatusDot status={hasKey() ? "ok" : "warn"} />
+          <span class="text-[11px]">
+            {hasKey() ? "Active — events will be decrypted" : "No key set — encrypted events hidden"}
+          </span>
+        </div>
+      </DiagRow>
+
+      <Show
+        when={!hasKey()}
+        fallback={
+          <div class="flex items-center gap-2">
+            <Key size={12} class="text-safe" />
+            <span class="text-[10px] text-text-dim">Transit key is set</span>
+            <button
+              onClick={handleClear}
+              class="text-[10px] text-attack hover:text-attack/80 transition-colors ml-auto"
+            >
+              Clear key
+            </button>
+          </div>
+        }
+      >
+        <div class="space-y-2">
+          <span class="text-[10px] text-text-sub block">Paste your transit key from CLI (hex, 32+ chars):</span>
+          <div class="flex gap-2">
+            <input
+              type="password"
+              value={keyInput()}
+              onInput={(e) => setKeyInput(e.target.value)}
+              placeholder="Enter transit key..."
+              class="flex-1 bg-input-bg border border-panel-border rounded px-2 py-1.5 text-[11px] text-text-primary font-mono placeholder:text-text-sub"
+            />
+            <button
+              onClick={handleSave}
+              disabled={keyInput().trim().length < 32}
+              class="px-3 py-1.5 rounded text-[10px] font-bold uppercase bg-safe/15 text-safe hover:bg-safe/25 transition-colors disabled:opacity-30"
+            >
+              {saved() ? "Saved" : "Save"}
+            </button>
+          </div>
+          <p class="text-[9px] text-text-sub">Generate a key with: claudemon-cli generate-key</p>
+        </div>
+      </Show>
+    </div>
+  );
+};
+
+// ── History Tab ───────────────────────────────────────────────────
+
+const HistoryTab: Component = () => {
+  const [storage, setStorage] = createSignal<{ used: number; quota: number } | null>(null);
+  const [clearing, setClearing] = createSignal(false);
+  const [cleared, setCleared] = createSignal(false);
+
+  onMount(async () => {
+    const est = await getStorageEstimate();
+    setStorage(est);
+  });
+
+  const formatBytes = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1048576).toFixed(1)} MB`;
+  };
+
+  const handleClear = async () => {
+    setClearing(true);
+    try {
+      const dbs = await indexedDB.databases();
+      for (const db of dbs) {
+        if (db.name?.includes("claudemon")) {
+          indexedDB.deleteDatabase(db.name);
+        }
+      }
+      setCleared(true);
+      setTimeout(() => window.location.reload(), 1500);
+    } catch {
+      setClearing(false);
+    }
+  };
+
+  return (
+    <div class="space-y-4">
+      <div class="flex items-center gap-2 mb-3">
+        <Info size={16} class="text-text-label" />
+        <span class="text-[12px] font-bold text-text-primary">Local Storage</span>
+      </div>
+
+      <DiagRow label="Storage">
+        <Show when={storage()} fallback={<span class="text-text-sub">Loading...</span>}>
+          {(() => {
+            const s = storage()!;
+            return (
+              <span>
+                {formatBytes(s.used)} used of {formatBytes(s.quota)}
+              </span>
+            );
+          })()}
+        </Show>
+      </DiagRow>
+
+      <DiagRow label="Retention">
+        <div class="space-y-1">
+          <div class="text-[11px]">Events: 7 days</div>
+          <div class="text-[11px]">Errors: 30 days</div>
+        </div>
+      </DiagRow>
+
+      <DiagRow label="Engine">
+        <span class="text-[11px]">IndexedDB (browser local-first)</span>
+      </DiagRow>
+
+      <div class="mt-4 pt-4 border-t border-panel-border/30">
+        <button
+          onClick={handleClear}
+          disabled={clearing()}
+          class="flex items-center gap-2 px-3 py-2 rounded text-[10px] font-bold uppercase bg-attack/10 text-attack hover:bg-attack/20 transition-colors disabled:opacity-50"
+        >
+          <Trash size={12} />
+          {cleared() ? "Cleared — reloading..." : clearing() ? "Clearing..." : "Clear all local data"}
+        </button>
+        <p class="text-[9px] text-text-sub mt-2">Removes all cached sessions and events from this browser.</p>
+      </div>
     </div>
   );
 };
