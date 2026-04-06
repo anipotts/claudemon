@@ -406,12 +406,12 @@ const App: Component = () => {
         when={hasAgents()}
         fallback={
           <Show
-            when={user()?.has_api_keys && !showOnboarding()}
+            when={showOnboarding() || (!authLoading() && !user()?.has_api_keys)}
             fallback={
-              <Onboarding apiUrl={API_URL} user={user()} authLoading={authLoading()} onSetupComplete={refetchUser} onClose={user()?.has_api_keys ? () => setShowOnboarding(false) : undefined} />
+              <IdleDashboard connectionStatus={connectionStatus} onShowSetup={() => setShowOnboarding(true)} />
             }
           >
-            <IdleDashboard connectionStatus={connectionStatus} onShowSetup={() => setShowOnboarding(true)} />
+            <Onboarding apiUrl={API_URL} user={user()} authLoading={authLoading()} onSetupComplete={refetchUser} onClose={() => setShowOnboarding(false)} />
           </Show>
         }
       >
