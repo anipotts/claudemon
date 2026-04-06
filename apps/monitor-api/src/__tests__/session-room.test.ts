@@ -1013,3 +1013,626 @@ describe("processEvent — metadata propagation", () => {
     expect(sessions.get("s1")!.last_event_at).toBe(ts);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Action Bridge — message routing logic
+//
+// The SessionRoom Durable Object manages an action bridge that routes
+// sync hook events (PermissionRequest, Notification, Elicitation) to
+// browser clients for approval/denial. These tests validate the routing
+// logic by simulating the webSocketMessage handler behavior.
+// ---------------------------------------------------------------------------
+
+/**
+ * Minimal mock WebSocket for action bridge testing.
+ * Captures sent messages for assertion.
+ */
+class MockWebSocket {
+  sent: string[] = [];
+  closed = false;
+  tags: string[];
+
+  constructor(tags: string[] = []) {
+    this.tags = tags;
+  }
+
+  send(data: string) {
+    if (this.closed) throw new Error("WebSocket is closed");
+    this.sent.push(data);
+  }
+
+  close() {
+    this.closed = true;
+  }
+
+  lastMessage(): Record<string, unknown> | null {
+    if (this.sent.length === 0) return null;
+    return JSON.parse(this.sent[this.sent.length - 1]);
+  }
+
+  allMessages(): Record<string, unknown>[] {
+    return this.sent.map((s) => JSON.parse(s));
+  }
+}
+
+/**
+ * Simulates the action bridge routing logic from SessionRoom.webSocketMessage().
+ * This is an extracted version of the message handler that works with mock
+ * WebSockets instead of requiring Durable Object infrastructure.
+ */
+class ActionBridgeHarness {
+  pendingActions: Map<
+    string,
+    {
+      id: string;
+      session_id: string;
+      hook_event_name: string;
+      event_data: Record<string, unknown>;
+      hookWs: MockWebSocket;
+    }
+  > = new Map();
+  actionHookSockets: Map<string, MockWebSocket> = new Map();
+  browserSockets: MockWebSocket[] = [];
+  actionSockets: MockWebSocket[] = [];
+  uuidCounter = 0;
+
+  addBrowser(): MockWebSocket {
+    const ws = new MockWebSocket(["browser"]);
+    this.browserSockets.push(ws);
+    return ws;
+  }
+
+  addActionHook(): MockWebSocket {
+    const ws = new MockWebSocket(["action"]);
+    this.actionSockets.push(ws);
+    return ws;
+  }
+
+  generateUUID(): string {
+    this.uuidCounter++;
+    return `action-${this.uuidCounter}`;
+  }
+
+  /**
+   * Process a WebSocket message — mirrors SessionRoom.webSocketMessage().
+   */
+  processMessage(ws: MockWebSocket, data: Record<string, unknown>): void {
+    const isAction = ws.tags.includes("action");
+    const isBrowser = ws.tags.includes("browser");
+
+    // Ping/pong
+    if (data.type === "ping") {
+      ws.send(JSON.stringify({ type: "pong", ts: Date.now() }));
+      return;
+    }
+
+    // Action hook sends an event for browser approval
+    if (isAction && data.type === "action_request") {
+      const id = this.generateUUID();
+
+      if (this.browserSockets.filter((b) => !b.closed).length === 0) {
+        ws.send(JSON.stringify({ type: "no_browser" }));
+        return;
+      }
+
+      const action = {
+        id,
+        session_id: (data.session_id as string) || "",
+        hook_event_name: (data.hook_event_name as string) || "",
+        event_data: data,
+        hookWs: ws,
+      };
+      this.pendingActions.set(id, action);
+      this.actionHookSockets.set(id, ws);
+
+      const broadcastData = JSON.stringify({
+        type: "action_request",
+        action: { id, session_id: action.session_id, hook_event_name: action.hook_event_name, event_data: data },
+      });
+      for (const bws of this.browserSockets) {
+        if (!bws.closed) {
+          try {
+            bws.send(broadcastData);
+          } catch {}
+        }
+      }
+      return;
+    }
+
+    // Browser sends an action response (approve/deny)
+    if (isBrowser && data.type === "action_response") {
+      const actionId = data.action_id as string;
+      const pending = this.pendingActions.get(actionId);
+      if (pending) {
+        const hookWs = this.actionHookSockets.get(actionId);
+        if (hookWs) {
+          try {
+            hookWs.send(
+              JSON.stringify({
+                type: "response",
+                hook_response: data.hook_response || {},
+              }),
+            );
+          } catch {}
+        }
+        this.pendingActions.delete(actionId);
+        this.actionHookSockets.delete(actionId);
+
+        // Notify all browsers that the action is resolved
+        const resolvedData = JSON.stringify({ type: "action_resolved", action_id: actionId });
+        for (const bws of this.browserSockets) {
+          if (!bws.closed) {
+            try {
+              bws.send(resolvedData);
+            } catch {}
+          }
+        }
+      }
+      return;
+    }
+  }
+
+  /**
+   * Simulate webSocketClose — clean up pending actions for this socket.
+   */
+  handleClose(ws: MockWebSocket): void {
+    for (const [id, hookWs] of this.actionHookSockets) {
+      if (hookWs === ws) {
+        this.pendingActions.delete(id);
+        this.actionHookSockets.delete(id);
+      }
+    }
+  }
+
+  /**
+   * Simulate webSocketError — same cleanup as close.
+   */
+  handleError(ws: MockWebSocket): void {
+    this.handleClose(ws);
+  }
+}
+
+describe("Action Bridge — action_request with no browser sockets", () => {
+  it("returns no_browser to hook when no browsers are connected", () => {
+    const bridge = new ActionBridgeHarness();
+    const hookWs = bridge.addActionHook();
+
+    bridge.processMessage(hookWs, {
+      type: "action_request",
+      session_id: "s1",
+      hook_event_name: "PermissionRequest",
+    });
+
+    expect(hookWs.sent).toHaveLength(1);
+    const msg = hookWs.lastMessage();
+    expect(msg).not.toBeNull();
+    expect(msg!.type).toBe("no_browser");
+  });
+
+  it("does not create a pending action", () => {
+    const bridge = new ActionBridgeHarness();
+    const hookWs = bridge.addActionHook();
+
+    bridge.processMessage(hookWs, {
+      type: "action_request",
+      session_id: "s1",
+      hook_event_name: "PermissionRequest",
+    });
+
+    expect(bridge.pendingActions.size).toBe(0);
+  });
+
+  it("returns no_browser when all browsers have disconnected", () => {
+    const bridge = new ActionBridgeHarness();
+    const browserWs = bridge.addBrowser();
+    browserWs.closed = true; // simulate disconnect
+    const hookWs = bridge.addActionHook();
+
+    bridge.processMessage(hookWs, {
+      type: "action_request",
+      session_id: "s1",
+      hook_event_name: "PermissionRequest",
+    });
+
+    expect(hookWs.lastMessage()!.type).toBe("no_browser");
+  });
+});
+
+describe("Action Bridge — action_request with browser connected", () => {
+  it("broadcasts action_request to browser with UUID", () => {
+    const bridge = new ActionBridgeHarness();
+    const browserWs = bridge.addBrowser();
+    const hookWs = bridge.addActionHook();
+
+    bridge.processMessage(hookWs, {
+      type: "action_request",
+      session_id: "s1",
+      hook_event_name: "PermissionRequest",
+    });
+
+    expect(browserWs.sent).toHaveLength(1);
+    const msg = browserWs.lastMessage()!;
+    expect(msg.type).toBe("action_request");
+    const action = msg.action as Record<string, unknown>;
+    expect(action.id).toBe("action-1");
+    expect(action.session_id).toBe("s1");
+    expect(action.hook_event_name).toBe("PermissionRequest");
+  });
+
+  it("creates a pending action entry", () => {
+    const bridge = new ActionBridgeHarness();
+    bridge.addBrowser();
+    const hookWs = bridge.addActionHook();
+
+    bridge.processMessage(hookWs, {
+      type: "action_request",
+      session_id: "s1",
+      hook_event_name: "PermissionRequest",
+    });
+
+    expect(bridge.pendingActions.size).toBe(1);
+    const pending = bridge.pendingActions.get("action-1")!;
+    expect(pending.session_id).toBe("s1");
+    expect(pending.hook_event_name).toBe("PermissionRequest");
+    expect(pending.hookWs).toBe(hookWs);
+  });
+
+  it("stores the hook socket reference for relay", () => {
+    const bridge = new ActionBridgeHarness();
+    bridge.addBrowser();
+    const hookWs = bridge.addActionHook();
+
+    bridge.processMessage(hookWs, {
+      type: "action_request",
+      session_id: "s1",
+      hook_event_name: "PermissionRequest",
+    });
+
+    expect(bridge.actionHookSockets.get("action-1")).toBe(hookWs);
+  });
+
+  it("broadcasts to multiple browsers", () => {
+    const bridge = new ActionBridgeHarness();
+    const browser1 = bridge.addBrowser();
+    const browser2 = bridge.addBrowser();
+    const hookWs = bridge.addActionHook();
+
+    bridge.processMessage(hookWs, {
+      type: "action_request",
+      session_id: "s1",
+      hook_event_name: "Notification",
+    });
+
+    expect(browser1.sent).toHaveLength(1);
+    expect(browser2.sent).toHaveLength(1);
+    // Both receive the same action ID
+    expect((browser1.lastMessage()!.action as Record<string, unknown>).id).toBe("action-1");
+    expect((browser2.lastMessage()!.action as Record<string, unknown>).id).toBe("action-1");
+  });
+
+  it("does not send anything back to the hook socket on broadcast", () => {
+    const bridge = new ActionBridgeHarness();
+    bridge.addBrowser();
+    const hookWs = bridge.addActionHook();
+
+    bridge.processMessage(hookWs, {
+      type: "action_request",
+      session_id: "s1",
+      hook_event_name: "PermissionRequest",
+    });
+
+    // Hook socket should not receive any message (it waits for browser response)
+    expect(hookWs.sent).toHaveLength(0);
+  });
+});
+
+describe("Action Bridge — action_response from browser", () => {
+  it("relays hook_response to the hook socket", () => {
+    const bridge = new ActionBridgeHarness();
+    const browserWs = bridge.addBrowser();
+    const hookWs = bridge.addActionHook();
+
+    // Hook sends action request
+    bridge.processMessage(hookWs, {
+      type: "action_request",
+      session_id: "s1",
+      hook_event_name: "PermissionRequest",
+    });
+
+    // Browser responds
+    bridge.processMessage(browserWs, {
+      type: "action_response",
+      action_id: "action-1",
+      hook_response: {
+        hookSpecificOutput: {
+          hookEventName: "PermissionRequest",
+          decision: { behavior: "allow" },
+        },
+      },
+    });
+
+    // Hook should receive the response
+    expect(hookWs.sent).toHaveLength(1);
+    const msg = hookWs.lastMessage()!;
+    expect(msg.type).toBe("response");
+    const hookResponse = msg.hook_response as Record<string, unknown>;
+    const hso = hookResponse.hookSpecificOutput as Record<string, unknown>;
+    const decision = hso.decision as Record<string, unknown>;
+    expect(decision.behavior).toBe("allow");
+  });
+
+  it("broadcasts action_resolved to all browsers", () => {
+    const bridge = new ActionBridgeHarness();
+    const browser1 = bridge.addBrowser();
+    const browser2 = bridge.addBrowser();
+    const hookWs = bridge.addActionHook();
+
+    bridge.processMessage(hookWs, {
+      type: "action_request",
+      session_id: "s1",
+      hook_event_name: "Notification",
+    });
+
+    // Browser 1 responds
+    bridge.processMessage(browser1, {
+      type: "action_response",
+      action_id: "action-1",
+      hook_response: {},
+    });
+
+    // Both browsers should receive action_resolved (browser1 gets request + resolved, browser2 gets request + resolved)
+    const browser1Msgs = browser1.allMessages();
+    const browser2Msgs = browser2.allMessages();
+
+    expect(browser1Msgs).toHaveLength(2); // action_request + action_resolved
+    expect(browser1Msgs[1].type).toBe("action_resolved");
+    expect(browser1Msgs[1].action_id).toBe("action-1");
+
+    expect(browser2Msgs).toHaveLength(2);
+    expect(browser2Msgs[1].type).toBe("action_resolved");
+  });
+
+  it("cleans up pending action after response", () => {
+    const bridge = new ActionBridgeHarness();
+    const browserWs = bridge.addBrowser();
+    const hookWs = bridge.addActionHook();
+
+    bridge.processMessage(hookWs, {
+      type: "action_request",
+      session_id: "s1",
+      hook_event_name: "PermissionRequest",
+    });
+    expect(bridge.pendingActions.size).toBe(1);
+
+    bridge.processMessage(browserWs, {
+      type: "action_response",
+      action_id: "action-1",
+      hook_response: {},
+    });
+
+    expect(bridge.pendingActions.size).toBe(0);
+    expect(bridge.actionHookSockets.size).toBe(0);
+  });
+
+  it("relays empty hook_response as empty object", () => {
+    const bridge = new ActionBridgeHarness();
+    const browserWs = bridge.addBrowser();
+    const hookWs = bridge.addActionHook();
+
+    bridge.processMessage(hookWs, {
+      type: "action_request",
+      session_id: "s1",
+      hook_event_name: "Notification",
+    });
+
+    bridge.processMessage(browserWs, {
+      type: "action_response",
+      action_id: "action-1",
+      // no hook_response
+    });
+
+    const msg = hookWs.lastMessage()!;
+    expect(msg.hook_response).toEqual({});
+  });
+});
+
+describe("Action Bridge — action_response for unknown action_id", () => {
+  it("does nothing when action_id is not in pending actions", () => {
+    const bridge = new ActionBridgeHarness();
+    const browserWs = bridge.addBrowser();
+
+    bridge.processMessage(browserWs, {
+      type: "action_response",
+      action_id: "nonexistent-id",
+      hook_response: {},
+    });
+
+    // No messages sent to browser beyond what was already there
+    expect(browserWs.sent).toHaveLength(0);
+  });
+
+  it("does not affect existing pending actions", () => {
+    const bridge = new ActionBridgeHarness();
+    const browserWs = bridge.addBrowser();
+    const hookWs = bridge.addActionHook();
+
+    // Create a real pending action
+    bridge.processMessage(hookWs, {
+      type: "action_request",
+      session_id: "s1",
+      hook_event_name: "PermissionRequest",
+    });
+
+    // Try to respond to a different action_id
+    bridge.processMessage(browserWs, {
+      type: "action_response",
+      action_id: "wrong-id",
+      hook_response: {},
+    });
+
+    // Original pending action should still be there
+    expect(bridge.pendingActions.size).toBe(1);
+    expect(bridge.pendingActions.has("action-1")).toBe(true);
+  });
+});
+
+describe("Action Bridge — pending action cleanup on hook socket close", () => {
+  it("removes pending actions when the hook socket closes", () => {
+    const bridge = new ActionBridgeHarness();
+    bridge.addBrowser();
+    const hookWs = bridge.addActionHook();
+
+    bridge.processMessage(hookWs, {
+      type: "action_request",
+      session_id: "s1",
+      hook_event_name: "PermissionRequest",
+    });
+    expect(bridge.pendingActions.size).toBe(1);
+
+    bridge.handleClose(hookWs);
+
+    expect(bridge.pendingActions.size).toBe(0);
+    expect(bridge.actionHookSockets.size).toBe(0);
+  });
+
+  it("only removes actions for the disconnected hook socket", () => {
+    const bridge = new ActionBridgeHarness();
+    bridge.addBrowser();
+    const hook1 = bridge.addActionHook();
+    const hook2 = bridge.addActionHook();
+
+    bridge.processMessage(hook1, {
+      type: "action_request",
+      session_id: "s1",
+      hook_event_name: "PermissionRequest",
+    });
+    bridge.processMessage(hook2, {
+      type: "action_request",
+      session_id: "s2",
+      hook_event_name: "Notification",
+    });
+    expect(bridge.pendingActions.size).toBe(2);
+
+    bridge.handleClose(hook1);
+
+    expect(bridge.pendingActions.size).toBe(1);
+    expect(bridge.pendingActions.has("action-2")).toBe(true);
+  });
+
+  it("handles close when hook has no pending actions", () => {
+    const bridge = new ActionBridgeHarness();
+    const hookWs = bridge.addActionHook();
+
+    // Close without any pending actions — should not throw
+    bridge.handleClose(hookWs);
+    expect(bridge.pendingActions.size).toBe(0);
+  });
+});
+
+describe("Action Bridge — pending action cleanup on hook socket error", () => {
+  it("removes pending actions on webSocketError", () => {
+    const bridge = new ActionBridgeHarness();
+    bridge.addBrowser();
+    const hookWs = bridge.addActionHook();
+
+    bridge.processMessage(hookWs, {
+      type: "action_request",
+      session_id: "s1",
+      hook_event_name: "Elicitation",
+    });
+    expect(bridge.pendingActions.size).toBe(1);
+
+    bridge.handleError(hookWs);
+
+    expect(bridge.pendingActions.size).toBe(0);
+    expect(bridge.actionHookSockets.size).toBe(0);
+  });
+
+  it("only removes actions for the errored socket", () => {
+    const bridge = new ActionBridgeHarness();
+    bridge.addBrowser();
+    const hook1 = bridge.addActionHook();
+    const hook2 = bridge.addActionHook();
+
+    bridge.processMessage(hook1, {
+      type: "action_request",
+      session_id: "s1",
+      hook_event_name: "PermissionRequest",
+    });
+    bridge.processMessage(hook2, {
+      type: "action_request",
+      session_id: "s2",
+      hook_event_name: "Notification",
+    });
+
+    bridge.handleError(hook1);
+
+    expect(bridge.pendingActions.size).toBe(1);
+    expect(bridge.actionHookSockets.size).toBe(1);
+    expect(bridge.pendingActions.has("action-2")).toBe(true);
+  });
+});
+
+describe("Action Bridge — ping/pong", () => {
+  it("responds to ping with pong", () => {
+    const bridge = new ActionBridgeHarness();
+    const browserWs = bridge.addBrowser();
+
+    bridge.processMessage(browserWs, { type: "ping" });
+
+    const msg = browserWs.lastMessage()!;
+    expect(msg.type).toBe("pong");
+    expect(msg.ts).toBeTypeOf("number");
+  });
+
+  it("responds to ping from action hook socket", () => {
+    const bridge = new ActionBridgeHarness();
+    const hookWs = bridge.addActionHook();
+
+    bridge.processMessage(hookWs, { type: "ping" });
+
+    const msg = hookWs.lastMessage()!;
+    expect(msg.type).toBe("pong");
+  });
+});
+
+describe("Action Bridge — message isolation", () => {
+  it("browser sending action_request is ignored (only action hooks can)", () => {
+    const bridge = new ActionBridgeHarness();
+    const browserWs = bridge.addBrowser();
+
+    bridge.processMessage(browserWs, {
+      type: "action_request",
+      session_id: "s1",
+      hook_event_name: "PermissionRequest",
+    });
+
+    // No pending actions should be created
+    expect(bridge.pendingActions.size).toBe(0);
+    // Browser should not receive anything back
+    expect(browserWs.sent).toHaveLength(0);
+  });
+
+  it("action hook sending action_response is ignored (only browsers can)", () => {
+    const bridge = new ActionBridgeHarness();
+    bridge.addBrowser();
+    const hookWs = bridge.addActionHook();
+
+    // First create a pending action
+    bridge.processMessage(hookWs, {
+      type: "action_request",
+      session_id: "s1",
+      hook_event_name: "PermissionRequest",
+    });
+
+    // Action hook tries to respond to its own action — should be ignored
+    bridge.processMessage(hookWs, {
+      type: "action_response",
+      action_id: "action-1",
+      hook_response: {},
+    });
+
+    // Pending action should still be there
+    expect(bridge.pendingActions.size).toBe(1);
+  });
+});
