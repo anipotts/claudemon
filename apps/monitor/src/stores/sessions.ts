@@ -4,11 +4,12 @@ import type { MonitorEvent, SessionState, WsMessage } from "../../../../packages
 import { TOOL_CATEGORIES } from "../../../../packages/types/monitor";
 import { createWebSocket } from "./websocket";
 import { formatDuration } from "../utils/time";
-import { openDB, saveSession, saveEvent, loadSessions, pruneOld } from "./persistence";
+import { openDB, saveSession, saveEvent, loadSessions, loadEvents, pruneOld } from "./persistence";
 import { decryptTransit, getTransitKey } from "../crypto/transit";
 import { normalizeEvent } from "../utils/normalize";
 
 const MAX_EVENTS = 100;
+const MAX_EVENTS_WITH_HISTORY = 5000;
 
 // ── Smart Status ──────────────────────────────────────────────────
 
@@ -147,6 +148,19 @@ export function createSessionStore() {
     Record<string, { id: string; session_id: string; hook_event_name: string; event_data: Record<string, unknown> }>
   >({});
 
+  // History loading state — tracks which sessions are loading / have loaded IDB events
+  const [historyLoading, setHistoryLoading] = createSignal<Set<string>>(new Set());
+  const historyLoadedSet = new Set<string>();
+
+  // Live event dedup — prevents the same event from being added twice
+  // (e.g., from duplicate hooks, WebSocket reconnect replays, or hook retries)
+  const seenEventKeys = new Map<string, Set<string>>(); // session_id → Set<eventKey>
+
+  function liveEventKey(e: MonitorEvent): string {
+    if (e.tool_use_id) return `tuid:${e.tool_use_id}:${e.hook_event_name}`;
+    return `${e.timestamp}:${e.hook_event_name}:${e.tool_name || ""}`;
+  }
+
   function handleEvent(event: MonitorEvent) {
     // Decrypt transit-encrypted events before processing
     if (event._encrypted) {
@@ -178,6 +192,19 @@ export function createSessionStore() {
         }
 
         const session = state[sid];
+
+        // Dedup: skip if we've already seen this exact event
+        const key = liveEventKey(event);
+        if (!seenEventKeys.has(sid)) seenEventKeys.set(sid, new Set());
+        const seen = seenEventKeys.get(sid)!;
+        if (seen.has(key)) return; // duplicate — skip entirely
+        seen.add(key);
+        if (seen.size > 500) {
+          const keys = [...seen];
+          seen.clear();
+          for (const k of keys.slice(-300)) seen.add(k);
+        }
+
         session.last_event_at = event.timestamp;
         if (event.model) session.model = event.model;
         if (event.branch) {
@@ -354,10 +381,11 @@ export function createSessionStore() {
         // Smart status
         session.smart_status = computeSmartStatus(session, event);
 
-        // Ring buffer
+        // Ring buffer — higher cap for sessions with IDB history loaded
         session.events.push(event);
-        if (session.events.length > MAX_EVENTS) {
-          session.events = session.events.slice(-MAX_EVENTS);
+        const cap = historyLoadedSet.has(sid) ? MAX_EVENTS_WITH_HISTORY : MAX_EVENTS;
+        if (session.events.length > cap) {
+          session.events = session.events.slice(-cap);
         }
       }),
     );
@@ -403,7 +431,7 @@ export function createSessionStore() {
     }
   }
 
-  const { status, send } = createWebSocket(handleMessage);
+  const { status, send, reconnect } = createWebSocket(handleMessage);
 
   function respondToAction(actionId: string, hookResponse: Record<string, unknown>) {
     send({ type: "action_response", action_id: actionId, hook_response: hookResponse });
@@ -439,5 +467,75 @@ export function createSessionStore() {
     })
     .catch(() => setPersistenceReady(true)); // proceed even if IDB fails
 
-  return { sessions, connectionStatus: status, persistenceReady, pendingActions, respondToAction };
+  // ── Lazy History Loading ───────────────────────────────────────
+  // Load events from IndexedDB for a specific session (called when tab is opened).
+  // Idempotent — skips if already loaded or currently loading.
+
+  function eventKey(e: MonitorEvent): string {
+    if (e.tool_use_id) return `tuid:${e.tool_use_id}:${e.hook_event_name}`;
+    return `${e.timestamp}:${e.hook_event_name}:${e.tool_name || ""}`;
+  }
+
+  async function loadSessionHistory(sessionId: string): Promise<void> {
+    if (historyLoadedSet.has(sessionId)) return;
+    if (historyLoading().has(sessionId)) return;
+
+    // Mark loading
+    const loading = new Set(historyLoading());
+    loading.add(sessionId);
+    setHistoryLoading(new Set(loading));
+
+    try {
+      const idbEvents = await loadEvents(sessionId);
+      if (idbEvents.length === 0) {
+        historyLoadedSet.add(sessionId);
+        return;
+      }
+
+      // Normalize all IDB events (idempotent — safe to call again)
+      for (const ev of idbEvents) {
+        normalizeEvent(ev as MonitorEvent);
+      }
+
+      setSessions(
+        produce((state) => {
+          const session = state[sessionId];
+          if (!session) return;
+
+          // Build dedup set from existing in-memory events
+          const existingKeys = new Set<string>();
+          for (const e of session.events) {
+            existingKeys.add(eventKey(e));
+          }
+
+          // Filter IDB events to avoid duplicates
+          const newEvents: MonitorEvent[] = [];
+          for (const e of idbEvents) {
+            const key = eventKey(e as MonitorEvent);
+            if (!existingKeys.has(key)) {
+              newEvents.push(e as MonitorEvent);
+            }
+          }
+
+          // Merge: IDB events (historical) + existing (live), sorted by timestamp
+          session.events = [...newEvents, ...session.events].sort((a, b) => a.timestamp - b.timestamp);
+
+          // Apply higher cap
+          if (session.events.length > MAX_EVENTS_WITH_HISTORY) {
+            session.events = session.events.slice(-MAX_EVENTS_WITH_HISTORY);
+          }
+        }),
+      );
+
+      historyLoadedSet.add(sessionId);
+    } catch (err) {
+      console.warn("ClaudeMon: failed to load history for session", sessionId, err);
+    } finally {
+      const loading = new Set(historyLoading());
+      loading.delete(sessionId);
+      setHistoryLoading(new Set(loading));
+    }
+  }
+
+  return { sessions, connectionStatus: status, persistenceReady, pendingActions, respondToAction, loadSessionHistory, historyLoading, reconnect };
 }
