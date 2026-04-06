@@ -1,9 +1,10 @@
 import { type Component, For, Show, createSignal, createMemo } from "solid-js";
-import type { MonitorEvent } from "../../../../packages/types/monitor";
+import type { MonitorEvent, HookEventName } from "../../../../packages/types/monitor";
 import { Terminal } from "./Icons";
 import { FileBadge } from "./FileBadge";
 import { SessionBadge, hashSessionColor } from "./SessionBadge";
 import { timeAgo } from "../utils/time";
+import { getEventTier } from "../stores/persistence";
 
 // ── Icon + color maps ──────────────────────────────────────────────
 
@@ -165,15 +166,17 @@ function getEventDetail(e: MonitorEvent): {
 function EventRow(props: { event: MonitorEvent; onSelect?: (id: string) => void; compact?: boolean }) {
   const e = () => props.event;
   const severity = () => eventSeverity(e());
+  const tier = () => getEventTier(e().hook_event_name as HookEventName);
   const color = () => ACTION_COLORS[e().tool_name || ""] || ACTION_COLORS[e().hook_event_name] || "#6b6560";
   const sessionColor = () => hashSessionColor(e().session_id);
   const detail = () => getEventDetail(e());
   const icon = () => TOOL_ICONS[e().tool_name || ""] || TOOL_ICONS[e().hook_event_name] || "o";
   const toolName = () => e().tool_name || e().hook_event_name;
+  const isDimmed = () => tier() >= 3;
 
   return (
     <div
-      class={`py-1 px-2 hover:bg-panel/30 rounded-sm event-enter cursor-pointer transition-colors ${SEVERITY_BG[severity()]}`}
+      class={`py-1 px-2 hover:bg-panel/30 rounded-sm event-enter cursor-pointer transition-colors ${SEVERITY_BG[severity()]} ${isDimmed() ? "opacity-50" : ""}`}
       onClick={() => props.onSelect?.(e().session_id)}
     >
       {/* Single row: badge · icon · tool · detail/file · time */}
@@ -197,7 +200,7 @@ function EventRow(props: { event: MonitorEvent; onSelect?: (id: string) => void;
           )}
         </Show>
         <Show when={severity() === "error"}>
-          <span class="text-[7px] text-attack font-bold px-1 rounded-sm bg-attack/15 uppercase shrink-0">err</span>
+          <span class="text-[9px] text-attack font-bold px-1 rounded-sm bg-attack/15 uppercase shrink-0">err</span>
         </Show>
         <Show when={detail().filePath}>
           <FileBadge path={detail().filePath!} />
@@ -216,7 +219,7 @@ function EventRow(props: { event: MonitorEvent; onSelect?: (id: string) => void;
 
 // ── Filter types ───────────────────────────────────────────────────
 
-type FilterType = "all" | "tools" | "lifecycle" | "prompts" | "agents" | "errors";
+type FilterType = "all" | "signals" | "tools" | "lifecycle" | "prompts" | "agents" | "errors";
 
 // ── Main Component ─────────────────────────────────────────────────
 
@@ -249,6 +252,8 @@ export const ActivityTimeline: Component<{
   const filteredEvents = createMemo(() => {
     const all = baseEvents();
     switch (filter()) {
+      case "signals":
+        return all.filter((e) => getEventTier(e.hook_event_name as HookEventName) === 1).slice(0, 100);
       case "tools":
         return all.filter((e) => e.tool_name).slice(0, 100);
       case "lifecycle":
@@ -269,26 +274,48 @@ export const ActivityTimeline: Component<{
   });
 
   const errorCount = createMemo(() => baseEvents().filter((e) => eventSeverity(e) === "error").length);
+  const signalCount = createMemo(
+    () => baseEvents().filter((e) => getEventTier(e.hook_event_name as HookEventName) === 1).length,
+  );
+  const filterCounts = createMemo(() => {
+    const all = baseEvents();
+    return {
+      all: all.length,
+      signals: signalCount(),
+      tools: all.filter((e) => e.tool_name).length,
+      lifecycle: all.filter((e) => eventSeverity(e) === "lifecycle" || e.hook_event_name === "UserPromptSubmit").length,
+      prompts: all.filter((e) => e.hook_event_name === "UserPromptSubmit").length,
+      agents: all.filter((e) => e.hook_event_name === "SubagentStart" || e.hook_event_name === "SubagentStop").length,
+      errors: all.filter((e) => eventSeverity(e) === "error" || eventSeverity(e) === "warning").length,
+    };
+  });
 
   return (
     <div class="flex flex-col h-full">
       {/* Filter tabs */}
       <Show when={baseEvents().length > 0}>
         <div class="flex items-center gap-0.5 px-2 py-1.5 border-b border-panel-border/50 shrink-0">
-          <For each={["all", "tools", "lifecycle", "prompts", "agents", "errors"] as FilterType[]}>
-            {(f) => (
-              <button
-                onClick={() => setFilter(f)}
-                class={`text-[8px] uppercase tracking-wider px-1.5 py-0.5 rounded transition-colors ${
-                  filter() === f ? "bg-safe/15 text-safe" : "text-text-sub hover:text-text-primary"
-                }`}
-              >
-                {f}
-                <Show when={f === "errors" && errorCount() > 0}>
-                  <span class="ml-0.5 text-attack">{errorCount()}</span>
-                </Show>
-              </button>
-            )}
+          <For each={["all", "signals", "tools", "lifecycle", "prompts", "agents", "errors"] as FilterType[]}>
+            {(f) => {
+              const count = () => filterCounts()[f];
+              return (
+                <button
+                  onClick={() => setFilter(f)}
+                  class={`text-[8px] uppercase tracking-wider px-1.5 py-0.5 rounded transition-colors ${
+                    filter() === f ? "bg-safe/15 text-safe" : "text-text-sub hover:text-text-primary"
+                  }`}
+                >
+                  {f}
+                  <Show when={count() > 0 && f !== "all"}>
+                    <span
+                      class={`ml-0.5 ${f === "errors" ? "text-attack" : f === "signals" ? "text-suspicious" : "text-text-sub"}`}
+                    >
+                      {count()}
+                    </span>
+                  </Show>
+                </button>
+              );
+            }}
           </For>
         </div>
       </Show>
