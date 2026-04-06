@@ -1,7 +1,7 @@
 import { type Component, createSignal, Show, For, onMount, onCleanup } from "solid-js";
 import { X, Copy, Check, Trash, Plus, Key, Info, ArrowSquareOut, Warning, ShieldCheck } from "./Icons";
 import { getTransitKey, setTransitKey, clearTransitKey } from "../crypto/transit";
-import { getStorageEstimate } from "../stores/persistence";
+import { getStorageEstimate, clearAll } from "../stores/persistence";
 
 // ── Helpers ────────────────────────────────────────────────────────
 
@@ -635,12 +635,7 @@ const HistoryTab: Component = () => {
   const handleClear = async () => {
     setClearing(true);
     try {
-      const dbs = await indexedDB.databases();
-      for (const db of dbs) {
-        if (db.name?.includes("claudemon")) {
-          indexedDB.deleteDatabase(db.name);
-        }
-      }
+      await clearAll();
       setCleared(true);
       setTimeout(() => window.location.reload(), 1500);
     } catch {

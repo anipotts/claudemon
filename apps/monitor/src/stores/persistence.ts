@@ -6,7 +6,7 @@
 import type { MonitorEvent, SessionState, HookEventName } from "../../../../packages/types/monitor";
 
 const DB_NAME = "claudemon";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 // 7 days for normal events, 30 days for errors
 const NORMAL_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
@@ -92,10 +92,17 @@ export function enrichEvent(event: MonitorEvent): EnrichedEvent {
 // Plaintext index fields coexist with encrypted payload blob.
 
 let cachedDeviceKey: CryptoKey | null = null;
+let keyPromise: Promise<CryptoKey> | null = null;
 
-async function getDeviceKey(db: IDBDatabase): Promise<CryptoKey> {
-  if (cachedDeviceKey) return cachedDeviceKey;
+function getDeviceKey(db: IDBDatabase): Promise<CryptoKey> {
+  if (cachedDeviceKey) return Promise.resolve(cachedDeviceKey);
+  if (!keyPromise) {
+    keyPromise = loadOrGenerateKey(db);
+  }
+  return keyPromise;
+}
 
+async function loadOrGenerateKey(db: IDBDatabase): Promise<CryptoKey> {
   // Try to load existing key
   const existing = await new Promise<CryptoKey | null>((resolve) => {
     const tx = db.transaction("config", "readonly");
@@ -537,7 +544,8 @@ export async function isEncryptionHealthy(): Promise<boolean> {
 
 export async function clearAll(): Promise<void> {
   const db = await openDB();
-  cachedDeviceKey = null; // force key regeneration on next use
+  cachedDeviceKey = null;
+  keyPromise = null; // force key regeneration on next use
   return new Promise((resolve, reject) => {
     const tx = db.transaction(["sessions", "events", "config"], "readwrite");
     tx.objectStore("sessions").clear();

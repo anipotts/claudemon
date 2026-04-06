@@ -408,7 +408,6 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean; f
     return { removed, added };
   };
 
-  // Encrypted event placeholder
   // Passive tools (observation-only) get dimmer styling
   const isPassiveTool = () => {
     const t = e().tool_name;
@@ -419,22 +418,22 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean; f
   const isEncrypted = () => !!e()._encrypted && !e()._decrypt_failed;
   const isDecryptFailed = () => !!e()._decrypt_failed;
 
-  if (isEncrypted() || isDecryptFailed()) {
-    return (
-      <div class="border-b border-panel-border/20 event-enter">
-        <div class="flex items-center gap-1.5 w-full px-3 py-1.5">
-          <Key size={11} class={isDecryptFailed() ? "text-attack/40" : "text-text-sub"} />
-          <span class="text-[10px] font-bold text-text-sub shrink-0">{e().tool_name || e().hook_event_name}</span>
-          <span class={`text-[9px] ${isDecryptFailed() ? "text-attack/40" : "text-text-sub"}`}>
-            {isDecryptFailed() ? "[encrypted — wrong key?]" : "[encrypted]"}
-          </span>
-          <Timestamp ts={e().timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
-        </div>
-      </div>
-    );
-  }
-
   return (
+    <Show
+      when={!isEncrypted() && !isDecryptFailed()}
+      fallback={
+        <div class="border-b border-panel-border/20 event-enter">
+          <div class="flex items-center gap-1.5 w-full px-3 py-1.5">
+            <Key size={11} class={isDecryptFailed() ? "text-attack/40" : "text-text-sub"} />
+            <span class="text-[10px] font-bold text-text-sub shrink-0">{e().tool_name || e().hook_event_name}</span>
+            <span class={`text-[9px] ${isDecryptFailed() ? "text-attack/40" : "text-text-sub"}`}>
+              {isDecryptFailed() ? "[encrypted — wrong key?]" : "[encrypted]"}
+            </span>
+            <Timestamp ts={e().timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
+          </div>
+        </div>
+      }
+    >
     <div class={`border-b border-panel-border/30 event-enter ${props.focused ? "ring-1 ring-safe/30" : ""}`}>
       {/* Header row — always visible, clickable. Shows file badge + summary inline */}
       <button
@@ -580,6 +579,7 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean; f
         </div>
       </div>
     </div>
+    </Show>
   );
 }
 

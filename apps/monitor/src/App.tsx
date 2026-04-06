@@ -22,6 +22,7 @@ interface User {
 
 const App: Component = () => {
   const { sessions, connectionStatus, pendingActions, respondToAction } = createSessionStore();
+  const pendingActionList = createMemo(() => Object.values(pendingActions).filter(Boolean));
   const [selectedSessionIds, setSelectedSessionIds] = createSignal<string[]>([]);
   const [user, setUser] = createSignal<User | null>(null);
   const [authLoading, setAuthLoading] = createSignal(true);
@@ -353,20 +354,17 @@ const App: Component = () => {
           </div>
 
           {/* Global pending actions badge */}
-          <Show when={Object.keys(pendingActions).length > 0}>
-            {(() => {
-              const actionList = () => Object.values(pendingActions).filter(Boolean);
-              const firstSessionId = () => actionList()[0]?.session_id;
-              return (
-                <button
-                  class="flex items-center gap-1.5 px-2 py-1 rounded border border-suspicious/40 bg-suspicious/10 action-banner text-[9px] font-bold text-suspicious uppercase"
-                  onClick={() => firstSessionId() && handleSelectSession(firstSessionId()!)}
-                  title="Click to view session with pending action"
-                >
-                  {actionList().length} action{actionList().length !== 1 ? "s" : ""} pending
-                </button>
-              );
-            })()}
+          <Show when={pendingActionList().length > 0}>
+            <button
+              class="flex items-center gap-1.5 px-2 py-1 rounded border border-suspicious/40 bg-suspicious/10 action-banner text-[9px] font-bold text-suspicious uppercase"
+              onClick={() => {
+                const first = pendingActionList()[0];
+                if (first) handleSelectSession(first.session_id);
+              }}
+              title="Click to view session with pending action"
+            >
+              {pendingActionList().length} action{pendingActionList().length !== 1 ? "s" : ""} pending
+            </button>
           </Show>
 
           {/* Auth */}
