@@ -194,7 +194,7 @@ function EventRow(props: { event: MonitorEvent; onSelect?: (id: string) => void;
         </span>
         <Show when={detail().diffStat}>
           {(ds) => (
-            <span class="text-[8px] font-mono shrink-0">
+            <span class="text-[9px] font-mono shrink-0">
               <span class="text-safe">+{ds().added}</span> <span class="text-attack">-{ds().removed}</span>
             </span>
           )}
@@ -209,9 +209,9 @@ function EventRow(props: { event: MonitorEvent; onSelect?: (id: string) => void;
           <span class="text-[9px] text-text-dim truncate min-w-0">{detail().primary}</span>
         </Show>
         <Show when={detail().secondary}>
-          <span class="text-[8px] text-text-sub truncate min-w-0">{detail().secondary}</span>
+          <span class="text-[9px] text-text-sub truncate min-w-0">{detail().secondary}</span>
         </Show>
-        <span class="text-[8px] text-text-sub shrink-0 ml-auto font-mono">{timeAgo(e().timestamp)}</span>
+        <span class="text-[9px] text-text-sub shrink-0 ml-auto font-mono">{timeAgo(e().timestamp)}</span>
       </div>
     </div>
   );
@@ -301,7 +301,7 @@ export const ActivityTimeline: Component<{
               return (
                 <button
                   onClick={() => setFilter(f)}
-                  class={`text-[8px] uppercase tracking-wider px-1.5 py-0.5 rounded transition-colors ${
+                  class={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded transition-colors ${
                     filter() === f ? "bg-safe/15 text-safe" : "text-text-sub hover:text-text-primary"
                   }`}
                 >

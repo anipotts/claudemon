@@ -46,10 +46,10 @@ if [ -n "$ENCRYPTION_KEY" ] && command -v openssl &>/dev/null && command -v jq &
   # Split into plaintext routing fields + sensitive content
   PLAINTEXT=$(echo "$PAYLOAD" | jq -c '{session_id, machine_id, timestamp, hook_event_name, tool_name, tool_use_id}')
   SENSITIVE=$(echo "$PAYLOAD" | jq -c 'del(.session_id, .machine_id, .timestamp, .hook_event_name, .tool_name, .tool_use_id)')
-  # Encrypt sensitive fields with AES-256-GCM
-  IV=$(openssl rand -hex 12)
+  # Encrypt sensitive fields with AES-256-CBC + HMAC-SHA256
+  IV=$(openssl rand -hex 16)
   KEY_HEX=$(echo -n "$ENCRYPTION_KEY" | head -c 64)
-  ENCRYPTED=$(echo -n "$SENSITIVE" | openssl enc -aes-256-cbc -K "$KEY_HEX" -iv "${IV}0000000000000000" -a -A 2>/dev/null || echo "")
+  ENCRYPTED=$(echo -n "$SENSITIVE" | openssl enc -aes-256-cbc -K "$KEY_HEX" -iv "$IV" -a -A 2>/dev/null || echo "")
   if [ -n "$ENCRYPTED" ]; then
     MAC=$(echo -n "${IV}${ENCRYPTED}" | openssl dgst -sha256 -mac HMAC -macopt "hexkey:${KEY_HEX}" -hex 2>/dev/null | awk '{print $NF}')
     ENVELOPE=$(jq -nc --arg iv "$IV" --arg ct "$ENCRYPTED" --arg mac "$MAC" '{v:1,alg:"aes-256-cbc-hmac",iv:$iv,ct:$ct,mac:$mac}')
