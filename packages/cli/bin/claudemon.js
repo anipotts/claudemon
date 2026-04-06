@@ -240,6 +240,21 @@ async function status() {
       (hasCurl ? dim("available (required for async hooks)") : red("not found — install curl")),
   );
 
+  // Transit encryption
+  const transitKeyPath = join(homedir(), ".claudemon", "transit-key");
+  let transitStatus = dim("  [--]") + " Transit encryption " + dim("not configured — run: claudemon init --private");
+  if (existsSync(transitKeyPath)) {
+    try {
+      const keyContent = readFileSync(transitKeyPath, "utf-8").trim();
+      if (keyContent) {
+        const { createHash } = await import("node:crypto");
+        const fp = createHash("sha256").update(keyContent).digest("hex").slice(0, 8);
+        transitStatus = green("  [ok]") + " Transit encryption " + dim("enabled (fingerprint: " + fp + ")");
+      }
+    } catch {}
+  }
+  console.log(transitStatus);
+
   console.log();
   console.log(dim("  Dashboard: ") + "https://app.claudemon.com");
   console.log();
@@ -361,6 +376,64 @@ async function generateTransitKey() {
   console.log();
 }
 
+// ── Export ────────────────────────────────────────────────────────
+
+async function exportConfig() {
+  const output = {
+    claudemon_version: VERSION,
+    node_version: process.versions.node,
+    platform: process.platform,
+    arch: process.arch,
+    exported_at: new Date().toISOString(),
+    hooks: { configured: false, count: 0, type: null, events: [] },
+    transit_encryption: { enabled: false, key_fingerprint: null },
+    api: { url: API_URL },
+  };
+
+  // Scan hooks from settings.json
+  const settingsPath = join(homedir(), ".claude", "settings.json");
+  if (existsSync(settingsPath)) {
+    try {
+      const settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
+      const hooks = settings.hooks || {};
+      const events = [];
+      let hookType = null;
+      for (const [evt, groups] of Object.entries(hooks)) {
+        for (const g of groups) {
+          const match = g.hooks?.find((h) => (h.url || h.command || "").includes("claudemon"));
+          if (match) {
+            events.push(evt);
+            if (!hookType) hookType = match.type || null;
+          }
+        }
+      }
+      if (events.length > 0) {
+        output.hooks = {
+          configured: true,
+          count: events.length,
+          type: hookType,
+          events,
+        };
+      }
+    } catch {}
+  }
+
+  // Check transit encryption key
+  const transitKeyPath = join(homedir(), ".claudemon", "transit-key");
+  if (existsSync(transitKeyPath)) {
+    try {
+      const keyContent = readFileSync(transitKeyPath, "utf-8").trim();
+      if (keyContent) {
+        const { createHash } = await import("node:crypto");
+        const fp = createHash("sha256").update(keyContent).digest("hex").slice(0, 8);
+        output.transit_encryption = { enabled: true, key_fingerprint: fp };
+      }
+    } catch {}
+  }
+
+  console.log(JSON.stringify(output, null, 2));
+}
+
 // ── CLI router ─────────────────────────────────────────────────────
 
 const args = process.argv.slice(2);
@@ -376,6 +449,18 @@ if (command === "init") {
     await generateTransitKey();
   }
   if (isRemote) {
+    const nodeMajor = parseInt(process.versions.node.split(".")[0], 10);
+    if (nodeMajor < 22) {
+      console.log();
+      console.log("  " + dim("Note:") + " Action hooks use WebSocket, which requires Node.js 22+.");
+      if (nodeMajor >= 18) {
+        console.log(dim("        Node.js " + process.versions.node + " detected — works with --experimental-websocket flag."));
+      } else {
+        console.log(red("        Node.js " + process.versions.node + " detected — action hooks may not work."));
+      }
+      console.log(dim("        Monitoring hooks (non-action) use curl and work on any Node.js version."));
+      console.log();
+    }
     // Register sync action hooks for remote approval
     const settingsPath = join(homedir(), ".claude", "settings.json");
     try {
@@ -407,6 +492,8 @@ if (command === "init") {
   await migrate();
 } else if (command === "generate-key") {
   await generateTransitKey();
+} else if (command === "export") {
+  await exportConfig();
 } else if (command === "--version" || command === "-v") {
   console.log(VERSION);
 } else {
@@ -418,6 +505,7 @@ if (command === "init") {
   console.log("  " + bold("claudemon init --private") + dim("   Set up hooks + generate transit encryption key"));
   console.log("  " + bold("claudemon generate-key") + dim("     Generate/rotate transit encryption key"));
   console.log("  " + bold("claudemon status") + dim("           Check connection status"));
+  console.log("  " + bold("claudemon export") + dim("           Export configuration as JSON"));
   console.log("  " + bold("claudemon migrate") + dim("          Upgrade hooks to v0.6.0"));
   console.log("  " + bold("claudemon --version") + dim("        Show version"));
   console.log();

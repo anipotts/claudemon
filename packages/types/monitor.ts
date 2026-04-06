@@ -182,6 +182,12 @@ export interface SessionState {
   files_touched: string[]; // unique file paths edited
   commands_run: string[]; // recent bash commands (last 20)
 
+  // Consolidated event state
+  config_source?: string; // from ConfigChange
+  worktree_count?: number; // from WorktreeCreate/Remove
+  task_count?: number; // from TaskCreated
+  instructions_loaded_count?: number; // from InstructionsLoaded
+
   // Smart contextual status string (computed client-side)
   smart_status?: string;
 
@@ -289,3 +295,29 @@ export const STATUS_COLORS: Record<SessionStatus, string> = {
   error: "#b85c4a", // attack red
   offline: "#333", // dark
 };
+
+// ── Hook Response Schemas ────────────────────────────────────────
+// Response types that action hooks must return for Claude Code.
+
+export interface PermissionHookResponse {
+  hookSpecificOutput: {
+    hookEventName: "PermissionRequest";
+    decision: { behavior: "allow" | "deny" };
+  };
+}
+
+export interface NotificationHookResponse {
+  additionalContext?: string;
+}
+
+export interface ElicitationHookResponse {
+  hookSpecificOutput: {
+    hookEventName: "Elicitation";
+    action: "accept" | "decline";
+  };
+}
+
+export type HookResponse =
+  | PermissionHookResponse
+  | NotificationHookResponse
+  | ElicitationHookResponse;

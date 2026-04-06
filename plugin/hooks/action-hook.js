@@ -10,6 +10,42 @@ const API_URL = process.env.CLAUDEMON_API_URL || "wss://api.claudemon.com";
 const API_KEY = process.env.CLAUDE_PLUGIN_OPTION_API_KEY || "";
 const TIMEOUT = Number.parseInt(process.env.CLAUDEMON_ACTION_TIMEOUT || "10000", 10);
 
+/**
+ * Validate and reconstruct a hook response object.
+ * Returns a clean object with only expected fields, or null to trigger {} fallthrough.
+ * @param {string} hookEventName - The hook_event_name from the incoming event.
+ * @param {*} response - The raw hook_response from the browser.
+ * @returns {object|null}
+ */
+function validateResponse(hookEventName, response) {
+  if (!response || typeof response !== "object") return null;
+
+  switch (hookEventName) {
+    case "PermissionRequest": {
+      const behavior = response?.hookSpecificOutput?.decision?.behavior;
+      if (behavior === "allow" || behavior === "deny") {
+        return { hookSpecificOutput: { hookEventName: "PermissionRequest", decision: { behavior } } };
+      }
+      return null;
+    }
+    case "Notification": {
+      if (typeof response?.additionalContext === "string") {
+        return { additionalContext: response.additionalContext };
+      }
+      return {};
+    }
+    case "Elicitation": {
+      const action = response?.hookSpecificOutput?.action;
+      if (action === "accept" || action === "decline") {
+        return { hookSpecificOutput: { hookEventName: "Elicitation", action } };
+      }
+      return null;
+    }
+    default:
+      return response;
+  }
+}
+
 let input = "";
 process.stdin.on("data", (d) => (input += d));
 process.stdin.on("end", () => {
@@ -44,7 +80,8 @@ process.stdin.on("end", () => {
 
         // Browser responded with a decision
         if (data.type === "response") {
-          process.stdout.write(JSON.stringify(data.hook_response || {}));
+          const validated = validateResponse(event.hook_event_name, data.hook_response);
+          process.stdout.write(JSON.stringify(validated || {}));
           clearTimeout(timeout);
           ws.close();
           process.exit(0);
