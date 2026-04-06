@@ -408,7 +408,7 @@ const App: Component = () => {
           <Show
             when={user()?.has_api_keys && !showOnboarding()}
             fallback={
-              <Onboarding apiUrl={API_URL} user={user()} authLoading={authLoading()} onSetupComplete={refetchUser} />
+              <Onboarding apiUrl={API_URL} user={user()} authLoading={authLoading()} onSetupComplete={refetchUser} onClose={user()?.has_api_keys ? () => setShowOnboarding(false) : undefined} />
             }
           >
             <IdleDashboard connectionStatus={connectionStatus} onShowSetup={() => setShowOnboarding(true)} />

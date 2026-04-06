@@ -44,11 +44,11 @@ export const IdleDashboard: Component<IdleDashboardProps> = (props) => {
         </div>
 
         <h2 class="text-xl font-bold text-text-primary tracking-wide">
-          {connected() ? "Connected" : "Reconnecting..."}
+          {connected() ? "Ready" : "Reconnecting..."}
         </h2>
 
         <p class="text-[11px] text-text-dim">
-          No sessions yet. Connect Claude Code to start monitoring.
+          Set up monitoring in two commands. Sessions appear here in real time.
         </p>
 
         {/* Setup instructions */}
