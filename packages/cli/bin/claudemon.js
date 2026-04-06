@@ -449,12 +449,14 @@ if (command === "init") {
     await generateTransitKey();
   }
   if (isRemote) {
-    const nodeMajor = parseInt(process.versions.node.split(".")[0], 10);
+    const nodeMajor = Number.parseInt(process.versions.node.split(".")[0], 10);
     if (nodeMajor < 22) {
       console.log();
       console.log("  " + dim("Note:") + " Action hooks use WebSocket, which requires Node.js 22+.");
       if (nodeMajor >= 18) {
-        console.log(dim("        Node.js " + process.versions.node + " detected — works with --experimental-websocket flag."));
+        console.log(
+          dim("        Node.js " + process.versions.node + " detected — works with --experimental-websocket flag."),
+        );
       } else {
         console.log(red("        Node.js " + process.versions.node + " detected — action hooks may not work."));
       }

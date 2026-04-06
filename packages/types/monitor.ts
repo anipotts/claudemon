@@ -317,7 +317,4 @@ export interface ElicitationHookResponse {
   };
 }
 
-export type HookResponse =
-  | PermissionHookResponse
-  | NotificationHookResponse
-  | ElicitationHookResponse;
+export type HookResponse = PermissionHookResponse | NotificationHookResponse | ElicitationHookResponse;

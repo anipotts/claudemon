@@ -131,28 +131,40 @@ async function getDeviceKey(db: IDBDatabase): Promise<CryptoKey> {
   return key;
 }
 
-async function encryptPayload(data: Record<string, unknown>, key: CryptoKey): Promise<{ _encrypted_payload: ArrayBuffer; _iv: ArrayBuffer }> {
+async function encryptPayload(
+  data: Record<string, unknown>,
+  key: CryptoKey,
+): Promise<{ _encrypted_payload: ArrayBuffer; _iv: ArrayBuffer }> {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const encoded = new TextEncoder().encode(JSON.stringify(data));
   const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoded);
   return { _encrypted_payload: ciphertext, _iv: iv.buffer };
 }
 
-async function decryptPayload(encrypted: ArrayBuffer, iv: ArrayBuffer, key: CryptoKey): Promise<Record<string, unknown>> {
+async function decryptPayload(
+  encrypted: ArrayBuffer,
+  iv: ArrayBuffer,
+  key: CryptoKey,
+): Promise<Record<string, unknown>> {
   const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, encrypted);
   return JSON.parse(new TextDecoder().decode(decrypted));
 }
 
 // Plaintext fields kept for event indexing
 const EVENT_INDEX_FIELDS = [
-  "session_id", "timestamp", "hook_event_name", "_file_path",
-  "tool_use_id", "project_path", "_tier", "_is_error", "tool_name",
+  "session_id",
+  "timestamp",
+  "hook_event_name",
+  "_file_path",
+  "tool_use_id",
+  "project_path",
+  "_tier",
+  "_is_error",
+  "tool_name",
 ] as const;
 
 // Plaintext fields kept for session indexing
-const SESSION_INDEX_FIELDS = [
-  "session_id", "last_event_at", "project_path",
-] as const;
+const SESSION_INDEX_FIELDS = ["session_id", "last_event_at", "project_path"] as const;
 
 interface EncryptedRecord {
   _encrypted_payload: ArrayBuffer;
