@@ -351,9 +351,11 @@ export const AgentMap: Component<{
     const now = Date.now();
     // Show active + sessions with any activity, hide empty offline/done and long-idle sessions
     return all.filter((s) => {
-      // Always hide empty offline/done sessions
+      // Always show sessions with recent activity (last 10 minutes) regardless of status
+      if (now - s.last_event_at < 600_000) return true;
+      // Hide empty offline/done sessions with no tool activity
       if (INACTIVE_STATUSES.has(s.status)) {
-        if (s.edit_count > 0 || s.command_count > 0 || s.read_count > 0) return true;
+        if (s.edit_count > 0 || s.command_count > 0 || s.read_count > 0 || s.search_count > 0) return true;
         return false;
       }
       // Hide sessions idle for more than 30 minutes (catches stale "thinking" test sessions)

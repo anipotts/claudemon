@@ -5,7 +5,7 @@ const WORKER_HOST = "api.claudemon.com";
 
 const WS_URL = import.meta.env.VITE_MONITOR_WS_URL || `wss://${WORKER_HOST}/ws`;
 
-const DEV_WS_URL = "ws://localhost:8787/ws";
+const DEV_WS_URL = import.meta.env.VITE_MONITOR_WS_URL || "ws://localhost:8787/ws";
 
 export type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
@@ -90,5 +90,17 @@ export function createWebSocket(onMessage: (msg: WsMessage) => void) {
     }
   }
 
-  return { status, reconnect: connect, send };
+  function reconnect() {
+    if (ws) {
+      ws.onclose = null; // prevent auto-reconnect from onclose handler
+      ws.close();
+      ws = null;
+    }
+    clearTimeout(reconnectTimer);
+    clearInterval(pingTimer);
+    reconnectDelay = 1000;
+    connect();
+  }
+
+  return { status, reconnect, send };
 }

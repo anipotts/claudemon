@@ -80,7 +80,7 @@ interface HealthResponse {
   status?: string;
 }
 
-type TabId = "connection" | "api-keys" | "privacy" | "history" | "about";
+type TabId = "connection" | "api-keys" | "privacy" | "display" | "history" | "about";
 
 // ── Settings Panel ────────────────────────────────────────────────
 
@@ -103,6 +103,7 @@ export const SettingsPanel: Component<{
     { id: "connection", label: "Connection" },
     { id: "api-keys", label: "API Keys" },
     { id: "privacy", label: "Privacy" },
+    { id: "display", label: "Display" },
     { id: "history", label: "History" },
     { id: "about", label: "About" },
   ];
@@ -149,6 +150,9 @@ export const SettingsPanel: Component<{
           </Show>
           <Show when={activeTab() === "privacy"}>
             <PrivacyTab />
+          </Show>
+          <Show when={activeTab() === "display"}>
+            <DisplayTab />
           </Show>
           <Show when={activeTab() === "history"}>
             <HistoryTab />
@@ -531,6 +535,86 @@ const ApiKeysTab: Component<{ apiUrl: string }> = (props) => {
           </div>
         </div>
       </Show>
+    </div>
+  );
+};
+
+// ── Display Tab ──────────────────────────────────────────────────
+
+const TEXT_SIZE_PRESETS = [
+  { zoom: 1, label: "Compact", description: "Dense layout, smallest text" },
+  { zoom: 1.12, label: "Default", description: "Balanced readability" },
+  { zoom: 1.25, label: "Comfortable", description: "Larger text, easier to scan" },
+];
+
+const DisplayTab: Component = () => {
+  const [zoom, setZoom] = createSignal(
+    parseFloat(localStorage.getItem("claudemon_text_zoom") || "1"),
+  );
+
+  const applyZoom = (z: number) => {
+    const clamped = Math.round(Math.max(0.8, Math.min(1.5, z)) * 100) / 100;
+    setZoom(clamped);
+    localStorage.setItem("claudemon_text_zoom", String(clamped));
+    document.documentElement.style.setProperty("--cm-zoom", String(clamped));
+  };
+
+  const activePreset = () => TEXT_SIZE_PRESETS.findIndex((p) => Math.abs(p.zoom - zoom()) < 0.03);
+
+  return (
+    <div class="space-y-4">
+      <div class="flex items-center gap-2 mb-3">
+        <Info size={16} class="text-text-label" />
+        <span class="text-[12px] font-bold text-text-primary">Text Size</span>
+      </div>
+
+      {/* Preset buttons */}
+      <div class="flex gap-2">
+        <For each={TEXT_SIZE_PRESETS}>
+          {(preset, i) => {
+            const isActive = () => activePreset() === i();
+            return (
+              <button
+                onClick={() => applyZoom(preset.zoom)}
+                class={`flex-1 flex flex-col items-center gap-1.5 px-3 py-3 rounded border transition-colors ${
+                  isActive()
+                    ? "bg-safe/10 border-safe/30 text-safe"
+                    : "bg-card border-panel-border/30 text-text-sub hover:text-text-primary hover:border-panel-border"
+                }`}
+              >
+                <span
+                  class="font-bold uppercase tracking-wider"
+                  style={{ "font-size": `${9 + i() * 1.5}px` }}
+                >
+                  Aa
+                </span>
+                <span class="text-[10px] font-bold">{preset.label}</span>
+                <span class="text-[8px] text-text-dim">{preset.description}</span>
+              </button>
+            );
+          }}
+        </For>
+      </div>
+
+      {/* Continuous slider */}
+      <div class="flex items-center gap-3 px-1">
+        <span class="text-[9px] text-text-sub shrink-0">A</span>
+        <input
+          type="range"
+          min="0.8"
+          max="1.5"
+          step="0.01"
+          value={zoom()}
+          onInput={(e) => applyZoom(parseFloat(e.currentTarget.value))}
+          class="flex-1 accent-safe h-1"
+        />
+        <span class="text-[12px] text-text-sub shrink-0 font-bold">A</span>
+        <span class="text-[9px] text-text-dim font-mono w-[36px] text-right">{Math.round(zoom() * 100)}%</span>
+      </div>
+
+      <p class="text-[9px] text-text-sub">
+        Scales session timeline and activity feed. On mobile, pinch with two fingers to resize.
+      </p>
     </div>
   );
 };

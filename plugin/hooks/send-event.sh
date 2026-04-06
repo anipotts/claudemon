@@ -37,8 +37,6 @@ if command -v jq &>/dev/null; then
     --arg pp "$PROJECT_PATH" \
     --argjson ts "$(date +%s)000" \
     '. + {machine_id: $mid, branch: $br, project_path: $pp, timestamp: $ts} |
-     if .tool_input then .tool_input = (.tool_input | tostring | .[:2048]) else . end |
-     if .tool_response then .tool_response = (.tool_response | tostring | .[:2048]) else . end |
      with_entries(select(.value != null and .value != ""))')
 else
   PAYLOAD="$INPUT"

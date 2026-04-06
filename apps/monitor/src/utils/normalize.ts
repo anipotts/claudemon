@@ -11,6 +11,14 @@ export function normalizeEvent(event: MonitorEvent): void {
   const e = event as any;
   const name = e.hook_event_name;
 
+  // Hook scripts may stringify tool_input / tool_response — parse them back to objects
+  if (typeof e.tool_input === "string" && e.tool_input) {
+    try { e.tool_input = JSON.parse(e.tool_input); } catch { /* leave as-is */ }
+  }
+  if (typeof e.tool_response === "string" && e.tool_response) {
+    try { e.tool_response = JSON.parse(e.tool_response); } catch { /* leave as-is */ }
+  }
+
   if (name === "Notification") {
     if (e.message && !e.notification_message) e.notification_message = e.message;
     if (e.title && !e.notification_title) e.notification_title = e.title;

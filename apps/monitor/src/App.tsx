@@ -5,12 +5,13 @@ import { AgentMap } from "./components/AgentMap";
 import { ActivityTimeline } from "./components/ActivityTimeline";
 import { ConflictPanel, type ConflictData } from "./components/ConflictPanel";
 import { SessionDetail } from "./components/SessionDetail";
-import { Onboarding } from "./components/Onboarding";
-import { ShieldCheck, Lightning, ListBullets, Trash, GearSix, Terminal, Pulse, CaretRight } from "./components/Icons";
+import { SetupScreen } from "./components/SetupScreen";
+import { Lightning, ListBullets, Trash, GearSix, Terminal, Pulse, CaretRight } from "./components/Icons";
+import { ClaudeMonIcon } from "./components/ClaudeMonIcon";
+import type { ClaudeMonPose } from "./components/ClaudeMonIcon";
 import { SettingsPanel } from "./components/SettingsPanel";
-import { IdleDashboard } from "./components/IdleDashboard";
 
-const API_URL = import.meta.env.VITE_MONITOR_API_URL || "https://api.claudemon.com";
+const API_URL = import.meta.env.VITE_MONITOR_API_URL || "https://api.claudemon.com"; // v2
 
 interface User {
   sub: string;
@@ -21,7 +22,13 @@ interface User {
 }
 
 const App: Component = () => {
-  const { sessions, connectionStatus, pendingActions, respondToAction } = createSessionStore();
+  // Initialize text zoom from localStorage (synchronous, before first render)
+  if (typeof document !== "undefined") {
+    const zoom = localStorage.getItem("claudemon_text_zoom") || "1";
+    document.documentElement.style.setProperty("--cm-zoom", zoom);
+  }
+
+  const { sessions, connectionStatus, pendingActions, respondToAction, loadSessionHistory, historyLoading, persistenceReady, reconnect } = createSessionStore();
   const pendingActionList = createMemo(() => Object.values(pendingActions).filter(Boolean));
   const [selectedSessionIds, setSelectedSessionIds] = createSignal<string[]>([]);
   const [user, setUser] = createSignal<User | null>(null);
@@ -42,7 +49,6 @@ const App: Component = () => {
       });
   });
 
-  const [showOnboarding, setShowOnboarding] = createSignal(false);
   const [settingsOpen, setSettingsOpen] = createSignal(false);
 
   // Mobile responsive
@@ -59,20 +65,50 @@ const App: Component = () => {
     const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
     mq.addEventListener("change", handler);
     onCleanup(() => mq.removeEventListener("change", handler));
+
+    // ── Pinch-to-zoom text sizing (mobile) ─────────────────────
+    let pinchInitialDist = 0;
+    let pinchStartZoom = 1;
+    const getZoom = () => parseFloat(document.documentElement.style.getPropertyValue("--cm-zoom") || "1");
+    const setZoom = (z: number) => {
+      const clamped = Math.round(Math.max(0.8, Math.min(1.5, z)) * 100) / 100;
+      document.documentElement.style.setProperty("--cm-zoom", String(clamped));
+      return clamped;
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        pinchInitialDist = Math.hypot(dx, dy);
+        pinchStartZoom = getZoom();
+      }
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && pinchInitialDist > 0) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        setZoom(pinchStartZoom * (dist / pinchInitialDist));
+      }
+    };
+    const onTouchEnd = () => {
+      if (pinchInitialDist > 0) {
+        pinchInitialDist = 0;
+        localStorage.setItem("claudemon_text_zoom", document.documentElement.style.getPropertyValue("--cm-zoom") || "1");
+      }
+    };
+
+    document.addEventListener("touchstart", onTouchStart, { passive: true });
+    document.addEventListener("touchmove", onTouchMove, { passive: true });
+    document.addEventListener("touchend", onTouchEnd, { passive: true });
+    onCleanup(() => {
+      document.removeEventListener("touchstart", onTouchStart);
+      document.removeEventListener("touchmove", onTouchMove);
+      document.removeEventListener("touchend", onTouchEnd);
+    });
   });
 
-  const refetchUser = () => {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-    fetch(`${API_URL}/auth/me`, { credentials: "include", signal: controller.signal })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data) setUser(data);
-        setShowOnboarding(false);
-      })
-      .catch(() => {})
-      .finally(() => clearTimeout(timeout));
-  };
 
   const allSessions = createMemo(() => Object.values(sessions));
   const totalAgents = createMemo(() => allSessions().length);
@@ -81,6 +117,20 @@ const App: Component = () => {
   );
   const waitingCount = createMemo(() => allSessions().filter((s) => s.status === "waiting").length);
   const offCount = createMemo(() => allSessions().filter((s) => s.status === "offline" || s.status === "done").length);
+
+  // Derive mascot pose from session states
+  const headerPose = createMemo((): ClaudeMonPose => {
+    const err = allSessions().some((s) => s.status === "error");
+    if (err) return "alert";
+    const w = waitingCount();
+    if (w > 0) return "watching";
+    const a = activeCount();
+    if (a > 0) return "scanning-right";
+    if (totalAgents() === 0) return "sleep";
+    const allDone = allSessions().every((s) => s.status === "done" || s.status === "offline");
+    if (allDone) return "celebrate";
+    return "default";
+  });
 
   const selectedSessions = createMemo(() =>
     selectedSessionIds()
@@ -117,6 +167,19 @@ const App: Component = () => {
   });
 
   const hasAgents = createMemo(() => totalAgents() > 0 || allEvents().length > 0);
+
+  // 3-state machine: loading → setup → active
+  const appState = createMemo(() => {
+    if (hasAgents()) return "active" as const;
+    if (!persistenceReady()) return "loading" as const;
+    return "setup" as const;
+  });
+
+  const handleApiKeySet = (key: string) => {
+    localStorage.setItem("claudemon_api_key", key);
+    reconnect();
+  };
+
   const connected = () => connectionStatus() === "connected";
   const [wasConnected, setWasConnected] = createSignal(false);
   createEffect(() => {
@@ -262,24 +325,11 @@ const App: Component = () => {
       <header class="h-11 shrink-0 flex items-center justify-between px-5 bg-item border-b border-panel-border shadow-[0_1px_3px_rgba(0,0,0,0.4)] mobile-header">
         <div class="flex items-center gap-3">
           <span class="text-lg font-bold tracking-wider flex items-center gap-1.5">
-            <ShieldCheck size={20} /> ClaudeMon
+            <ClaudeMonIcon pose={headerPose()} size={22} /> ClaudeMon
           </span>
-          <Show
-            when={showOnboarding()}
-            fallback={
-              <Show when={hasAgents() && !isMobile()}>
-                <span class="text-text-sub">|</span>
-                <span class="text-[11px] text-text-dim tracking-wider">Monitor your Claude Code sessions in real time</span>
-              </Show>
-            }
-          >
+          <Show when={hasAgents() && !isMobile()}>
             <span class="text-text-sub">|</span>
-            <button
-              class="text-[11px] text-text-sub hover:text-text-primary transition-colors"
-              onClick={() => setShowOnboarding(false)}
-            >
-              Back to dashboard
-            </button>
+            <span class="text-[11px] text-text-dim tracking-wider">Monitor your Claude Code sessions in real time</span>
           </Show>
         </div>
         <div class="flex items-center gap-4">
@@ -415,19 +465,11 @@ const App: Component = () => {
         <div class="h-0.5 bg-suspicious/50 animate-pulse" />
       </Show>
 
-      <Show
-        when={hasAgents()}
-        fallback={
-          <Show
-            when={showOnboarding() || (!authLoading() && !user()?.has_api_keys)}
-            fallback={
-              <IdleDashboard connectionStatus={connectionStatus} />
-            }
-          >
-            <Onboarding apiUrl={API_URL} user={user()} authLoading={authLoading()} onSetupComplete={refetchUser} onClose={() => setShowOnboarding(false)} />
-          </Show>
-        }
-      >
+      <Show when={appState() === "active"} fallback={
+        <Show when={appState() === "setup"} fallback={<div class="flex-1" />}>
+          <SetupScreen onApiKeySet={handleApiKeySet} connectionStatus={connectionStatus} apiUrl={API_URL} />
+        </Show>
+      }>
         <div class={`flex flex-1 overflow-hidden ${isMobile() ? "flex-col" : ""}`}>
           {/* Mobile: Conflict banner */}
           <Show when={isMobile() && conflicts().length > 0}>
@@ -450,13 +492,15 @@ const App: Component = () => {
 
           {/* Mobile: Session Detail overlay */}
           <Show when={isMobile() && selectedSessions().length > 0}>
-            <div class="absolute inset-0 z-50 bg-bg flex flex-col" style={{ top: "44px" }}>
+            <div class="absolute inset-0 z-50 bg-bg flex flex-col mobile-session-overlay">
               <SessionDetail
                 session={selectedSessions()[0]}
                 onClose={() => handleCloseSession(selectedSessions()[0].session_id)}
                 isMobile={true}
                 pendingActions={pendingActions}
                 onActionRespond={respondToAction}
+                onRequestHistory={loadSessionHistory}
+                historyLoading={historyLoading().has(selectedSessions()[0].session_id)}
               />
             </div>
           </Show>
@@ -605,6 +649,8 @@ const App: Component = () => {
                               showClose={false}
                               pendingActions={pendingActions}
                               onActionRespond={respondToAction}
+                              onRequestHistory={loadSessionHistory}
+                              historyLoading={historyLoading().has(session.session_id)}
                             />
                           </div>
                         )}
@@ -623,6 +669,8 @@ const App: Component = () => {
                                 showClose={true}
                                 pendingActions={pendingActions}
                                 onActionRespond={respondToAction}
+                                onRequestHistory={loadSessionHistory}
+                                historyLoading={historyLoading().has(session.session_id)}
                               />
                             </div>
                           )}
@@ -664,7 +712,7 @@ const App: Component = () => {
                           <CaretRight size={10} />
                         </button>
                       </div>
-                      <div class="flex-1 overflow-y-auto smooth-scroll">
+                      <div class="cm-content flex-1 overflow-y-auto smooth-scroll">
                         <ActivityTimeline events={allEvents()} onSelectSession={handleSelectSession} />
                       </div>
                     </div>
