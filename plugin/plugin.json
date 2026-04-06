@@ -12,7 +12,9 @@
   "keywords": ["monitoring", "observability", "dashboard", "sessions"],
   "userConfig": {
     "api_key": {
-      "description": "ClaudeMon API key from app.claudemon.com > Settings > API Keys",
+      "type": "string",
+      "title": "ClaudeMon API Key",
+      "description": "Your API key from app.claudemon.com. Go to Settings > API Keys to generate one.",
       "sensitive": true
     }
   }
