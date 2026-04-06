@@ -1,14 +1,18 @@
 {
   "name": "anipotts",
-  "description": "ClaudeMon — real-time Claude Code session monitoring",
   "owner": {
     "name": "Ani Potts",
-    "url": "https://github.com/anipotts"
+    "email": "ani@anipotts.com"
   },
-  "plugins": {
-    "claudemon": {
-      "path": "plugin",
-      "description": "Monitor your Claude Code sessions in real time at app.claudemon.com"
+  "metadata": {
+    "description": "Real-time Claude Code session monitoring"
+  },
+  "plugins": [
+    {
+      "name": "claudemon",
+      "source": "./plugin",
+      "description": "Monitor your Claude Code sessions in real time at app.claudemon.com",
+      "version": "0.6.0"
     }
-  }
+  ]
 }
