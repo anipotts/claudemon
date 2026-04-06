@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync, rmdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { createInterface } from "node:readline";
@@ -376,6 +376,73 @@ async function generateTransitKey() {
   console.log();
 }
 
+// ── Uninstall ─────────────────────────────────────────────────────
+
+async function uninstall() {
+  console.log();
+  console.log(bold("ClaudeMon") + dim(" — uninstall"));
+  console.log();
+
+  // 1. Remove hooks from settings.json
+  const settingsPath = join(homedir(), ".claude", "settings.json");
+  let hooksRemoved = 0;
+  if (existsSync(settingsPath)) {
+    try {
+      const settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
+      const hooks = settings.hooks || {};
+      for (const [evt, groups] of Object.entries(hooks)) {
+        const filtered = groups.filter((g) => {
+          const hasClaudemon = g.hooks?.some(
+            (h) => (h.command || "").includes("claudemon") || (h.url || "").includes("claudemon"),
+          );
+          return !hasClaudemon;
+        });
+        if (filtered.length !== groups.length) hooksRemoved += groups.length - filtered.length;
+        if (filtered.length === 0) {
+          delete hooks[evt];
+        } else {
+          hooks[evt] = filtered;
+        }
+      }
+      if (Object.keys(hooks).length === 0) delete settings.hooks;
+      writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
+      console.log(green("  [ok]") + ` Removed ${hooksRemoved} hook entries from settings.json`);
+    } catch {
+      console.log(red("  [!!]") + " Could not parse settings.json");
+    }
+  } else {
+    console.log(dim("  [--]") + " No settings.json found");
+  }
+
+  // 2. Remove ~/.claudemon/ directory
+  const claudemonDir = join(homedir(), ".claudemon");
+  if (existsSync(claudemonDir)) {
+    const files = readdirSync(claudemonDir);
+    for (const f of files) unlinkSync(join(claudemonDir, f));
+    rmdirSync(claudemonDir);
+    console.log(green("  [ok]") + " Removed ~/.claudemon/ directory");
+  }
+
+  // 3. Clean batch/lock files in /tmp
+  const tmpDir = "/tmp";
+  try {
+    const tmpFiles = readdirSync(tmpDir).filter((f) => f.startsWith("claudemon-"));
+    for (const f of tmpFiles) {
+      try {
+        unlinkSync(join(tmpDir, f));
+      } catch {}
+    }
+    if (tmpFiles.length > 0) {
+      console.log(green("  [ok]") + ` Cleaned ${tmpFiles.length} temp files`);
+    }
+  } catch {}
+
+  console.log();
+  console.log(dim("  ClaudeMon hooks removed. Restart Claude Code sessions for changes to take effect."));
+  console.log(dim("  Your data at app.claudemon.com is browser-local — clear it in Settings > History."));
+  console.log();
+}
+
 // ── Export ────────────────────────────────────────────────────────
 
 async function exportConfig() {
@@ -496,6 +563,8 @@ if (command === "init") {
   await generateTransitKey();
 } else if (command === "export") {
   await exportConfig();
+} else if (command === "uninstall") {
+  await uninstall();
 } else if (command === "--version" || command === "-v") {
   console.log(VERSION);
 } else {
@@ -508,6 +577,7 @@ if (command === "init") {
   console.log("  " + bold("claudemon generate-key") + dim("     Generate/rotate transit encryption key"));
   console.log("  " + bold("claudemon status") + dim("           Check connection status"));
   console.log("  " + bold("claudemon export") + dim("           Export configuration as JSON"));
+  console.log("  " + bold("claudemon uninstall") + dim("        Remove all ClaudeMon hooks"));
   console.log("  " + bold("claudemon migrate") + dim("          Upgrade hooks to v0.6.0"));
   console.log("  " + bold("claudemon --version") + dim("        Show version"));
   console.log();
