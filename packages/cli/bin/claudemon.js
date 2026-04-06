@@ -9,22 +9,31 @@ const VERSION = "0.6.0";
 const API_URL = "https://api.claudemon.com";
 
 // Core monitoring events — the minimal set that captures full session lifecycle.
-// Claude Code has 27 hook events total; we only need 12 for effective monitoring.
-// Reduced from 27 to eliminate noise (TaskCreated, TeammateIdle, Elicitation, etc.)
+// All 27 Claude Code hook events — registered for full monitoring + IndexedDB persistence.
+// Signal tiers (computed client-side) control UI visibility:
+//   Tier 1 (Action):     PermissionRequest, Notification, Elicitation, StopFailure, PostToolUseFailure
+//   Tier 2 (Status):     SessionStart, SessionEnd, Stop, UserPromptSubmit, PreToolUse, PostToolUse,
+//                         SubagentStart, SubagentStop, PostCompact, PermissionDenied
+//   Tier 3 (Background): PreCompact, CwdChanged, FileChanged, ConfigChange, WorktreeCreate,
+//                         WorktreeRemove, InstructionsLoaded, Setup
+//   Tier 4 (Swarm):      TaskCreated, TaskCompleted, TeammateIdle, ElicitationResult
 const HOOK_EVENTS = [
-  "SessionStart", // session lifecycle (MUST be command hook — HTTP blocked by CC)
-  "SessionEnd", // session lifecycle
-  "Setup", // initial setup (MUST be command hook — HTTP blocked by CC)
-  "PreToolUse", // tool activity start + tool_input
-  "PostToolUse", // tool completion + tool_response
-  "Stop", // session completion
-  "StopFailure", // error tracking
-  "SubagentStart", // agent hierarchy
-  "SubagentStop", // agent hierarchy
-  "UserPromptSubmit", // what user is asking
-  "Notification", // "needs input" / completion
-  "PostCompact", // context overflow tracking
+  "SessionStart", "SessionEnd", "Setup",
+  "PreToolUse", "PostToolUse", "PostToolUseFailure",
+  "Stop", "StopFailure",
+  "SubagentStart", "SubagentStop",
+  "UserPromptSubmit", "Notification",
+  "PreCompact", "PostCompact",
+  "PermissionRequest", "PermissionDenied",
+  "Elicitation", "ElicitationResult",
+  "TaskCreated", "TaskCompleted", "TeammateIdle",
+  "CwdChanged", "FileChanged",
+  "ConfigChange", "WorktreeCreate", "WorktreeRemove",
+  "InstructionsLoaded",
 ];
+
+// Events that get sync hooks for remote approval (opt-in via --remote)
+const ACTION_EVENTS = ["PermissionRequest", "Notification", "Elicitation"];
 
 // ── Helpers ────────────────────────────────────────────────────────
 
@@ -288,6 +297,55 @@ async function migrate() {
   console.log();
 }
 
+// ── Generate encryption key ──────────────────────────────────────
+
+async function generateTransitKey() {
+  console.log();
+  console.log(bold("ClaudeMon") + dim(" — transit encryption key"));
+  console.log();
+
+  const { randomBytes } = await import("node:crypto");
+  const key = randomBytes(32).toString("hex");
+
+  // Store locally
+  const keyDir = join(homedir(), ".claudemon");
+  if (!existsSync(keyDir)) mkdirSync(keyDir, { recursive: true });
+  const keyPath = join(keyDir, "transit-key");
+  writeFileSync(keyPath, key, { mode: 0o600 });
+
+  console.log(green("  Transit key generated:"));
+  console.log();
+  console.log(`  ${bold(key)}`);
+  console.log();
+  console.log(dim("  Paste this key into Settings > Privacy in your ClaudeMon browser."));
+  console.log(dim(`  Stored at: ${keyPath}`));
+  console.log();
+
+  // If hooks are already configured, add CLAUDEMON_ENCRYPTION_KEY to the hook commands
+  const settingsPath = join(homedir(), ".claude", "settings.json");
+  if (existsSync(settingsPath)) {
+    try {
+      const settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
+      let updated = false;
+      for (const evt of Object.keys(settings.hooks || {})) {
+        for (const g of settings.hooks[evt] || []) {
+          for (const h of g.hooks || []) {
+            if ((h.command || "").includes("claudemon") && !(h.command || "").includes("CLAUDEMON_ENCRYPTION_KEY")) {
+              h.command = `CLAUDEMON_ENCRYPTION_KEY="${key}" ${h.command}`;
+              updated = true;
+            }
+          }
+        }
+      }
+      if (updated) {
+        writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
+        console.log(green("  +") + ` Updated hooks in ${dim(settingsPath)} with encryption key`);
+      }
+    } catch {}
+  }
+  console.log();
+}
+
 // ── CLI router ─────────────────────────────────────────────────────
 
 const args = process.argv.slice(2);
@@ -296,21 +354,56 @@ const command = args[0];
 if (command === "init") {
   const keyIdx = args.indexOf("--key");
   const key = keyIdx !== -1 ? args[keyIdx + 1] : null;
+  const isPrivate = args.includes("--private");
+  const isRemote = args.includes("--remote");
   await init(key);
+  if (isPrivate) {
+    await generateTransitKey();
+  }
+  if (isRemote) {
+    // Register sync action hooks for remote approval
+    const settingsPath = join(homedir(), ".claude", "settings.json");
+    try {
+      const settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
+      const actionCmd = `node "${join(homedir(), ".claudemon", "action-hook.js")}" || echo '{}'`;
+      const actionHook = {
+        type: "command",
+        command: `CLAUDEMON_API_URL="${API_URL}" CLAUDE_PLUGIN_OPTION_API_KEY="${key || ""}" ${actionCmd}`,
+        timeout: 15,
+      };
+      const actionEntry = { matcher: "", hooks: [actionHook] };
+      for (const evt of ACTION_EVENTS) {
+        const groups = settings.hooks[evt] || [];
+        // Add sync action hook (doesn't replace async monitoring hook)
+        groups.push(actionEntry);
+        settings.hooks[evt] = groups;
+      }
+      writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
+      console.log(green("  +") + ` Remote approval hooks added for ${ACTION_EVENTS.join(", ")}`);
+      console.log(dim("    Permissions and plans will route to ClaudeMon when browser is connected."));
+    } catch {
+      console.log(red("  Error adding remote hooks. Run claudemon init first."));
+    }
+    console.log();
+  }
 } else if (command === "status") {
   await status();
 } else if (command === "migrate") {
   await migrate();
+} else if (command === "generate-key") {
+  await generateTransitKey();
 } else if (command === "--version" || command === "-v") {
   console.log(VERSION);
 } else {
   console.log();
   console.log(bold("claudemon") + dim(` v${VERSION}`));
   console.log();
-  console.log("  " + bold("claudemon init") + dim("           Set up ClaudeMon hooks"));
-  console.log("  " + bold("claudemon init --key") + dim("    Pass API key directly"));
-  console.log("  " + bold("claudemon status") + dim("        Check connection status"));
-  console.log("  " + bold("claudemon migrate") + dim("       Upgrade hooks to v0.6.0 (HTTP -> async command)"));
-  console.log("  " + bold("claudemon --version") + dim("     Show version"));
+  console.log("  " + bold("claudemon init") + dim("              Set up ClaudeMon hooks"));
+  console.log("  " + bold("claudemon init --key") + dim("       Pass API key directly"));
+  console.log("  " + bold("claudemon init --private") + dim("   Set up hooks + generate transit encryption key"));
+  console.log("  " + bold("claudemon generate-key") + dim("     Generate/rotate transit encryption key"));
+  console.log("  " + bold("claudemon status") + dim("           Check connection status"));
+  console.log("  " + bold("claudemon migrate") + dim("          Upgrade hooks to v0.6.0"));
+  console.log("  " + bold("claudemon --version") + dim("        Show version"));
   console.log();
 }
