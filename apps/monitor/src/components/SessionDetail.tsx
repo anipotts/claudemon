@@ -145,7 +145,7 @@ function ActionBanner(props: {
           if (eventName() === "PermissionRequest") {
             const cmd = toolInput().command as string | undefined;
             const filePath = toolInput().file_path as string | undefined;
-            if (cmd) return `$ ${cmd.slice(0, 80)}`;
+            if (cmd) return `$ ${cmd.slice(0, 120)}`;
             if (filePath) return filePath.split("/").slice(-3).join("/");
             return toolName();
           }
@@ -153,6 +153,26 @@ function ActionBanner(props: {
             return (data().notification_message as string) || "Notification";
           }
           return (data().prompt as string) || eventName();
+        };
+
+        // Extract rich context for the action
+        const richContext = () => {
+          const inp = toolInput();
+          if (toolName() === "Edit") {
+            return { type: "edit" as const, file: inp.file_path as string, old: inp.old_string as string, new_: inp.new_string as string };
+          }
+          if (toolName() === "Bash") {
+            return { type: "bash" as const, command: inp.command as string, description: inp.description as string };
+          }
+          if (toolName() === "Write") {
+            return { type: "write" as const, file: inp.file_path as string, content: (inp.content as string)?.slice(0, 300) };
+          }
+          if (eventName() === "Notification") {
+            const msg = data().notification_message as string || "";
+            const plan = data().plan as string || "";
+            return { type: "notification" as const, message: msg, plan };
+          }
+          return null;
         };
 
         return (
@@ -188,6 +208,50 @@ function ActionBanner(props: {
                 {remaining()}s
               </span>
             </div>
+            {/* Rich context panel */}
+            <Show when={richContext()}>
+              {(ctx) => (
+                <div class="border-t border-suspicious/15 px-3 py-2 max-h-[160px] overflow-y-auto bg-[#0a0a0a]/40">
+                  <Show when={ctx().type === "bash"}>
+                    <div class="font-mono text-[9px] text-text-sub">
+                      <span class="text-text-dim">$</span> {(ctx() as { command: string }).command?.slice(0, 200)}
+                    </div>
+                    <Show when={(ctx() as { description: string }).description}>
+                      <div class="text-[8px] text-text-dim mt-1">{(ctx() as { description: string }).description}</div>
+                    </Show>
+                  </Show>
+                  <Show when={ctx().type === "edit"}>
+                    <div class="text-[8px] text-text-dim mb-1">{(ctx() as { file: string }).file?.split("/").slice(-2).join("/")}</div>
+                    <Show when={(ctx() as { old: string }).old}>
+                      <div class="font-mono text-[8px] text-attack/70 line-through whitespace-pre-wrap max-h-[40px] overflow-hidden">
+                        {(ctx() as { old: string }).old?.slice(0, 150)}
+                      </div>
+                    </Show>
+                    <Show when={(ctx() as { new_: string }).new_}>
+                      <div class="font-mono text-[8px] text-safe/70 whitespace-pre-wrap max-h-[40px] overflow-hidden mt-0.5">
+                        {(ctx() as { new_: string }).new_?.slice(0, 150)}
+                      </div>
+                    </Show>
+                  </Show>
+                  <Show when={ctx().type === "write"}>
+                    <div class="text-[8px] text-text-dim mb-1">{(ctx() as { file: string }).file?.split("/").slice(-2).join("/")}</div>
+                    <div class="font-mono text-[8px] text-safe/70 whitespace-pre-wrap max-h-[60px] overflow-hidden">
+                      {(ctx() as { content: string }).content}
+                    </div>
+                  </Show>
+                  <Show when={ctx().type === "notification"}>
+                    <div class="text-[9px] text-text-sub leading-relaxed whitespace-pre-wrap">
+                      {(ctx() as { message: string }).message}
+                    </div>
+                    <Show when={(ctx() as { plan: string }).plan}>
+                      <div class="mt-1 text-[8px] text-text-dim border-t border-panel-border/20 pt-1 whitespace-pre-wrap max-h-[80px] overflow-hidden">
+                        {(ctx() as { plan: string }).plan?.slice(0, 400)}
+                      </div>
+                    </Show>
+                  </Show>
+                </div>
+              )}
+            </Show>
             <div class="flex border-t border-suspicious/20">
               <button
                 class="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[10px] font-bold uppercase text-safe hover:bg-safe/10 transition-colors"
@@ -1219,6 +1283,7 @@ export const SessionDetail: Component<{
       if (prevTs > 0) {
         const gap = events[i].timestamp - prevTs;
         if (gap > 60000) gaps.set(i, gap);
+        else if (gap > 5000) gaps.set(i, gap); // 5s+ = thinking gap
       }
       prevTs = events[i].timestamp;
     }
@@ -1598,14 +1663,22 @@ export const SessionDetail: Component<{
                 <div
                   class="flex items-center justify-center py-1"
                   style={{
-                    "border-top": "1px dashed var(--panel-border)",
-                    "border-bottom": "1px dashed var(--panel-border)",
+                    "border-top": gapsBefore().get(i())! >= 60000 ? "1px dashed var(--panel-border)" : "none",
+                    "border-bottom": gapsBefore().get(i())! >= 60000 ? "1px dashed var(--panel-border)" : "none",
                     margin: "2px 0",
                   }}
                 >
-                  <span class="text-[8px] text-text-sub/40 font-mono tracking-wider">
-                    ··· {formatGapDuration(gapsBefore().get(i())!)} gap ···
-                  </span>
+                  <Show when={gapsBefore().get(i())! >= 60000}
+                    fallback={
+                      <span class="text-[7px] text-text-sub/30 font-mono italic">
+                        thinking {formatGapDuration(gapsBefore().get(i())!)}
+                      </span>
+                    }
+                  >
+                    <span class="text-[8px] text-text-sub/40 font-mono tracking-wider">
+                      ··· {formatGapDuration(gapsBefore().get(i())!)} gap ···
+                    </span>
+                  </Show>
                 </div>
               </Show>
               <div data-tl-idx={i()} class={errorChainIndices().has(i()) ? "bg-attack/5" : ""}>
@@ -1982,41 +2055,84 @@ export const SessionDetail: Component<{
                           !event.tool_name
                         }
                       >
-                        <div class="border-b border-panel-border/20 flex items-center gap-2" style={{ "min-height": "1.75rem", padding: "4px 12px" }}>
-                          <span
-                            class={`text-[10px] font-bold uppercase ${
-                              event.hook_event_name === "PostToolUseFailure"
-                                ? "text-attack"
-                                : event.hook_event_name === "Notification" ||
-                                    event.hook_event_name === "PermissionRequest"
-                                  ? "text-suspicious"
-                                  : event.hook_event_name === "PermissionDenied"
-                                    ? "text-attack"
-                                    : "text-text-sub"
-                            }`}
-                          >
-                            {event.hook_event_name}
-                          </span>
-                          <Show when={event.hook_event_name === "PostToolUseFailure" && event.error}>
-                            <span class="text-[9px] text-attack truncate">{(event.error as string)?.slice(0, 60)}</span>
-                            <CopyContextBtn session={s()} event={event} />
-                          </Show>
-                          <Show when={event.hook_event_name === "Notification" && event.notification_message}>
-                            <span class="text-[9px] text-text-dim truncate">{event.notification_message}</span>
-                          </Show>
-                          <Show when={event.hook_event_name === "PermissionDenied"}>
-                            <span class="text-[9px] text-attack">{event.tool_name} denied</span>
-                            <Show when={event.permission_denied_reason}>
-                              <span class="text-[8px] text-text-dim truncate">
-                                {event.permission_denied_reason!.slice(0, 40)}
-                              </span>
+                        {/* ── Signal cards: Notification, Permission, Errors ── */}
+                        <Show when={event.hook_event_name === "Notification"}>
+                          <div class="mx-2 my-1 rounded border border-suspicious/30 bg-[#c9a96e08] overflow-hidden">
+                            <div class="flex items-center gap-2 px-3 py-1.5">
+                              <Warning size={11} class="text-suspicious shrink-0" />
+                              <span class="text-[9px] font-bold text-suspicious uppercase">Notification</span>
+                              <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
+                            </div>
+                            <Show when={event.notification_message}>
+                              <div class="px-3 pb-2 text-[9px] text-text-sub leading-relaxed">
+                                {event.notification_message}
+                              </div>
                             </Show>
-                          </Show>
-                          <Show when={event.hook_event_name === "PermissionRequest"}>
-                            <span class="text-[9px] text-text-dim">{event.tool_name} needs permission</span>
-                          </Show>
-                          <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
-                        </div>
+                          </div>
+                        </Show>
+                        <Show when={event.hook_event_name === "PermissionRequest"}>
+                          <div class="mx-2 my-1 rounded border border-suspicious/30 bg-[#c9a96e08] overflow-hidden">
+                            <div class="flex items-center gap-2 px-3 py-1.5">
+                              <ShieldCheck size={11} class="text-suspicious shrink-0" />
+                              <span class="text-[9px] font-bold text-suspicious uppercase">Permission</span>
+                              <Show when={event.tool_name}>
+                                <span class="text-[8px] font-mono text-text-dim bg-panel-border/20 px-1 rounded-sm">{event.tool_name}</span>
+                              </Show>
+                              <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
+                            </div>
+                            <Show when={event.tool_input}>
+                              <div class="px-3 pb-2 text-[9px] text-text-dim font-mono truncate">
+                                {(event.tool_input?.command as string)?.slice(0, 100) ||
+                                 (event.tool_input?.file_path as string) ||
+                                 (event.tool_input?.description as string)?.slice(0, 80) ||
+                                 ""}
+                              </div>
+                            </Show>
+                          </div>
+                        </Show>
+                        <Show when={event.hook_event_name === "PermissionDenied"}>
+                          <div class="mx-2 my-1 rounded border border-attack/30 bg-[#b85c4a08] overflow-hidden">
+                            <div class="flex items-center gap-2 px-3 py-1.5">
+                              <X size={11} class="text-attack shrink-0" />
+                              <span class="text-[9px] font-bold text-attack uppercase">Denied</span>
+                              <Show when={event.tool_name}>
+                                <span class="text-[8px] font-mono text-text-dim bg-panel-border/20 px-1 rounded-sm">{event.tool_name}</span>
+                              </Show>
+                              <Show when={event.permission_denied_reason}>
+                                <span class="text-[8px] text-text-dim truncate">{event.permission_denied_reason!.slice(0, 60)}</span>
+                              </Show>
+                              <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
+                            </div>
+                          </div>
+                        </Show>
+                        <Show when={event.hook_event_name === "PostToolUseFailure"}>
+                          <div class="mx-2 my-1 rounded border border-attack/30 bg-[#b85c4a08] overflow-hidden">
+                            <div class="flex items-center gap-2 px-3 py-1.5">
+                              <Warning size={11} class="text-attack shrink-0" />
+                              <span class="text-[9px] font-bold text-attack uppercase">Tool Failure</span>
+                              <Show when={event.tool_name}>
+                                <span class="text-[8px] font-mono text-text-dim bg-panel-border/20 px-1 rounded-sm">{event.tool_name}</span>
+                              </Show>
+                              <span class="text-[9px] text-attack truncate">{(event.error as string)?.slice(0, 60)}</span>
+                              <CopyContextBtn session={s()} event={event} />
+                              <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
+                            </div>
+                          </div>
+                        </Show>
+                        {/* Generic lifecycle events that don't match above */}
+                        <Show when={
+                          event.hook_event_name !== "Notification" &&
+                          event.hook_event_name !== "PermissionRequest" &&
+                          event.hook_event_name !== "PermissionDenied" &&
+                          event.hook_event_name !== "PostToolUseFailure"
+                        }>
+                          <div class="border-b border-panel-border/20 flex items-center gap-2" style={{ "min-height": "1.75rem", padding: "4px 12px" }}>
+                            <span class="text-[10px] font-bold uppercase text-text-sub">
+                              {event.hook_event_name}
+                            </span>
+                            <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
+                          </div>
+                        </Show>
                       </Show>
                     </>
                   }
