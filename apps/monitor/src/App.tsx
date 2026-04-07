@@ -34,6 +34,7 @@ const App: Component = () => {
   const [user, setUser] = createSignal<User | null>(null);
   const [authLoading, setAuthLoading] = createSignal(true);
 
+  const [authError, setAuthError] = createSignal<string | null>(null);
   onMount(() => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
@@ -42,7 +43,11 @@ const App: Component = () => {
       .then((data) => {
         if (data) setUser(data);
       })
-      .catch(() => {})
+      .catch((err) => {
+        if (err?.name === "AbortError") {
+          setAuthError("Auth server timeout");
+        }
+      })
       .finally(() => {
         clearTimeout(timeout);
         setAuthLoading(false);

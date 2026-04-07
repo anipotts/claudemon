@@ -393,8 +393,8 @@ export function createSessionStore() {
     // Persist to IndexedDB (fire-and-forget, non-blocking)
     const sessionCopy = sessions[sid];
     if (sessionCopy) {
-      saveSession(sessionCopy).catch(() => {});
-      saveEvent(event).catch(() => {});
+      saveSession(sessionCopy).catch((err) => console.warn("ClaudeMon: session persist failed", err));
+      saveEvent(event).catch((err) => console.warn("ClaudeMon: event persist failed", err));
     }
   }
 
