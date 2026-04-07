@@ -20,8 +20,16 @@ export function hashSessionColor(sessionId: string): string {
 
 // Broader palette for file heat map — more colors for better discrimination
 const FILE_COLORS = [
-  "#a3b18a", "#c9a96e", "#7ea8be", "#b07bac", "#8a8478",
-  "#7b9fbf", "#b85c4a", "#6b9080", "#c4856e", "#8b7ec8",
+  "#a3b18a",
+  "#c9a96e",
+  "#7ea8be",
+  "#b07bac",
+  "#8a8478",
+  "#7b9fbf",
+  "#b85c4a",
+  "#6b9080",
+  "#c4856e",
+  "#8b7ec8",
 ];
 
 export function hashFileColor(filePath: string): string {
@@ -67,12 +75,16 @@ export const SessionBadge: Component<{
           <div class="tt-label">Session</div>
           <div class="tt-value">{props.sessionId}</div>
           <div class="tt-row">
-            <span class="tt-label" style={{ margin: "0" }}>Project</span>
+            <span class="tt-label" style={{ margin: "0" }}>
+              Project
+            </span>
             <span class="tt-dim">{props.projectName || "unknown"}</span>
           </div>
           <Show when={props.status}>
             <div class="tt-row">
-              <span class="tt-label" style={{ margin: "0" }}>Status</span>
+              <span class="tt-label" style={{ margin: "0" }}>
+                Status
+              </span>
               <span style={{ color: STATUS_DOT_COLORS[props.status!] || "#4a4640" }}>{props.status}</span>
             </div>
           </Show>

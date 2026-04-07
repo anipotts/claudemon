@@ -80,7 +80,7 @@ app.get("/health", (c) => c.json({ status: "ok", service: "claudemon", version: 
 // -- POST /events -- receive hook events (requires API key) ---------------
 
 app.post("/events", apiKeyAuth, async (c) => {
-  const contentLength = parseInt(c.req.header("Content-Length") || "0", 10);
+  const contentLength = Number.parseInt(c.req.header("Content-Length") || "0", 10);
   if (contentLength > MAX_PAYLOAD_BYTES) {
     return c.json({ error: "Payload too large (max 1MB)" }, 413);
   }
@@ -111,7 +111,7 @@ app.post("/events", apiKeyAuth, async (c) => {
 // -- POST /events/batch -- receive batched hook events --------------------
 
 app.post("/events/batch", apiKeyAuth, async (c) => {
-  const contentLength = parseInt(c.req.header("Content-Length") || "0", 10);
+  const contentLength = Number.parseInt(c.req.header("Content-Length") || "0", 10);
   if (contentLength > MAX_PAYLOAD_BYTES) {
     return c.json({ error: "Payload too large (max 1MB)" }, 413);
   }
@@ -280,7 +280,8 @@ const worker = {
         headers: {
           "Content-Type": "text/html; charset=utf-8",
           "Cache-Control": "public, max-age=3600",
-          "Content-Security-Policy": "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' wss://api.claudemon.com https://api.claudemon.com; img-src 'self' data: https://avatars.githubusercontent.com",
+          "Content-Security-Policy":
+            "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' wss://api.claudemon.com https://api.claudemon.com; img-src 'self' data: https://avatars.githubusercontent.com",
           "X-Content-Type-Options": "nosniff",
           "X-Frame-Options": "DENY",
         },

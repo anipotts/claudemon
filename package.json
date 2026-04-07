@@ -2,10 +2,7 @@
   "name": "claudemon-monorepo",
   "version": "0.5.4",
   "private": true,
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
+  "workspaces": ["apps/*", "packages/*"],
   "scripts": {
     "dev:monitor": "cd apps/monitor && npm run dev",
     "dev:api": "cd apps/monitor-api && npm run dev",

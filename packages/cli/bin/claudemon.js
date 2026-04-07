@@ -409,7 +409,7 @@ async function uninstall() {
           hooks[evt] = filtered;
         }
       }
-      if (Object.keys(hooks).length === 0) delete settings.hooks;
+      if (Object.keys(hooks).length === 0) settings.hooks = undefined;
       writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
       console.log(green("  [ok]") + ` Removed ${hooksRemoved} hook entries from settings.json`);
     } catch {

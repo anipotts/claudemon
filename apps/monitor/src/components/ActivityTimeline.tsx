@@ -2,9 +2,23 @@ import { type Component, For, Show, createSignal, createMemo } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import type { MonitorEvent, HookEventName } from "../../../../packages/types/monitor";
 import {
-  Eye, PencilSimple, Plus, Terminal, MagnifyingGlass, Folder,
-  Robot, Play, X, Pause, Warning, Bell, ArrowsClockwise,
-  Key, ShieldCheck, ChatText, Circle,
+  Eye,
+  PencilSimple,
+  Plus,
+  Terminal,
+  MagnifyingGlass,
+  Folder,
+  Robot,
+  Play,
+  X,
+  Pause,
+  Warning,
+  Bell,
+  ArrowsClockwise,
+  Key,
+  ShieldCheck,
+  ChatText,
+  Circle,
 } from "./Icons";
 import { FileBadge } from "./FileBadge";
 import { SessionBadge } from "./SessionBadge";
@@ -86,7 +100,7 @@ function eventSeverity(e: MonitorEvent): Severity {
 }
 
 const SEVERITY_BG: Record<Severity, string> = {
-  error: "bg-attack/8",
+  error: "bg-attack/10 border-l-2 border-l-attack",
   warning: "bg-suspicious/5",
   lifecycle: "",
   tool: "",
@@ -199,27 +213,27 @@ function EventRow(props: { event: MonitorEvent; onSelect?: (id: string) => void 
         <span class="shrink-0 flex items-center">
           <Dynamic component={iconComp()} size={10} style={{ color: color() }} />
         </span>
-        <span class="text-[9px] font-bold uppercase shrink-0" style={{ color: color() }}>
+        <span class="text-[10px] font-bold uppercase shrink-0" style={{ color: color() }}>
           {toolName()}
         </span>
         <Show when={detail().diffStat}>
           {(ds) => (
-            <span class="text-[9px] font-mono shrink-0">
+            <span class="text-[10px] font-mono shrink-0">
               <span class="text-safe">+{ds().added}</span> <span class="text-attack">-{ds().removed}</span>
             </span>
           )}
         </Show>
         <Show when={severity() === "error"}>
-          <span class="text-[9px] text-attack font-bold px-1 rounded-sm bg-attack/15 uppercase shrink-0">err</span>
+          <span class="text-[10px] text-attack font-bold px-1 rounded-sm bg-attack/15 uppercase shrink-0">err</span>
         </Show>
         <Show when={detail().filePath}>
           <FileBadge path={detail().filePath!} />
         </Show>
         <Show when={!detail().filePath && detail().primary}>
-          <span class="text-[9px] text-text-dim truncate min-w-0">{detail().primary}</span>
+          <span class="text-[10px] text-text-dim truncate min-w-0">{detail().primary}</span>
         </Show>
         <Show when={detail().secondary}>
-          <span class="text-[9px] text-text-sub truncate min-w-0">{detail().secondary}</span>
+          <span class="text-[10px] text-text-sub truncate min-w-0">{detail().secondary}</span>
         </Show>
       </div>
     </div>
@@ -282,7 +296,7 @@ export const ActivityTimeline: Component<{
     }
   });
 
-  const errorCount = createMemo(() => baseEvents().filter((e) => eventSeverity(e) === "error").length);
+  const _errorCount = createMemo(() => baseEvents().filter((e) => eventSeverity(e) === "error").length);
   const signalCount = createMemo(
     () => baseEvents().filter((e) => getEventTier(e.hook_event_name as HookEventName) === 1).length,
   );

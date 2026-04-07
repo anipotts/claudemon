@@ -169,7 +169,7 @@ export function createSessionStore() {
         decryptTransit(event._encrypted, key)
           .then((decrypted) => {
             const merged = { ...event, ...decrypted } as MonitorEvent;
-            delete merged._encrypted;
+            merged._encrypted = undefined;
             handleEvent(merged); // re-process with decrypted fields
           })
           .catch(() => {
@@ -537,5 +537,14 @@ export function createSessionStore() {
     }
   }
 
-  return { sessions, connectionStatus: status, persistenceReady, pendingActions, respondToAction, loadSessionHistory, historyLoading, reconnect };
+  return {
+    sessions,
+    connectionStatus: status,
+    persistenceReady,
+    pendingActions,
+    respondToAction,
+    loadSessionHistory,
+    historyLoading,
+    reconnect,
+  };
 }

@@ -1,4 +1,4 @@
-import { type Component, createSignal, For, Show, createMemo, onCleanup } from "solid-js";
+import { type Component, createSignal, createEffect, For, Show, createMemo, onCleanup } from "solid-js";
 import type { SessionState, SessionStatus } from "../../../../packages/types/monitor";
 import { STATUS_LABELS } from "../../../../packages/types/monitor";
 import {
@@ -18,6 +18,42 @@ import {
 import { SessionBadge } from "./SessionBadge";
 import { ModelBadge } from "./ModelBadge";
 import { timeAgo, formatDuration } from "../utils/time";
+
+// ── Module-level collapse state — survives component re-mounts ─────
+const _collapseState = new Map<string, boolean>();
+const _collapseTimestamps = new Map<string, number>(); // when group was collapsed
+function usePersistedOpen(key: string, defaultOpen = true) {
+  const initial = _collapseState.has(key) ? _collapseState.get(key)! : defaultOpen;
+  const [open, _setOpen] = createSignal(initial);
+  const setOpen = (v: boolean) => {
+    _collapseState.set(key, v);
+    if (!v) _collapseTimestamps.set(key, Date.now()); // record when collapsed
+    _setOpen(v);
+  };
+  const toggle = () => setOpen(!open());
+  const collapsedAt = () => _collapseTimestamps.get(key) || 0;
+  return [open, toggle, collapsedAt] as const;
+}
+
+// ── Animated number — ticks up/down over a few frames ──────────────
+function AnimatedNumber(props: { value: number }) {
+  const [displayed, setDisplayed] = createSignal(props.value);
+  createEffect(() => {
+    const target = props.value;
+    if (target === displayed()) return;
+    let current = displayed();
+    let rafId: number;
+    const step = () => {
+      if (current === target) return;
+      current += Math.sign(target - current);
+      setDisplayed(current);
+      if (current !== target) rafId = requestAnimationFrame(step);
+    };
+    rafId = requestAnimationFrame(step);
+    onCleanup(() => cancelAnimationFrame(rafId));
+  });
+  return <>{displayed()}</>;
+}
 
 // Full 6-char hex required — shorthand (#666) breaks the + "25" alpha concat pattern
 const STATUS_STYLES: Record<SessionStatus, { color: string; bg: string; border: string; pulse: boolean }> = {
@@ -96,7 +132,7 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
 
   return (
     <div
-      class={`border rounded-sm p-3 transition-all cursor-pointer status-transition hover:brightness-110 ${isWaiting() ? "waiting-banner" : ""} ${isOffline() ? "opacity-50" : ""}`}
+      class={`border rounded-sm p-3 cursor-pointer session-card-lift ${isWaiting() ? "waiting-banner" : ""} ${isOffline() ? "opacity-50" : ""}`}
       style={{
         "border-color": props.selected ? "#a3b18a60" : isWaiting() ? undefined : style().border,
         background: props.selected ? "#a3b18a0a" : isWaiting() ? undefined : style().bg,
@@ -136,7 +172,21 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
         </Show>
         <Show when={counters()}>
           <span class="text-text-sub shrink-0" title={counterTooltip()}>
-            {counters()}
+            <Show when={s().edit_count}>
+              <AnimatedNumber value={s().edit_count} />e
+            </Show>
+            <Show when={s().edit_count && (s().command_count || s().read_count || s().search_count)}>{" \u00b7 "}</Show>
+            <Show when={s().command_count}>
+              <AnimatedNumber value={s().command_count} />c
+            </Show>
+            <Show when={s().command_count && (s().read_count || s().search_count)}>{" \u00b7 "}</Show>
+            <Show when={s().read_count}>
+              <AnimatedNumber value={s().read_count} />r
+            </Show>
+            <Show when={s().read_count && s().search_count}>{" \u00b7 "}</Show>
+            <Show when={s().search_count}>
+              <AnimatedNumber value={s().search_count} />s
+            </Show>
           </span>
         </Show>
         <Show when={activeAgentCount() > 0}>
@@ -198,19 +248,25 @@ function ProjectGroupView(props: {
   onSelect?: (id: string) => void;
 }) {
   const depth = () => props.depth || 0;
-  const [open, setOpen] = createSignal(true);
+  const [open, toggle, collapsedAt] = usePersistedOpen(`project:${props.node.path}`);
   const totalSessions = (): number =>
     props.node.sessions.length + props.node.children.reduce((sum, c) => sum + c.sessions.length, 0);
+  const allSessions = () => [...props.node.sessions, ...props.node.children.flatMap((c) => c.sessions)];
+  const hasNewActivity = () => {
+    if (open()) return false;
+    const ct = collapsedAt();
+    return ct > 0 && allSessions().some((sess) => sess.last_event_at > ct);
+  };
 
   return (
     <div class="border border-panel-border rounded-sm bg-card" style={{ "margin-left": depth() > 0 ? "12px" : "0" }}>
-      <button
-        onClick={() => setOpen(!open())}
-        class="flex items-center gap-2 px-3 py-1.5 w-full hover:bg-panel/30 transition-colors"
-      >
+      <button onClick={toggle} class="flex items-center gap-2 px-3 py-1.5 w-full hover:bg-panel/30 transition-colors">
         {open() ? <CaretDown size={10} class="text-text-sub" /> : <CaretRight size={10} class="text-text-sub" />}
         <Folder size={12} class="text-text-dim shrink-0" />
         <span class="text-[11px] font-bold text-text-primary truncate">{props.node.name}</span>
+        <Show when={hasNewActivity()}>
+          <span class="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "#7b9fbf" }} />
+        </Show>
         <Show when={props.node.sessions[0]?.branch}>
           <span class="flex items-center gap-0.5 text-[9px] text-text-sub truncate shrink min-w-0">
             <GitBranch size={9} class="shrink-0" /> {props.node.sessions[0].branch}
@@ -302,15 +358,20 @@ function EnvironmentGroup(props: {
   selectedIds?: string[];
   onSelect?: (id: string) => void;
 }) {
-  const [open, setOpen] = createSignal(true);
+  const [open, toggle, collapsedAt] = usePersistedOpen(`env:${props.hostname}`);
   const EnvIcon = () => ENV_ICONS[props.envType] || Desktop;
+  const hasNewActivity = () => {
+    if (open()) return false;
+    const ct = collapsedAt();
+    return ct > 0 && props.sessions.some((sess) => sess.last_event_at > ct);
+  };
 
   const projectTree = createMemo(() => buildProjectTree(props.sessions));
 
   return (
     <div>
       <button
-        onClick={() => setOpen(!open())}
+        onClick={toggle}
         class="flex items-center gap-2 px-1 py-1.5 w-full hover:bg-panel/30 transition-colors rounded-sm"
       >
         {open() ? <CaretDown size={10} class="text-text-sub" /> : <CaretRight size={10} class="text-text-sub" />}
@@ -319,6 +380,9 @@ function EnvironmentGroup(props: {
           return <I size={14} class="text-text-label" />;
         })()}
         <span class="text-[11px] font-bold text-text-primary truncate">{props.hostname}</span>
+        <Show when={hasNewActivity()}>
+          <span class="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "#7b9fbf" }} />
+        </Show>
         <span class="ml-auto flex items-center gap-1">
           <Pulse size={10} class="text-safe" />
           <span class="text-[9px] text-text-label">{props.sessions.length}</span>

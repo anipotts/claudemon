@@ -200,7 +200,9 @@ export class SessionRoom extends DurableObject {
     if (idleMs >= IDLE_TTL_MS) {
       // Close all remaining sockets
       for (const ws of this.ctx.getWebSockets()) {
-        try { ws.close(1000, "idle timeout"); } catch {}
+        try {
+          ws.close(1000, "idle timeout");
+        } catch {}
       }
       // Delete all storage to allow DO to be garbage collected
       await this.ctx.storage.deleteAll();

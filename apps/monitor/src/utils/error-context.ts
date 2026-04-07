@@ -270,15 +270,15 @@ export function formatAsMarkdown(ctx: ErrorContext): string {
   const errTool = error.tool_name || "unknown";
   const errMsg = error.error || error.error_details || "";
   const errCmd = error.tool_name === "Bash" ? (error.tool_input?.command as string) || "" : "";
-  md += `### Error\n`;
+  md += "### Error\n";
   md += `[${error.hook_event_name}] ${errTool} at ${formatTime(error.timestamp)}\n`;
   if (errCmd) md += `$ ${errCmd}\n`;
   if (errMsg) md += `${errMsg}\n`;
-  md += `\n`;
+  md += "\n";
 
   // Cross-session root causes
   if (crossSessionCauses.length > 0) {
-    md += `### Cross-Session Root Cause\n`;
+    md += "### Cross-Session Root Cause\n";
     for (const cause of crossSessionCauses) {
       const shortFp = cause.file.split("/").slice(-3).join("/");
       const causeTs = formatTime(cause.event.timestamp);
@@ -292,7 +292,7 @@ export function formatAsMarkdown(ctx: ErrorContext): string {
       }
       md += line + "\n";
     }
-    md += `\n`;
+    md += "\n";
   }
 
   // Causal chain
@@ -304,11 +304,11 @@ export function formatAsMarkdown(ctx: ErrorContext): string {
   for (const entry of causalChain) {
     md += formatEventLine(entry) + "\n";
   }
-  md += `\n`;
+  md += "\n";
 
   // Tainted files
   if (taintedFiles.size > 0) {
-    md += `### Tainted Files\n`;
+    md += "### Tainted Files\n";
     for (const fp of taintedFiles) {
       const shortFp = fp.split("/").slice(-3).join("/");
       const info = relatedFiles.get(fp);
@@ -317,12 +317,12 @@ export function formatAsMarkdown(ctx: ErrorContext): string {
         : "";
       md += `- ${shortFp}${extra}\n`;
     }
-    md += `\n`;
+    md += "\n";
   }
 
   // Session metadata
   const dur = session.started_at ? `${Math.floor((Date.now() - session.started_at) / 60000)}m` : "unknown";
-  md += `### Session\n`;
+  md += "### Session\n";
   md += `Model: ${session.model || "unknown"} | Branch: ${session.branch || "unknown"} | Duration: ${dur} | Errors: ${session.error_count}\n`;
 
   return md;

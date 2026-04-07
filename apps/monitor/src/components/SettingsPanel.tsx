@@ -548,9 +548,7 @@ const TEXT_SIZE_PRESETS = [
 ];
 
 const DisplayTab: Component = () => {
-  const [zoom, setZoom] = createSignal(
-    parseFloat(localStorage.getItem("claudemon_text_zoom") || "1"),
-  );
+  const [zoom, setZoom] = createSignal(Number.parseFloat(localStorage.getItem("claudemon_text_zoom") || "1"));
 
   const applyZoom = (z: number) => {
     const clamped = Math.round(Math.max(0.8, Math.min(1.5, z)) * 100) / 100;
@@ -582,10 +580,7 @@ const DisplayTab: Component = () => {
                     : "bg-card border-panel-border/30 text-text-sub hover:text-text-primary hover:border-panel-border"
                 }`}
               >
-                <span
-                  class="font-bold uppercase tracking-wider"
-                  style={{ "font-size": `${9 + i() * 1.5}px` }}
-                >
+                <span class="font-bold uppercase tracking-wider" style={{ "font-size": `${9 + i() * 1.5}px` }}>
                   Aa
                 </span>
                 <span class="text-[10px] font-bold">{preset.label}</span>
@@ -605,7 +600,7 @@ const DisplayTab: Component = () => {
           max="1.5"
           step="0.01"
           value={zoom()}
-          onInput={(e) => applyZoom(parseFloat(e.currentTarget.value))}
+          onInput={(e) => applyZoom(Number.parseFloat(e.currentTarget.value))}
           class="flex-1 accent-safe h-1"
         />
         <span class="text-[12px] text-text-sub shrink-0 font-bold">A</span>

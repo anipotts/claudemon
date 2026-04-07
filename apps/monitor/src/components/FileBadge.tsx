@@ -55,9 +55,15 @@ export const FileBadge: Component<{ path: string }> = (props) => {
             <span class="tt-value">{filename()}</span>
           </div>
           <div class="tt-row">
-            {extLabel() && <span class="tt-label" style={{ margin: "0" }}>{extLabel()}</span>}
+            {extLabel() && (
+              <span class="tt-label" style={{ margin: "0" }}>
+                {extLabel()}
+              </span>
+            )}
             {info().type !== "default" && (
-              <span class="tt-label" style={{ margin: "0", color: "var(--text-sub)" }}>{info().type}</span>
+              <span class="tt-label" style={{ margin: "0", color: "var(--text-sub)" }}>
+                {info().type}
+              </span>
             )}
           </div>
         </div>

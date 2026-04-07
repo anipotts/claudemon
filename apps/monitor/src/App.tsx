@@ -28,13 +28,22 @@ const App: Component = () => {
     document.documentElement.style.setProperty("--cm-zoom", zoom);
   }
 
-  const { sessions, connectionStatus, pendingActions, respondToAction, loadSessionHistory, historyLoading, persistenceReady, reconnect } = createSessionStore();
+  const {
+    sessions,
+    connectionStatus,
+    pendingActions,
+    respondToAction,
+    loadSessionHistory,
+    historyLoading,
+    persistenceReady,
+    reconnect,
+  } = createSessionStore();
   const pendingActionList = createMemo(() => Object.values(pendingActions).filter(Boolean));
   const [selectedSessionIds, setSelectedSessionIds] = createSignal<string[]>([]);
   const [user, setUser] = createSignal<User | null>(null);
   const [authLoading, setAuthLoading] = createSignal(true);
 
-  const [authError, setAuthError] = createSignal<string | null>(null);
+  const [_authError, setAuthError] = createSignal<string | null>(null);
   onMount(() => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
@@ -74,7 +83,7 @@ const App: Component = () => {
     // ── Pinch-to-zoom text sizing (mobile) ─────────────────────
     let pinchInitialDist = 0;
     let pinchStartZoom = 1;
-    const getZoom = () => parseFloat(document.documentElement.style.getPropertyValue("--cm-zoom") || "1");
+    const getZoom = () => Number.parseFloat(document.documentElement.style.getPropertyValue("--cm-zoom") || "1");
     const setZoom = (z: number) => {
       const clamped = Math.round(Math.max(0.8, Math.min(1.5, z)) * 100) / 100;
       document.documentElement.style.setProperty("--cm-zoom", String(clamped));
@@ -100,7 +109,10 @@ const App: Component = () => {
     const onTouchEnd = () => {
       if (pinchInitialDist > 0) {
         pinchInitialDist = 0;
-        localStorage.setItem("claudemon_text_zoom", document.documentElement.style.getPropertyValue("--cm-zoom") || "1");
+        localStorage.setItem(
+          "claudemon_text_zoom",
+          document.documentElement.style.getPropertyValue("--cm-zoom") || "1",
+        );
       }
     };
 
@@ -113,7 +125,6 @@ const App: Component = () => {
       document.removeEventListener("touchend", onTouchEnd);
     });
   });
-
 
   const allSessions = createMemo(() => Object.values(sessions));
   const totalAgents = createMemo(() => allSessions().length);
@@ -314,7 +325,7 @@ const App: Component = () => {
     setContextMenu(null);
   };
 
-  const activeSession = createMemo(() => {
+  const _activeSession = createMemo(() => {
     const id = activeTabId();
     return id ? sessions[id] : selectedSessions().length > 0 ? selectedSessions()[0] : undefined;
   });
@@ -470,11 +481,14 @@ const App: Component = () => {
         <div class="h-0.5 bg-suspicious/50 animate-pulse" />
       </Show>
 
-      <Show when={appState() === "active"} fallback={
-        <Show when={appState() === "setup"} fallback={<div class="flex-1" />}>
-          <SetupScreen onApiKeySet={handleApiKeySet} connectionStatus={connectionStatus} apiUrl={API_URL} />
-        </Show>
-      }>
+      <Show
+        when={appState() === "active"}
+        fallback={
+          <Show when={appState() === "setup"} fallback={<div class="flex-1" />}>
+            <SetupScreen onApiKeySet={handleApiKeySet} connectionStatus={connectionStatus} apiUrl={API_URL} />
+          </Show>
+        }
+      >
         <div class={`flex flex-1 overflow-hidden ${isMobile() ? "flex-col" : ""}`}>
           {/* Mobile: Conflict banner */}
           <Show when={isMobile() && conflicts().length > 0}>
@@ -642,24 +656,30 @@ const App: Component = () => {
                   >
                     {/* Tab view: all sessions mounted, only active visible */}
                     <Show when={viewMode() === "tabs"}>
-                      <For each={selectedSessions()}>
-                        {(session) => (
-                          <div
-                            class="flex-1 min-w-0 flex flex-col overflow-hidden"
-                            style={{ display: session.session_id === activeTabId() ? "flex" : "none" }}
-                          >
-                            <SessionDetail
-                              session={session}
-                              onClose={() => handleCloseSession(session.session_id)}
-                              showClose={false}
-                              pendingActions={pendingActions}
-                              onActionRespond={respondToAction}
-                              onRequestHistory={loadSessionHistory}
-                              historyLoading={historyLoading().has(session.session_id)}
-                            />
-                          </div>
-                        )}
-                      </For>
+                      <div class="flex-1 min-w-0 relative">
+                        <For each={selectedSessions()}>
+                          {(session) => (
+                            <div
+                              class="absolute inset-0 flex flex-col overflow-hidden transition-opacity duration-150"
+                              style={{
+                                opacity: session.session_id === activeTabId() ? "1" : "0",
+                                "pointer-events": session.session_id === activeTabId() ? "auto" : "none",
+                                "z-index": session.session_id === activeTabId() ? "1" : "0",
+                              }}
+                            >
+                              <SessionDetail
+                                session={session}
+                                onClose={() => handleCloseSession(session.session_id)}
+                                showClose={false}
+                                pendingActions={pendingActions}
+                                onActionRespond={respondToAction}
+                                onRequestHistory={loadSessionHistory}
+                                historyLoading={historyLoading().has(session.session_id)}
+                              />
+                            </div>
+                          )}
+                        </For>
+                      </div>
                     </Show>
 
                     {/* Column view: horizontal scroll, each column independently scrollable */}
