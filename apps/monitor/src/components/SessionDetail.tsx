@@ -1359,6 +1359,30 @@ export const SessionDetail: Component<{
     }
   });
 
+  // ── Tasks + Compaction — computed here, rendered as header pills ──
+  const tasks = createMemo(() => {
+    const byId = new Map<string, { subject: string; completed: boolean }>();
+    let createCount = 0;
+    for (const ev of timeline()) {
+      const inp = ev.tool_input || {};
+      if (ev.tool_name === "TaskCreate" && inp.subject) {
+        createCount++;
+        byId.set(String(createCount), { subject: inp.subject as string, completed: false });
+      }
+      if (ev.tool_name === "TaskUpdate" && (inp.status === "completed" || inp.status === "deleted")) {
+        const taskId = inp.taskId as string;
+        if (taskId && byId.has(taskId)) byId.get(taskId)!.completed = true;
+      }
+    }
+    return [...byId.values()];
+  });
+  const tasksCompleted = () => tasks().filter((t) => t.completed).length;
+  const tasksAllDone = () => tasks().length > 0 && tasks().every((t) => t.completed);
+  const [tasksDismissed, setTasksDismissed] = createSignal(false);
+  const [tasksOpen, setTasksOpen] = createSignal(false);
+  const [compactionDismissed, setCompactionDismissed] = createSignal(false);
+  const [compactionOpen, setCompactionOpen] = createSignal(false);
+
   return (
     <div class={`cm-content ${props.isMobile ? "w-full flex-1" : "flex-1 min-w-0"} flex flex-col overflow-hidden bg-bg`}>
       {/* Header — aligned with ACTIVITY header */}
@@ -1398,79 +1422,67 @@ export const SessionDetail: Component<{
         >
           {compactMode() ? "dense" : "normal"}
         </button>
-      </div>
-
-      {/* Task checklist — from TaskCreate/TaskUpdate tool calls */}
-      {(() => {
-        const tasks = createMemo(() => {
-          const byId = new Map<string, { subject: string; completed: boolean }>();
-          let createCount = 0;
-          for (const ev of timeline()) {
-            const inp = ev.tool_input || {};
-            // TaskCreate — IDs are 1-indexed by creation order
-            if (ev.tool_name === "TaskCreate" && inp.subject) {
-              createCount++;
-              byId.set(String(createCount), { subject: inp.subject as string, completed: false });
-            }
-            // TaskUpdate with status:"completed" or "deleted"
-            if (ev.tool_name === "TaskUpdate" && (inp.status === "completed" || inp.status === "deleted")) {
-              const taskId = inp.taskId as string;
-              if (taskId && byId.has(taskId)) {
-                byId.get(taskId)!.completed = true;
-              }
-            }
-          }
-          return [...byId.values()];
-        });
-        const allDone = () => tasks().every((t) => t.completed);
-        const [taskListOpen, setTaskListOpen] = createSignal(false);
-        // Auto-open when tasks are in progress, auto-close when all done
-        createEffect(() => {
-          if (tasks().length > 0) setTaskListOpen(!allDone());
-        });
-        const completed = () => tasks().filter((t) => t.completed).length;
-        return (
-          <Show when={tasks().length > 0}>
-            <div class="mx-2 mt-1.5 rounded-sm border border-panel-border/30 bg-panel/20">
-              <button
-                class="flex items-center gap-2 w-full px-2 py-1.5 hover:bg-panel/20 text-left"
-                onClick={() => setTaskListOpen(!taskListOpen())}
-              >
-                <span class="text-text-sub shrink-0">
-                  {taskListOpen() ? <CaretDown size={8} /> : <CaretRight size={8} />}
-                </span>
-                <span class="text-[8px] text-text-sub uppercase tracking-wider">
-                  Tasks
-                </span>
-                <span class="text-[9px] font-mono text-text-dim">
-                  {completed()}/{tasks().length}
-                </span>
-                <Show when={completed() === tasks().length}>
-                  <span class="text-[8px] text-safe/50 uppercase">done</span>
-                </Show>
-              </button>
-              <div class={`tool-call-body ${taskListOpen() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
-                <div class="px-2 pb-1.5 space-y-0.5">
-                  <For each={tasks()}>
-                    {(task) => (
-                      <div class="flex items-center gap-1.5 text-[9px]">
-                        <span class={`w-2 h-2 rounded-sm border shrink-0 flex items-center justify-center ${task.completed ? "border-safe/50 bg-safe/10" : "border-text-sub/30"}`}>
-                          <Show when={task.completed}>
-                            <Check size={7} class="text-safe" />
-                          </Show>
-                        </span>
-                        <span class={task.completed ? "text-text-dim line-through" : "text-text-primary"}>
-                          {task.subject}
-                        </span>
-                      </div>
-                    )}
-                  </For>
-                </div>
+        {/* Tasks pill */}
+        <Show when={tasks().length > 0 && !tasksDismissed()}>
+          <div class="relative shrink-0">
+            <button
+              class="flex items-center gap-1 text-[8px] font-mono px-1.5 py-0.5 rounded-sm transition-colors"
+              style={{
+                color: tasksAllDone() ? "#a3b18a" : "#c9a96e",
+                background: tasksAllDone() ? "#a3b18a12" : "#c9a96e12",
+              }}
+              onClick={() => setTasksOpen(!tasksOpen())}
+            >
+              {tasksCompleted()}/{tasks().length}
+              <span class="uppercase" style={{ "font-size": "7px" }}>tasks</span>
+            </button>
+            <button
+              class="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-bg border border-panel-border/50 text-[7px] text-text-sub hover:text-text-primary flex items-center justify-center"
+              onClick={(e) => { e.stopPropagation(); setTasksDismissed(true); }}
+            >x</button>
+            <Show when={tasksOpen()}>
+              <div class="absolute top-full right-0 mt-1 z-50 w-[240px] max-h-[300px] overflow-y-auto rounded border border-panel-border bg-card shadow-lg p-2 space-y-0.5">
+                <For each={tasks()}>
+                  {(task) => (
+                    <div class="flex items-center gap-1.5 text-[9px]">
+                      <span class={`w-2 h-2 rounded-sm border shrink-0 flex items-center justify-center ${task.completed ? "border-safe/50 bg-safe/10" : "border-text-sub/30"}`}>
+                        <Show when={task.completed}>
+                          <Check size={7} class="text-safe" />
+                        </Show>
+                      </span>
+                      <span class={task.completed ? "text-text-dim line-through" : "text-text-primary"}>
+                        {task.subject}
+                      </span>
+                    </div>
+                  )}
+                </For>
               </div>
-            </div>
-          </Show>
-        );
-      })()}
+            </Show>
+          </div>
+        </Show>
+        {/* Compaction pill */}
+        <Show when={s().compact_summary && !compactionDismissed()}>
+          <div class="relative shrink-0">
+            <button
+              class="flex items-center gap-1 text-[8px] font-mono px-1.5 py-0.5 rounded-sm text-[#7b9fbf] transition-colors"
+              style={{ background: "#7b9fbf12" }}
+              onClick={() => setCompactionOpen(!compactionOpen())}
+            >
+              <span class="uppercase" style={{ "font-size": "7px" }}>compact</span>
+              x{s().compaction_count || 1}
+            </button>
+            <button
+              class="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-bg border border-panel-border/50 text-[7px] text-text-sub hover:text-text-primary flex items-center justify-center"
+              onClick={(e) => { e.stopPropagation(); setCompactionDismissed(true); }}
+            >x</button>
+            <Show when={compactionOpen()}>
+              <div class="absolute top-full right-0 mt-1 z-50 w-[320px] max-h-[200px] overflow-y-auto rounded border border-panel-border bg-card shadow-lg p-2 text-[9px] text-text-dim">
+                {s().compact_summary}
+              </div>
+            </Show>
+          </div>
+        </Show>
+      </div>
 
       {/* Waiting banner — pinned, not scrollable */}
       <Show when={isWaiting()}>
@@ -1507,28 +1519,7 @@ export const SessionDetail: Component<{
         </div>
       </Show>
 
-      <Show when={s().compact_summary}>
-        {(() => {
-          const [compactOpen, setCompactOpen] = createSignal(false);
-          return (
-            <div class="mx-2 mt-1.5 rounded-sm border border-[#7b9fbf]/20 bg-[#7b9fbf]/5">
-              <button
-                class="flex items-center gap-2 w-full px-2 py-1 hover:bg-[#7b9fbf]/10 text-left"
-                onClick={() => setCompactOpen(!compactOpen())}
-              >
-                <span class="text-[#7b9fbf]/50 shrink-0">
-                  {compactOpen() ? <CaretDown size={8} /> : <CaretRight size={8} />}
-                </span>
-                <span class="text-[8px] text-[#7b9fbf]/60 uppercase tracking-wider">Compacted</span>
-                <span class="text-[9px] text-text-dim">x{s().compaction_count || 1}</span>
-              </button>
-              <div class={`tool-call-body ${compactOpen() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
-                <div class="px-2 pb-1.5 text-[9px] text-text-dim">{s().compact_summary}</div>
-              </div>
-            </div>
-          );
-        })()}
-      </Show>
+      {/* Compaction summary moved to header pill */}
 
       <Show when={s().end_reason && (s().status === "done" || s().status === "offline")}>
         <div class="mx-2 mt-2 rounded-sm px-3 py-1.5 bg-panel/30 text-[10px] text-text-dim">
