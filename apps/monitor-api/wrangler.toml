@@ -36,8 +36,7 @@ bindings = [
 
 [[env.staging.kv_namespaces]]
 binding = "API_KEYS"
-id = "c7b2d09a35b34577bfd87c75e353d544"
-preview_id = "c8d086ae0a2e4a17a663afac34d7ba4d"
+id = "1f385665cc8f44f4bc661b78ef1d9672"
 
 [[env.staging.migrations]]
 tag = "v1"
