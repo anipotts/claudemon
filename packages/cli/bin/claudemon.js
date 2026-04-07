@@ -113,14 +113,19 @@ async function init(keyArg) {
     }
   }
 
-  // Async command hook — non-blocking, batched, works for ALL events including
-  // SessionStart/Setup (HTTP hooks are silently blocked by Claude Code for those).
-  // Uses curl to POST to the API in the background. The `async: true` flag means
-  // Claude Code fires the hook without waiting for it to complete.
+  // Store API key securely in ~/.claudemon/api-key (mode 0600)
+  const claudemonDir = join(homedir(), ".claudemon");
+  if (!existsSync(claudemonDir)) mkdirSync(claudemonDir, { recursive: true });
+  const keyPath = join(claudemonDir, "api-key");
+  writeFileSync(keyPath, key, { mode: 0o600 });
+  console.log(green("  +") + ` API key stored in ${dim(keyPath)} (mode 0600)`);
+
+  // Async command hook — reads key from file at runtime (not hardcoded in settings.json).
+  // Non-blocking, works for ALL events including SessionStart/Setup.
   const curlCmd = [
     `curl -sf -X POST "${API_URL}/events"`,
     `-H "Content-Type: application/json"`,
-    `-H "Authorization: Bearer ${key}"`,
+    `-H "Authorization: Bearer $(cat ~/.claudemon/api-key)"`,
     `-d "$(cat)" --max-time 5 2>/dev/null || true`,
   ].join(" ");
 
