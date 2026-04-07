@@ -19,14 +19,23 @@ interface PendingAction {
   hookWs: WebSocket | null; // The sync hook's WebSocket
 }
 
+const IDLE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
 export class SessionRoom extends DurableObject {
   // Pending actions awaiting browser response (in-memory, not persisted)
   private pendingActions: Map<string, PendingAction> = new Map();
   // Track which WebSockets are "browser" clients vs "action hook" clients
   // Action hooks attach "action:" tag; browsers have no tag or "browser:" tag
   private actionHookSockets: Map<string, WebSocket> = new Map(); // action_id → ws
+  private lastActivity: number = Date.now();
 
   async fetch(request: Request): Promise<Response> {
+    this.lastActivity = Date.now();
+    // Schedule cleanup alarm if not already set
+    const currentAlarm = await this.ctx.storage.getAlarm();
+    if (!currentAlarm) {
+      await this.ctx.storage.setAlarm(Date.now() + IDLE_TTL_MS);
+    }
     const url = new URL(request.url);
 
     // ── Browser WebSocket ────────────────────────────────────────
@@ -181,6 +190,23 @@ export class SessionRoom extends DurableObject {
         this.pendingActions.delete(id);
         this.actionHookSockets.delete(id);
       }
+    }
+  }
+
+  // ── Alarm: self-destruct idle DOs ──────────────────────────────
+
+  async alarm() {
+    const idleMs = Date.now() - this.lastActivity;
+    if (idleMs >= IDLE_TTL_MS) {
+      // Close all remaining sockets
+      for (const ws of this.ctx.getWebSockets()) {
+        try { ws.close(1000, "idle timeout"); } catch {}
+      }
+      // Delete all storage to allow DO to be garbage collected
+      await this.ctx.storage.deleteAll();
+    } else {
+      // Reschedule for remaining TTL
+      await this.ctx.storage.setAlarm(Date.now() + (IDLE_TTL_MS - idleMs));
     }
   }
 
