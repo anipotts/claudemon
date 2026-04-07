@@ -7,7 +7,39 @@ import type { Env } from "./env";
 
 export { SessionRoom } from "./session-room";
 
+// Constant-time string comparison to prevent timing attacks
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  const encoder = new TextEncoder();
+  const bufA = encoder.encode(a);
+  const bufB = encoder.encode(b);
+  let result = 0;
+  for (let i = 0; i < bufA.length; i++) {
+    result |= bufA[i] ^ bufB[i];
+  }
+  return result === 0;
+}
+
 const app = new Hono<{ Bindings: Env }>();
+
+// ── Rate limiting (per-isolate, best-effort) ──────────────────────
+const rateLimits = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT = 200; // events per window
+const RATE_WINDOW_MS = 60_000;
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const entry = rateLimits.get(userId);
+  if (!entry || now > entry.resetAt) {
+    rateLimits.set(userId, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    return true;
+  }
+  entry.count++;
+  return entry.count <= RATE_LIMIT;
+}
+
+// Max payload size: 1MB
+const MAX_PAYLOAD_BYTES = 1_048_576;
 
 app.use(
   "*",
@@ -48,6 +80,16 @@ app.get("/health", (c) => c.json({ status: "ok", service: "claudemon", version: 
 // -- POST /events -- receive hook events (requires API key) ---------------
 
 app.post("/events", apiKeyAuth, async (c) => {
+  const contentLength = parseInt(c.req.header("Content-Length") || "0", 10);
+  if (contentLength > MAX_PAYLOAD_BYTES) {
+    return c.json({ error: "Payload too large (max 1MB)" }, 413);
+  }
+
+  const userId = c.get("userId");
+  if (!checkRateLimit(userId)) {
+    return c.json({ error: "Rate limit exceeded (200/min)" }, 429);
+  }
+
   let body: any;
   try {
     body = await c.req.json();
@@ -59,20 +101,26 @@ app.post("/events", apiKeyAuth, async (c) => {
     return c.json({ error: "Invalid event: requires session_id and hook_event_name" }, 400);
   }
 
-  const userId = c.get("userId");
   enrichEvent(body, userId);
 
   const room = getRoom(c.env, userId);
   await sendEvent(room, body);
-  // Return empty JSON object — this is the canonical "monitoring hook, carry on"
-  // response. Claude Code validates hook responses through hookJSONOutputSchema;
-  // {} passes as a valid sync response with all optional fields omitted.
   return c.json({});
 });
 
 // -- POST /events/batch -- receive batched hook events --------------------
 
 app.post("/events/batch", apiKeyAuth, async (c) => {
+  const contentLength = parseInt(c.req.header("Content-Length") || "0", 10);
+  if (contentLength > MAX_PAYLOAD_BYTES) {
+    return c.json({ error: "Payload too large (max 1MB)" }, 413);
+  }
+
+  const userId = c.get("userId");
+  if (!checkRateLimit(userId)) {
+    return c.json({ error: "Rate limit exceeded (200/min)" }, 429);
+  }
+
   let events: any;
   try {
     events = await c.req.json();
@@ -84,10 +132,8 @@ app.post("/events/batch", apiKeyAuth, async (c) => {
     return c.json({ error: "Request body must be a JSON array" }, 400);
   }
 
-  const userId = c.get("userId");
   const room = getRoom(c.env, userId);
 
-  // Process sequentially to preserve event ordering (DO serializes requests anyway)
   let count = 0;
   for (const event of events) {
     if (!isValidEvent(event)) continue;
@@ -101,8 +147,8 @@ app.post("/events/batch", apiKeyAuth, async (c) => {
 // -- POST /events/webhook/github -- GitHub dispatch relay -----------------
 
 app.post("/events/webhook/github", async (c) => {
-  const secret = c.req.header("X-Webhook-Secret");
-  if (!c.env.WEBHOOK_SECRET || secret !== c.env.WEBHOOK_SECRET) {
+  const secret = c.req.header("X-Webhook-Secret") || "";
+  if (!c.env.WEBHOOK_SECRET || !timingSafeEqual(secret, c.env.WEBHOOK_SECRET)) {
     return c.json({ error: "Invalid webhook secret" }, 403);
   }
 
@@ -231,7 +277,13 @@ const worker = {
     if ((url.hostname === "claudemon.com" || url.hostname === "www.claudemon.com") && url.pathname === "/") {
       const { LANDING_HTML } = await import("./landing");
       return new Response(LANDING_HTML, {
-        headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=3600" },
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "public, max-age=3600",
+          "Content-Security-Policy": "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' wss://api.claudemon.com https://api.claudemon.com; img-src 'self' data: https://avatars.githubusercontent.com",
+          "X-Content-Type-Options": "nosniff",
+          "X-Frame-Options": "DENY",
+        },
       });
     }
 
@@ -260,6 +312,11 @@ const worker = {
             userId = data.user_id;
           }
         }
+      }
+
+      // Reject anonymous WebSocket connections (require auth)
+      if (userId === "anonymous" && env.SINGLE_USER !== "true") {
+        return new Response("Authentication required for WebSocket", { status: 401 });
       }
 
       const room = getRoom(env, userId);
