@@ -7,6 +7,8 @@ Real-time session monitoring for [Claude Code](https://docs.anthropic.com/en/doc
 
 See what every session is doing across projects, branches, and machines. Track tool calls, agent hierarchies, and context compactions. Know when Claude needs your input.
 
+if claudemon helped you, [star it](https://github.com/anipotts/claudemon) — it helps others find it.
+
 **[app.claudemon.com](https://app.claudemon.com)**
 
 ## Quick Start
@@ -81,6 +83,21 @@ For the frontend, deploy `apps/monitor` to Cloudflare Pages with `VITE_MONITOR_A
 ## Contributing
 
 PRs welcome. Please follow the conventions in [CLAUDE.md](CLAUDE.md).
+
+## part of [claude-code-tips](https://github.com/anipotts/claude-code-tips)
+
+claudemon is one piece of a larger system for working with claude code effectively.
+
+- **[claude-code-tips](https://github.com/anipotts/claude-code-tips)** — the patterns behind this tool
+- **[cc](https://github.com/anipotts/cc)** — cross-session messaging
+- **[mine](https://github.com/anipotts/mine)** — session mining to sqlite
+- **[imessage-mcp](https://github.com/anipotts/imessage-mcp)** — iMessage MCP server
+
+## more from me
+
+- [anipotts.com/thoughts](https://anipotts.com/thoughts) — long-form
+- [buttondown.com/anipotts](https://buttondown.com/anipotts) — newsletter
+- [@anipottsbuilds](https://instagram.com/anipottsbuilds) — short-form
 
 ## License
 
