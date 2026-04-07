@@ -1396,7 +1396,7 @@ export const SessionDetail: Component<{
   // ── Orbit panel: subagent data for side column ──
   const hasSubagents = createMemo(() => agentBlocks().size > 0);
   const orbitEntries = createMemo(() => {
-    const entries: { agentId: string; type: string; startTs: number; endTs: number | null; toolCount: number; events: typeof timeline extends () => infer T ? T : never[] }[] = [];
+    const entries: { agentId: string; type: string; startTs: number; endTs: number | null; toolCount: number; events: MonitorEvent[] }[] = [];
     const events = timeline();
     for (const [agentId, block] of agentBlocks()) {
       const childEvents = block.childIndices.map((idx) => events[idx]).filter(Boolean);
