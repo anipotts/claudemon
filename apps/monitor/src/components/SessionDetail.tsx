@@ -1804,10 +1804,17 @@ export const SessionDetail: Component<{
                                   <span class="text-[9px] text-text-sub font-mono">{agentDuration()}</span>
                                 </Show>
                                 <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
-                                <span class="text-text-sub shrink-0">
-                                  {isOpen() ? <CaretDown size={9} /> : <CaretRight size={9} />}
-                                </span>
+                                <Show when={!hasSubagents() || props.isMobile}>
+                                  <span class="text-text-sub shrink-0">
+                                    {isOpen() ? <CaretDown size={9} /> : <CaretRight size={9} />}
+                                  </span>
+                                </Show>
+                                <Show when={hasSubagents() && !props.isMobile}>
+                                  <span class="text-[8px] text-[#b07bac]/40 shrink-0">orbit</span>
+                                </Show>
                               </button>
+                              {/* Only show inline children when orbit panel is NOT visible */}
+                              <Show when={!hasSubagents() || props.isMobile}>
                               <div class={`tool-call-body ${isOpen() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
                                 <div class="ml-3 border-l border-[#b07bac]/20">
                                   <For each={childEvents()}>
@@ -1857,6 +1864,7 @@ export const SessionDetail: Component<{
                                   </Show>
                                 </div>
                               </div>
+                              </Show>{/* end: only show inline children when no orbit */}
                             </div>
                           );
                         })()}
@@ -2190,7 +2198,7 @@ export const SessionDetail: Component<{
       <Show when={hasSubagents() && !props.isMobile}>
         <div class="w-[200px] shrink-0 border-l border-panel-border overflow-y-auto smooth-scroll bg-bg">
           <div class="px-2 py-1.5 border-b border-panel-border">
-            <span class="text-[8px] text-text-label uppercase tracking-[1.5px]">Agents</span>
+            <span class="text-[8px] text-text-label uppercase tracking-[1.5px]">Subagents</span>
             <span class="text-[9px] text-text-sub ml-1">{orbitEntries().length}</span>
           </div>
           <For each={orbitEntries()}>
