@@ -390,19 +390,6 @@ function FileGroupBlock(props: { events: MonitorEvent[]; defaultExpanded: boolea
 
   return (
     <div class="border-b border-panel-border/30 event-enter" style={{ position: "relative" }}>
-      {/* File heat map rail */}
-      <span
-        style={{
-          position: "absolute",
-          left: "0",
-          top: "0",
-          bottom: "0",
-          width: "3px",
-          background: fileColor(),
-          opacity: "0.6",
-          "border-radius": "0 1px 1px 0",
-        }}
-      />
       {/* Group header */}
       <button
         class="tool-row-grid w-full text-left hover:bg-panel/20 cursor-pointer"
@@ -448,11 +435,44 @@ function FileGroupBlock(props: { events: MonitorEvent[]; defaultExpanded: boolea
           {expanded() ? <CaretDown size={9} class="text-text-sub" /> : <CaretRight size={9} class="text-text-sub" />}
         </span>
       </button>
-      {/* Expanded children — indented with left border */}
+      {/* Expanded children — tree branch connectors */}
       <div class={`tool-call-body ${expanded() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
-        <div class="ml-5 border-l-2 bg-panel/10" style={{ "border-color": fileColor() + "40" }}>
+        <div style={{ position: "relative", "margin-left": "17px" }}>
           <For each={props.events}>
-            {(ev) => <ToolCallBlock event={ev} defaultExpanded={false} />}
+            {(ev, i) => {
+              const isLast = () => i() === props.events.length - 1;
+              const branchColor = () => fileColor() + "50";
+              return (
+                <div style={{ position: "relative" }}>
+                  {/* Vertical trunk — full height except last child stops at center */}
+                  <span
+                    style={{
+                      position: "absolute",
+                      left: "0",
+                      top: "0",
+                      bottom: isLast() ? "auto" : "0",
+                      height: isLast() ? "0.875rem" : "auto",
+                      width: "1px",
+                      background: branchColor(),
+                    }}
+                  />
+                  {/* Horizontal branch */}
+                  <span
+                    style={{
+                      position: "absolute",
+                      left: "0",
+                      top: "calc(0.875rem - 0.5px)",
+                      width: "10px",
+                      height: "1px",
+                      background: branchColor(),
+                    }}
+                  />
+                  <div style={{ "margin-left": "14px" }}>
+                    <ToolCallBlock event={ev} defaultExpanded={false} />
+                  </div>
+                </div>
+              );
+            }}
           </For>
         </div>
       </div>
