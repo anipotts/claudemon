@@ -1383,6 +1383,27 @@ export const SessionDetail: Component<{
   const [compactionDismissed, setCompactionDismissed] = createSignal(false);
   const [compactionOpen, setCompactionOpen] = createSignal(false);
 
+  // ── Orbit panel: subagent data for side column ──
+  const hasSubagents = createMemo(() => agentBlocks().size > 0);
+  const orbitEntries = createMemo(() => {
+    const entries: { agentId: string; type: string; startTs: number; endTs: number | null; toolCount: number; events: typeof timeline extends () => infer T ? T : never[] }[] = [];
+    const events = timeline();
+    for (const [agentId, block] of agentBlocks()) {
+      const childEvents = block.childIndices.map((idx) => events[idx]).filter(Boolean);
+      const startEvent = events[block.startIdx];
+      const stopEvent = block.stopIdx >= 0 ? events[block.stopIdx] : undefined;
+      entries.push({
+        agentId,
+        type: block.type,
+        startTs: startEvent?.timestamp || 0,
+        endTs: stopEvent?.timestamp || null,
+        toolCount: childEvents.length,
+        events: childEvents,
+      });
+    }
+    return entries.sort((a, b) => b.startTs - a.startTs);
+  });
+
   return (
     <div class={`cm-content ${props.isMobile ? "w-full flex-1" : "flex-1 min-w-0"} flex flex-col overflow-hidden bg-bg`}>
       {/* Header — aligned with ACTIVITY header */}
@@ -1540,6 +1561,8 @@ export const SessionDetail: Component<{
         })()}
       </Show>
 
+      {/* Timeline + Orbit panel row */}
+      <div class="flex flex-1 min-h-0 overflow-hidden">
       {/* Scrollable tool call timeline — j/k keyboard nav */}
       <div
         ref={scrollRef}
@@ -2143,6 +2166,92 @@ export const SessionDetail: Component<{
           </div>
         </Show>
       </div>
+
+      {/* ── Orbit Panel: subagent satellite cards ──────────────── */}
+      <Show when={hasSubagents() && !props.isMobile}>
+        <div class="w-[200px] shrink-0 border-l border-panel-border overflow-y-auto smooth-scroll bg-bg">
+          <div class="px-2 py-1.5 border-b border-panel-border">
+            <span class="text-[8px] text-text-label uppercase tracking-[1.5px]">Agents</span>
+            <span class="text-[9px] text-text-sub ml-1">{orbitEntries().length}</span>
+          </div>
+          <For each={orbitEntries()}>
+            {(orbit) => {
+              const [orbitOpen, setOrbitOpen] = createSignal(!orbit.endTs);
+              const isDone = () => orbit.endTs !== null;
+              const durationLabel = () => {
+                if (!orbit.endTs) return "running";
+                const ms = orbit.endTs - orbit.startTs;
+                if (ms < 1000) return "<1s";
+                if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+                const m = Math.floor(ms / 60000);
+                const sec = Math.round((ms % 60000) / 1000);
+                return `${m}m ${sec}s`;
+              };
+              const typeColor = () => agentColor(orbit.type);
+              return (
+                <div class="border-b border-panel-border/30">
+                  <button
+                    class="flex items-center gap-1.5 w-full px-2 py-1.5 hover:bg-panel/20 text-left"
+                    onClick={() => setOrbitOpen(!orbitOpen())}
+                  >
+                    <span
+                      class="w-1.5 h-1.5 rounded-full shrink-0"
+                      style={{
+                        background: isDone() ? "#4a4640" : typeColor(),
+                        "box-shadow": isDone() ? "none" : `0 0 4px ${typeColor()}`,
+                      }}
+                    />
+                    <span
+                      class="text-[8px] font-mono font-bold px-1 rounded-sm truncate"
+                      style={{ color: typeColor(), background: typeColor() + "15" }}
+                    >
+                      {orbit.type || "agent"}
+                    </span>
+                    <span class="text-[8px] text-text-sub ml-auto shrink-0">{orbit.toolCount}t</span>
+                    <span class="text-[8px] text-text-dim font-mono shrink-0">{durationLabel()}</span>
+                    <span class="text-text-sub shrink-0">
+                      {orbitOpen() ? <CaretDown size={8} /> : <CaretRight size={8} />}
+                    </span>
+                  </button>
+                  <div class={`tool-call-body ${orbitOpen() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
+                    <div class="px-1">
+                      <For each={orbit.events}>
+                        {(ev) => (
+                          <div
+                            class="flex items-center gap-1 px-1.5 py-0.5 text-[8px] border-b border-panel-border/10 hover:bg-panel/10"
+                            title={ev.tool_input?.file_path as string || ev.tool_input?.command as string || ""}
+                          >
+                            <span
+                              class="w-1 h-1 rounded-full shrink-0"
+                              style={{ background: ev.hook_event_name === "PreToolUse" ? typeColor() : "#4a4640" }}
+                            />
+                            <span class="font-mono font-bold text-text-sub w-[32px] shrink-0 truncate">
+                              {ev.tool_name || ev.hook_event_name}
+                            </span>
+                            <span class="text-text-dim truncate min-w-0 flex-1">
+                              {(ev.tool_input?.file_path as string)?.split("/").pop() ||
+                               (ev.tool_input?.command as string)?.slice(0, 30) ||
+                               (ev.tool_input?.pattern as string)?.slice(0, 20) ||
+                               (ev.tool_input?.description as string)?.slice(0, 25) ||
+                               ""}
+                            </span>
+                            <Show when={ev.duration_ms}>
+                              <span class="text-text-dim font-mono shrink-0">
+                                {ev.duration_ms! < 1000 ? "<1s" : `${(ev.duration_ms! / 1000).toFixed(1)}s`}
+                              </span>
+                            </Show>
+                          </div>
+                        )}
+                      </For>
+                    </div>
+                  </div>
+                </div>
+              );
+            }}
+          </For>
+        </div>
+      </Show>
+      </div>{/* end timeline + orbit row */}
 
       {/* New messages indicator / Jump to latest */}
       <Show when={!autoScroll()}>
