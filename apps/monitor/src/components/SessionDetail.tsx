@@ -1378,10 +1378,20 @@ export const SessionDetail: Component<{
   });
   const tasksCompleted = () => tasks().filter((t) => t.completed).length;
   const tasksAllDone = () => tasks().length > 0 && tasks().every((t) => t.completed);
-  const [tasksDismissed, setTasksDismissed] = createSignal(false);
   const [tasksOpen, setTasksOpen] = createSignal(false);
-  const [compactionDismissed, setCompactionDismissed] = createSignal(false);
   const [compactionOpen, setCompactionOpen] = createSignal(false);
+
+  // Parse compaction summary into structured sections
+  const compactionParsed = createMemo(() => {
+    const raw = s().compact_summary || "";
+    if (!raw) return null;
+    // Strip <analysis> tags and split into sentences for readability
+    const cleaned = raw.replace(/<\/?analysis>/g, "").trim();
+    // Split on numbered items (1. 2. 3.) or sentence boundaries
+    const points = cleaned.split(/(?:\d+\.\s)/).filter((s) => s.trim().length > 10);
+    if (points.length > 1) return { type: "list" as const, items: points.map((p) => p.trim().replace(/\.$/, "")) };
+    return { type: "text" as const, text: cleaned };
+  });
 
   // ── Orbit panel: subagent data for side column ──
   const hasSubagents = createMemo(() => agentBlocks().size > 0);
@@ -1444,7 +1454,7 @@ export const SessionDetail: Component<{
           {compactMode() ? "dense" : "normal"}
         </button>
         {/* Tasks pill */}
-        <Show when={tasks().length > 0 && !tasksDismissed()}>
+        <Show when={tasks().length > 0}>
           <div class="relative shrink-0">
             <button
               class="flex items-center gap-1 text-[8px] font-mono px-1.5 py-0.5 rounded-sm transition-colors"
@@ -1457,18 +1467,14 @@ export const SessionDetail: Component<{
               {tasksCompleted()}/{tasks().length}
               <span class="uppercase" style={{ "font-size": "7px" }}>tasks</span>
             </button>
-            <button
-              class="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-bg border border-panel-border/50 text-[7px] text-text-sub hover:text-text-primary flex items-center justify-center"
-              onClick={(e) => { e.stopPropagation(); setTasksDismissed(true); }}
-            >x</button>
             <Show when={tasksOpen()}>
-              <div class="absolute top-full right-0 mt-1 z-50 w-[240px] max-h-[300px] overflow-y-auto rounded border border-panel-border bg-card shadow-lg p-2 space-y-0.5">
+              <div class="absolute top-full right-0 mt-1 z-50 w-[260px] max-h-[400px] overflow-y-auto rounded border border-panel-border bg-card shadow-lg p-2 space-y-0.5">
                 <For each={tasks()}>
                   {(task) => (
-                    <div class="flex items-center gap-1.5 text-[9px]">
-                      <span class={`w-2 h-2 rounded-sm border shrink-0 flex items-center justify-center ${task.completed ? "border-safe/50 bg-safe/10" : "border-text-sub/30"}`}>
+                    <div class="flex items-start gap-1.5 text-[9px] py-0.5">
+                      <span class={`w-2.5 h-2.5 rounded-sm border shrink-0 flex items-center justify-center mt-px ${task.completed ? "border-safe/50 bg-safe/10" : "border-text-sub/30"}`}>
                         <Show when={task.completed}>
-                          <Check size={7} class="text-safe" />
+                          <Check size={8} class="text-safe" />
                         </Show>
                       </span>
                       <span class={task.completed ? "text-text-dim line-through" : "text-text-primary"}>
@@ -1482,7 +1488,7 @@ export const SessionDetail: Component<{
           </div>
         </Show>
         {/* Compaction pill */}
-        <Show when={s().compact_summary && !compactionDismissed()}>
+        <Show when={s().compact_summary}>
           <div class="relative shrink-0">
             <button
               class="flex items-center gap-1 text-[8px] font-mono px-1.5 py-0.5 rounded-sm text-[#7b9fbf] transition-colors"
@@ -1492,13 +1498,26 @@ export const SessionDetail: Component<{
               <span class="uppercase" style={{ "font-size": "7px" }}>compact</span>
               x{s().compaction_count || 1}
             </button>
-            <button
-              class="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-bg border border-panel-border/50 text-[7px] text-text-sub hover:text-text-primary flex items-center justify-center"
-              onClick={(e) => { e.stopPropagation(); setCompactionDismissed(true); }}
-            >x</button>
             <Show when={compactionOpen()}>
-              <div class="absolute top-full right-0 mt-1 z-50 w-[320px] max-h-[200px] overflow-y-auto rounded border border-panel-border bg-card shadow-lg p-2 text-[9px] text-text-dim">
-                {s().compact_summary}
+              <div class="absolute top-full right-0 mt-1 z-50 w-[360px] max-h-[300px] overflow-y-auto rounded border border-panel-border bg-card shadow-lg p-3">
+                <div class="text-[8px] text-[#7b9fbf]/60 uppercase tracking-wider mb-2">Context Summary</div>
+                <Show when={compactionParsed()?.type === "list"}>
+                  <ul class="space-y-1.5">
+                    <For each={(compactionParsed() as { type: "list"; items: string[] }).items}>
+                      {(item) => (
+                        <li class="flex gap-1.5 text-[9px] text-text-sub leading-relaxed">
+                          <span class="text-[#7b9fbf]/40 shrink-0 mt-0.5">-</span>
+                          <span>{item}</span>
+                        </li>
+                      )}
+                    </For>
+                  </ul>
+                </Show>
+                <Show when={compactionParsed()?.type === "text"}>
+                  <p class="text-[9px] text-text-sub leading-relaxed">
+                    {(compactionParsed() as { type: "text"; text: string }).text}
+                  </p>
+                </Show>
               </div>
             </Show>
           </div>
