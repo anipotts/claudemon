@@ -1422,7 +1422,12 @@ export const SessionDetail: Component<{
           }
           return [...byId.values()];
         });
-        const [taskListOpen, setTaskListOpen] = createSignal(true);
+        const allDone = () => tasks().every((t) => t.completed);
+        const [taskListOpen, setTaskListOpen] = createSignal(false);
+        // Auto-open when tasks are in progress, auto-close when all done
+        createEffect(() => {
+          if (tasks().length > 0) setTaskListOpen(!allDone());
+        });
         const completed = () => tasks().filter((t) => t.completed).length;
         return (
           <Show when={tasks().length > 0}>
@@ -1503,13 +1508,26 @@ export const SessionDetail: Component<{
       </Show>
 
       <Show when={s().compact_summary}>
-        <div class="mx-2 mt-2 rounded-sm px-3 py-2 bg-[#7b9fbf]/10 border border-[#7b9fbf]/20">
-          <div class="flex items-center gap-2">
-            <span class="text-[10px] font-bold text-[#7b9fbf]">Context compacted</span>
-            <span class="text-[9px] text-text-dim">x{s().compaction_count || 1}</span>
-          </div>
-          <div class="text-[9px] text-text-dim mt-1 line-clamp-2">{s().compact_summary}</div>
-        </div>
+        {(() => {
+          const [compactOpen, setCompactOpen] = createSignal(false);
+          return (
+            <div class="mx-2 mt-1.5 rounded-sm border border-[#7b9fbf]/20 bg-[#7b9fbf]/5">
+              <button
+                class="flex items-center gap-2 w-full px-2 py-1 hover:bg-[#7b9fbf]/10 text-left"
+                onClick={() => setCompactOpen(!compactOpen())}
+              >
+                <span class="text-[#7b9fbf]/50 shrink-0">
+                  {compactOpen() ? <CaretDown size={8} /> : <CaretRight size={8} />}
+                </span>
+                <span class="text-[8px] text-[#7b9fbf]/60 uppercase tracking-wider">Compacted</span>
+                <span class="text-[9px] text-text-dim">x{s().compaction_count || 1}</span>
+              </button>
+              <div class={`tool-call-body ${compactOpen() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
+                <div class="px-2 pb-1.5 text-[9px] text-text-dim">{s().compact_summary}</div>
+              </div>
+            </div>
+          );
+        })()}
       </Show>
 
       <Show when={s().end_reason && (s().status === "done" || s().status === "offline")}>
