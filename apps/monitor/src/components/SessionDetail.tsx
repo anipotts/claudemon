@@ -2,8 +2,22 @@ import { type Component, For, Show, createMemo, createSignal, createEffect, onCl
 import type { MonitorEvent, SessionState } from "../../../../packages/types/monitor";
 import { STATUS_COLORS } from "../../../../packages/types/monitor";
 import {
-  GitBranch, CaretDown, CaretRight, Key, ShieldCheck, Warning, Check, X,
-  Eye, PencilSimple, Plus, Terminal, MagnifyingGlass, Folder, Robot, Circle,
+  GitBranch,
+  CaretDown,
+  CaretRight,
+  Key,
+  ShieldCheck,
+  Warning,
+  Check,
+  X,
+  Eye,
+  PencilSimple,
+  Plus,
+  Terminal,
+  MagnifyingGlass,
+  Folder,
+  Robot,
+  Circle,
 } from "./Icons";
 import { Dynamic } from "solid-js/web";
 import type { PendingAction } from "../../../../packages/types/monitor";
@@ -159,17 +173,26 @@ function ActionBanner(props: {
         const richContext = () => {
           const inp = toolInput();
           if (toolName() === "Edit") {
-            return { type: "edit" as const, file: inp.file_path as string, old: inp.old_string as string, new_: inp.new_string as string };
+            return {
+              type: "edit" as const,
+              file: inp.file_path as string,
+              old: inp.old_string as string,
+              new_: inp.new_string as string,
+            };
           }
           if (toolName() === "Bash") {
             return { type: "bash" as const, command: inp.command as string, description: inp.description as string };
           }
           if (toolName() === "Write") {
-            return { type: "write" as const, file: inp.file_path as string, content: (inp.content as string)?.slice(0, 300) };
+            return {
+              type: "write" as const,
+              file: inp.file_path as string,
+              content: (inp.content as string)?.slice(0, 300),
+            };
           }
           if (eventName() === "Notification") {
-            const msg = data().notification_message as string || "";
-            const plan = data().plan as string || "";
+            const msg = (data().notification_message as string) || "";
+            const plan = (data().plan as string) || "";
             return { type: "notification" as const, message: msg, plan };
           }
           return null;
@@ -221,7 +244,9 @@ function ActionBanner(props: {
                     </Show>
                   </Show>
                   <Show when={ctx().type === "edit"}>
-                    <div class="text-[8px] text-text-dim mb-1">{(ctx() as { file: string }).file?.split("/").slice(-2).join("/")}</div>
+                    <div class="text-[8px] text-text-dim mb-1">
+                      {(ctx() as { file: string }).file?.split("/").slice(-2).join("/")}
+                    </div>
                     <Show when={(ctx() as { old: string }).old}>
                       <div class="font-mono text-[8px] text-attack/70 line-through whitespace-pre-wrap max-h-[40px] overflow-hidden">
                         {(ctx() as { old: string }).old?.slice(0, 150)}
@@ -234,7 +259,9 @@ function ActionBanner(props: {
                     </Show>
                   </Show>
                   <Show when={ctx().type === "write"}>
-                    <div class="text-[8px] text-text-dim mb-1">{(ctx() as { file: string }).file?.split("/").slice(-2).join("/")}</div>
+                    <div class="text-[8px] text-text-dim mb-1">
+                      {(ctx() as { file: string }).file?.split("/").slice(-2).join("/")}
+                    </div>
                     <div class="font-mono text-[8px] text-safe/70 whitespace-pre-wrap max-h-[60px] overflow-hidden">
                       {(ctx() as { content: string }).content}
                     </div>
@@ -308,7 +335,9 @@ function QuestionBatchBlock(props: { events: MonitorEvent[]; defaultExpanded: bo
       >
         <span class="text-[10px] text-text-dim w-4 text-center shrink-0 font-mono leading-none">?</span>
         <span class="text-[10px] font-bold text-suspicious shrink-0 leading-none">AskUserQuestion</span>
-        <span class="text-[9px] text-text-sub bg-panel-border/20 px-1 rounded-sm leading-none">{count()} questions</span>
+        <span class="text-[9px] text-text-sub bg-panel-border/20 px-1 rounded-sm leading-none">
+          {count()} questions
+        </span>
         <Show when={pending() > 0}>
           <span class="w-1.5 h-1.5 rounded-full bg-suspicious tool-running shrink-0" />
         </Show>
@@ -400,13 +429,7 @@ function Sparkline(props: { events: MonitorEvent[] }) {
 
   return (
     <Show when={points()}>
-      <svg
-        width={WIDTH}
-        height={HEIGHT}
-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-        class="shrink-0"
-        style={{ opacity: "0.7" }}
-      >
+      <svg width={WIDTH} height={HEIGHT} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} class="shrink-0" style={{ opacity: "0.7" }}>
         <polyline
           points={points()}
           fill="none"
@@ -443,13 +466,15 @@ function FileGroupBlock(props: { events: MonitorEvent[]; defaultExpanded: boolea
     const s = Math.round((ms % 60000) / 1000);
     return `${m}m ${s}s`;
   };
-  const opSummary = () => {
+  const _opSummary = () => {
     const ops: Record<string, number> = {};
     for (const ev of props.events) {
       const name = ev.tool_name || "?";
       ops[name] = (ops[name] || 0) + 1;
     }
-    return Object.entries(ops).map(([k, v]) => `${v} ${k}`).join(", ");
+    return Object.entries(ops)
+      .map(([k, v]) => `${v} ${k}`)
+      .join(", ");
   };
 
   return (
@@ -477,9 +502,7 @@ function FileGroupBlock(props: { events: MonitorEvent[]; defaultExpanded: boolea
           <Folder size={11} style={{ color: fileColor() }} />
         </span>
         {/* Col 3: op count */}
-        <span class="text-[10px] font-bold text-text-label truncate leading-none">
-          {count()} ops
-        </span>
+        <span class="text-[10px] font-bold text-text-label truncate leading-none">{count()} ops</span>
         {/* Col 4: file badge */}
         <span class="flex items-center gap-1 overflow-hidden pl-0.5">
           <FileBadge path={filePath()} />
@@ -552,9 +575,12 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean; f
   const input = () => e().tool_input || {};
   const response = () => e().tool_response || {};
   const iconComp = () => TOOL_ICON_MAP[e().tool_name || ""] || Circle;
-  const hasResponse = () => (e().hook_event_name === "PostToolUse" || e().hook_event_name === "PostToolUseFailure") && Object.keys(response()).length > 0;
+  const hasResponse = () =>
+    (e().hook_event_name === "PostToolUse" || e().hook_event_name === "PostToolUseFailure") &&
+    Object.keys(response()).length > 0;
   const isRunning = () => e().hook_event_name === "PreToolUse";
-  const responseText = () => (response().content as string) || (response().output as string) || (response().result as string) || "";
+  const responseText = () =>
+    (response().content as string) || (response().output as string) || (response().result as string) || "";
 
   // Determine if this row has any content worth expanding
   const hasExpandableContent = () => {
@@ -744,323 +770,374 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean; f
         </div>
       }
     >
-    <div class={`border-b border-panel-border/30 event-enter ${props.focused ? "ring-1 ring-safe/30" : ""}`} style={{ position: "relative" }}>
-      {/* File heat map rail — 3px colored strip on left edge */}
-      <Show when={filePath()}>
-        <span
-          style={{
-            position: "absolute",
-            left: "0",
-            top: "0",
-            bottom: "0",
-            width: "3px",
-            background: hashFileColor(filePath()!),
-            opacity: "0.6",
-            "border-radius": "0 1px 1px 0",
-          }}
-        />
-      </Show>
-      {/* Header row — CSS Grid with fixed columns for visual rhythm */}
-      <button
-        class={`tool-row-grid w-full text-left ${isPassiveTool() ? "opacity-60" : ""} ${isRunning() && !timedOut() ? "tool-row-shimmer" : ""} ${hasExpandableContent() ? "hover:bg-panel/20 cursor-pointer" : "cursor-default"}`}
-        style={{
-          display: "grid",
-          "grid-template-columns": props.compact ? "6px 14px 52px 1fr 42px 12px" : "6px 16px 52px 1fr auto 40px 14px",
-          "align-items": "center",
-          "min-height": props.compact ? "1.375rem" : "1.75rem",
-          height: props.compact ? "1.375rem" : "1.75rem",
-          "max-height": props.compact ? "1.375rem" : "1.75rem",
-          padding: "0 8px 0 6px",
-          overflow: "hidden",
-          "white-space": "nowrap",
-        }}
-        onClick={() => hasExpandableContent() && setExpanded(!expanded())}
+      <div
+        class={`border-b border-panel-border/30 event-enter ${props.focused ? "ring-1 ring-safe/30" : ""}`}
+        style={{ position: "relative" }}
       >
-        {/* Col 1: Status dot */}
-        <span class="flex items-center justify-center">
-          <Show when={isRunning() && !timedOut()}>
-            <span class="w-[5px] h-[5px] rounded-full bg-safe tool-running" />
-          </Show>
-          <Show when={isRunning() && timedOut()}>
-            <span class="w-[5px] h-[5px] rounded-full bg-suspicious" />
-          </Show>
-          <Show when={!isRunning() && bashOutput()?.exitCode != null && bashOutput()!.exitCode !== 0}>
-            <span class="w-[5px] h-[5px] rounded-full bg-attack" />
-          </Show>
-          <Show when={!isRunning() && hasResponse() && !(bashOutput()?.exitCode != null && bashOutput()!.exitCode !== 0)}>
-            <span class="w-[5px] h-[5px] rounded-full bg-safe/25" />
-          </Show>
-        </span>
-
-        {/* Col 2: Tool icon (colored by tool type) */}
-        <span class="flex items-center justify-center">
-          <Dynamic component={iconComp()} size={11} style={{ color: TOOL_COLORS[e().tool_name || ""] || "#6b6560" }} />
-        </span>
-
-        {/* Col 3: Tool name */}
-        <span class="text-[10px] font-bold text-text-label truncate leading-none">
-          {e().tool_name || e().hook_event_name}
-        </span>
-
-        {/* Col 4: Content (variable per tool type, single line, truncated) */}
-        <span class="flex items-center gap-1 overflow-hidden pl-0.5">
-          <Show when={cmdLabel()}>
-            {(cl) => (
-              <span class="text-[9px] font-bold uppercase px-1 rounded-sm shrink-0 leading-none"
-                style={{ color: cl().color, background: cl().color + "18" }}>{cl().label}</span>
-            )}
-          </Show>
-          <Show when={filePath()}>
-            <FileBadge path={filePath()!} />
-          </Show>
-          <Show when={isReplaceAll()}>
-            <span class="text-[9px] text-suspicious bg-suspicious/10 px-1 rounded-sm shrink-0 leading-none">all</span>
-          </Show>
-          <Show when={editStat()}>
-            {(stat) => (
-              <span class="text-[9px] font-mono shrink-0 leading-none">
-                <span class="text-safe">+{stat().added}</span> <span class="text-attack">-{stat().removed}</span>
-              </span>
-            )}
-          </Show>
-          <Show when={!filePath() && headerSummary()}>
-            <span class="text-[9px] text-text-dim truncate font-mono leading-none">{headerSummary()}</span>
-          </Show>
-        </span>
-
-        {/* Col 5: Meta (hidden in compact mode — no column allocated) */}
-        <Show when={!props.compact}>
-        <span class="flex items-center justify-end gap-1 pr-1" style={{ "max-width": "72px" }}>
-          <Show when={bashOutput()?.exitCode != null && bashOutput()!.exitCode !== 0}>
-            <span class="text-[9px] font-bold text-attack bg-attack/15 px-1 rounded-sm leading-none">
-              exit {String(bashOutput()!.exitCode)}
-            </span>
-          </Show>
-          <Show when={!(bashOutput()?.exitCode != null && bashOutput()!.exitCode !== 0) && isRunning() && liveElapsedLabel()}>
-            <span class="text-[9px] font-mono leading-none" style={{ color: timedOut() ? "#c9a96e" : "var(--text-sub)" }}>
-              {liveElapsedLabel()}
-            </span>
-          </Show>
-          <Show when={!(bashOutput()?.exitCode != null && bashOutput()!.exitCode !== 0) && !isRunning() && durationLabel()}>
-            <span class={`text-[9px] font-mono leading-none ${durationBold(e().duration_ms) ? "font-bold" : ""}`}
-              style={{ color: durationColor(e().duration_ms) }}>
-              {durationLabel()}
-            </span>
-          </Show>
-          <Show when={!(bashOutput()?.exitCode != null && bashOutput()!.exitCode !== 0) && !isRunning() && !durationLabel() && (readInfo() || writeInfo())}>
-            <span class="text-[9px] text-text-sub leading-none">{readInfo() || writeInfo()}</span>
-          </Show>
-        </span>
+        {/* File heat map rail — 3px colored strip on left edge */}
+        <Show when={filePath()}>
+          <span
+            style={{
+              position: "absolute",
+              left: "0",
+              top: "0",
+              bottom: "0",
+              width: "3px",
+              background: hashFileColor(filePath()!),
+              opacity: "0.6",
+              "border-radius": "0 1px 1px 0",
+            }}
+          />
         </Show>
+        {/* Header row — CSS Grid with fixed columns for visual rhythm */}
+        <button
+          class={`tool-row-grid w-full text-left ${isPassiveTool() ? "opacity-60" : ""} ${isRunning() && !timedOut() ? "tool-row-shimmer" : ""} ${hasExpandableContent() ? "hover:bg-panel/20 cursor-pointer" : "cursor-default"}`}
+          style={{
+            display: "grid",
+            "grid-template-columns": props.compact ? "6px 14px 52px 1fr 42px 12px" : "6px 16px 52px 1fr auto 40px 14px",
+            "align-items": "center",
+            "min-height": props.compact ? "1.375rem" : "1.75rem",
+            height: props.compact ? "1.375rem" : "1.75rem",
+            "max-height": props.compact ? "1.375rem" : "1.75rem",
+            padding: "0 8px 0 6px",
+            overflow: "hidden",
+            "white-space": "nowrap",
+          }}
+          onClick={() => hasExpandableContent() && setExpanded(!expanded())}
+        >
+          {/* Col 1: Status dot */}
+          <span class="flex items-center justify-center">
+            <Show when={isRunning() && !timedOut()}>
+              <span class="w-[5px] h-[5px] rounded-full bg-safe tool-running" />
+            </Show>
+            <Show when={isRunning() && timedOut()}>
+              <span class="w-[5px] h-[5px] rounded-full bg-suspicious" />
+            </Show>
+            <Show when={!isRunning() && bashOutput()?.exitCode != null && bashOutput()!.exitCode !== 0}>
+              <span class="w-[5px] h-[5px] rounded-full bg-attack" />
+            </Show>
+            <Show
+              when={!isRunning() && hasResponse() && !(bashOutput()?.exitCode != null && bashOutput()!.exitCode !== 0)}
+            >
+              <span class="w-[5px] h-[5px] rounded-full bg-safe/25" />
+            </Show>
+          </span>
 
-        {/* Col 6: Timestamp (or Col 5 in compact) */}
-        <Timestamp ts={e().timestamp} class="text-[9px] text-text-sub text-right leading-none" />
+          {/* Col 2: Tool icon (colored by tool type) */}
+          <span class="flex items-center justify-center">
+            <Dynamic
+              component={iconComp()}
+              size={11}
+              style={{ color: TOOL_COLORS[e().tool_name || ""] || "#6b6560" }}
+            />
+          </span>
 
-        {/* Col 7: Caret */}
-        <span class="flex items-center justify-center">
-          <Show when={hasExpandableContent()}>
-            {expanded() ? <CaretDown size={9} class="text-text-sub" /> : <CaretRight size={9} class="text-text-sub" />}
-          </Show>
-        </span>
-      </button>
+          {/* Col 3: Tool name */}
+          <span class="text-[10px] font-bold text-text-label truncate leading-none">
+            {e().tool_name || e().hook_event_name}
+          </span>
 
-      {/* Body — collapsible, aligned to content zone start */}
-      <div class={`tool-call-body ${expanded() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
-        <div class="px-3 pt-2 pb-2" style={{ "padding-left": "68px" }}>
-          {/* Bash command (full, when expanded) */}
-          <Show when={primaryDetail() && e().tool_name === "Bash"}>
-            <div class="text-[10px] text-text-dim font-mono mb-1">
-              <span class="text-text-sub">$ </span>
-              {primaryDetail()}
-            </div>
-          </Show>
+          {/* Col 4: Content (variable per tool type, single line, truncated) */}
+          <span class="flex items-center gap-1 overflow-hidden pl-0.5">
+            <Show when={cmdLabel()}>
+              {(cl) => (
+                <span
+                  class="text-[9px] font-bold uppercase px-1 rounded-sm shrink-0 leading-none"
+                  style={{ color: cl().color, background: cl().color + "18" }}
+                >
+                  {cl().label}
+                </span>
+              )}
+            </Show>
+            <Show when={filePath()}>
+              <FileBadge path={filePath()!} />
+            </Show>
+            <Show when={isReplaceAll()}>
+              <span class="text-[9px] text-suspicious bg-suspicious/10 px-1 rounded-sm shrink-0 leading-none">all</span>
+            </Show>
+            <Show when={editStat()}>
+              {(stat) => (
+                <span class="text-[9px] font-mono shrink-0 leading-none">
+                  <span class="text-safe">+{stat().added}</span> <span class="text-attack">-{stat().removed}</span>
+                </span>
+              )}
+            </Show>
+            <Show when={!filePath() && headerSummary()}>
+              <span class="text-[9px] text-text-dim truncate font-mono leading-none">{headerSummary()}</span>
+            </Show>
+          </span>
 
-          {/* Non-bash detail */}
-          <Show when={primaryDetail() && e().tool_name !== "Bash"}>
-            <div class="text-[10px] text-text-dim font-mono mb-1">{primaryDetail()}</div>
-          </Show>
-
-          {/* Bash output — only render if there's actual content */}
-          <Show when={bashOutput()}>
-            {(bo) => (
-              <Show when={bo().stdout || bo().stderr}>
-                <div class="terminal-block mt-1">
-                  <Show when={bo().stdout}>
-                    <span class="text-text-dim">{bo().stdout}</span>
-                  </Show>
-                  <Show when={bo().stderr}>
-                    <span class="text-attack">{bo().stderr}</span>
-                  </Show>
-                </div>
+          {/* Col 5: Meta (hidden in compact mode — no column allocated) */}
+          <Show when={!props.compact}>
+            <span class="flex items-center justify-end gap-1 pr-1" style={{ "max-width": "72px" }}>
+              <Show when={bashOutput()?.exitCode != null && bashOutput()!.exitCode !== 0}>
+                <span class="text-[9px] font-bold text-attack bg-attack/15 px-1 rounded-sm leading-none">
+                  exit {String(bashOutput()!.exitCode)}
+                </span>
               </Show>
-            )}
+              <Show
+                when={
+                  !(bashOutput()?.exitCode != null && bashOutput()!.exitCode !== 0) && isRunning() && liveElapsedLabel()
+                }
+              >
+                <span
+                  class="text-[9px] font-mono leading-none"
+                  style={{ color: timedOut() ? "#c9a96e" : "var(--text-sub)" }}
+                >
+                  {liveElapsedLabel()}
+                </span>
+              </Show>
+              <Show
+                when={
+                  !(bashOutput()?.exitCode != null && bashOutput()!.exitCode !== 0) && !isRunning() && durationLabel()
+                }
+              >
+                <span
+                  class={`text-[9px] font-mono leading-none ${durationBold(e().duration_ms) ? "font-bold" : ""}`}
+                  style={{ color: durationColor(e().duration_ms) }}
+                >
+                  {durationLabel()}
+                </span>
+              </Show>
+              <Show
+                when={
+                  !(bashOutput()?.exitCode != null && bashOutput()!.exitCode !== 0) &&
+                  !isRunning() &&
+                  !durationLabel() &&
+                  (readInfo() || writeInfo())
+                }
+              >
+                <span class="text-[9px] text-text-sub leading-none">{readInfo() || writeInfo()}</span>
+              </Show>
+            </span>
           </Show>
 
-          {/* Diff block for Edit — with line numbers */}
-          <Show when={diffLines()}>
-            {(lines) => (
-              <div class="mt-1 rounded-sm overflow-hidden border border-panel-border/30 text-[10px] font-mono leading-4">
-                <For each={lines()}>
-                  {(line) => (
-                    <div class={`flex ${line.type === "add" ? "diff-add" : "diff-remove"}`}>
-                      <span class="w-7 text-right pr-1.5 text-text-sub/40 select-none shrink-0">{line.lineNo}</span>
-                      <span>
-                        {line.type === "add" ? "+" : "-"} {line.text}
-                      </span>
+          {/* Col 6: Timestamp (or Col 5 in compact) */}
+          <Timestamp ts={e().timestamp} class="text-[9px] text-text-sub text-right leading-none" />
+
+          {/* Col 7: Caret */}
+          <span class="flex items-center justify-center">
+            <Show when={hasExpandableContent()}>
+              {expanded() ? (
+                <CaretDown size={9} class="text-text-sub" />
+              ) : (
+                <CaretRight size={9} class="text-text-sub" />
+              )}
+            </Show>
+          </span>
+        </button>
+
+        {/* Body — collapsible, aligned to content zone start */}
+        <div class={`tool-call-body ${expanded() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
+          <div class="px-3 pt-2 pb-2" style={{ "padding-left": "68px" }}>
+            {/* Bash command (full, when expanded) */}
+            <Show when={primaryDetail() && e().tool_name === "Bash"}>
+              <div class="text-[10px] text-text-dim font-mono mb-1">
+                <span class="text-text-sub">$ </span>
+                {primaryDetail()}
+              </div>
+            </Show>
+
+            {/* Non-bash detail */}
+            <Show when={primaryDetail() && e().tool_name !== "Bash"}>
+              <div class="text-[10px] text-text-dim font-mono mb-1">{primaryDetail()}</div>
+            </Show>
+
+            {/* Bash output — only render if there's actual content */}
+            <Show when={bashOutput()}>
+              {(bo) => (
+                <Show when={bo().stdout || bo().stderr}>
+                  <div class="terminal-block mt-1">
+                    <Show when={bo().stdout}>
+                      <span class="text-text-dim">{bo().stdout}</span>
+                    </Show>
+                    <Show when={bo().stderr}>
+                      <span class="text-attack">{bo().stderr}</span>
+                    </Show>
+                  </div>
+                </Show>
+              )}
+            </Show>
+
+            {/* Diff block for Edit — with line numbers */}
+            <Show when={diffLines()}>
+              {(lines) => (
+                <div class="mt-1 rounded-sm overflow-hidden border border-panel-border/30 text-[10px] font-mono leading-4">
+                  <For each={lines()}>
+                    {(line) => (
+                      <div class={`flex ${line.type === "add" ? "diff-add" : "diff-remove"}`}>
+                        <span class="w-7 text-right pr-1.5 text-text-sub/40 select-none shrink-0">{line.lineNo}</span>
+                        <span>
+                          {line.type === "add" ? "+" : "-"} {line.text}
+                        </span>
+                      </div>
+                    )}
+                  </For>
+                </div>
+              )}
+            </Show>
+
+            {/* Read: show file content preview from response */}
+            <Show when={e().tool_name === "Read" && hasResponse()}>
+              {(() => {
+                const content = () => responseText();
+                const lines = () => content().split("\n").slice(0, 20);
+                const totalLines = () => content().split("\n").length;
+                return (
+                  <Show when={content()}>
+                    <div class="terminal-block mt-1">
+                      <div class="flex items-center gap-2 mb-1">
+                        <span class="text-[8px] text-text-sub uppercase tracking-wider">Content</span>
+                        <span class="text-[8px] text-text-dim">{totalLines()} lines</span>
+                      </div>
+                      <For each={lines()}>{(line) => <div class="text-text-dim truncate">{line || "\u00a0"}</div>}</For>
+                      <Show when={totalLines() > 20}>
+                        <div class="text-text-sub mt-1">... {totalLines() - 20} more lines</div>
+                      </Show>
+                    </div>
+                  </Show>
+                );
+              })()}
+            </Show>
+
+            {/* Grep: show matched files/lines from response */}
+            <Show when={e().tool_name === "Grep" && hasResponse()}>
+              {(() => {
+                const output = () => responseText();
+                const allLines = createMemo(() => output().split("\n").filter(Boolean));
+                const visibleLines = () => allLines().slice(0, 25);
+                return (
+                  <Show when={output()}>
+                    <div class="terminal-block mt-1">
+                      <div class="flex items-center gap-2 mb-1">
+                        <span class="text-[8px] text-text-sub uppercase tracking-wider">Matches</span>
+                        <span class="text-[8px] text-text-dim">{allLines().length} results</span>
+                      </div>
+                      <For each={visibleLines()}>{(line) => <div class="text-text-dim truncate">{line}</div>}</For>
+                      <Show when={allLines().length > 25}>
+                        <div class="text-text-sub mt-1">... more results</div>
+                      </Show>
+                    </div>
+                  </Show>
+                );
+              })()}
+            </Show>
+
+            {/* Glob: show matched file list from response */}
+            <Show when={e().tool_name === "Glob" && hasResponse()}>
+              {(() => {
+                const output = () => responseText();
+                const allFiles = createMemo(() => output().split("\n").filter(Boolean));
+                const visibleFiles = () => allFiles().slice(0, 20);
+                return (
+                  <Show when={output()}>
+                    <div class="terminal-block mt-1">
+                      <div class="flex items-center gap-2 mb-1">
+                        <span class="text-[8px] text-text-sub uppercase tracking-wider">Files</span>
+                        <span class="text-[8px] text-text-dim">{allFiles().length} matched</span>
+                      </div>
+                      <For each={visibleFiles()}>
+                        {(file) => (
+                          <div class="text-text-dim truncate">
+                            <span class="text-text-sub">{file.split("/").slice(0, -1).join("/")}/</span>
+                            <span class="text-text-label">{file.split("/").pop()}</span>
+                          </div>
+                        )}
+                      </For>
+                      <Show when={allFiles().length > 20}>
+                        <div class="text-text-sub mt-1">... {allFiles().length - 20} more files</div>
+                      </Show>
+                    </div>
+                  </Show>
+                );
+              })()}
+            </Show>
+
+            {/* Agent: show prompt + result */}
+            <Show when={e().tool_name === "Agent"}>
+              {(() => {
+                const prompt = () => (input().prompt as string) || "";
+                const agentType = () => (input().subagent_type as string) || (input().type as string) || "";
+                const result = () => responseText();
+                return (
+                  <>
+                    <Show when={agentType()}>
+                      <div class="flex items-center gap-2 mb-1">
+                        <span
+                          class="text-[8px] font-bold uppercase tracking-wider"
+                          style={{ color: agentColor(agentType()) }}
+                        >
+                          {agentType()}
+                        </span>
+                        <Show when={input().model}>
+                          <span class="text-[8px] text-text-dim">{input().model as string}</span>
+                        </Show>
+                      </div>
+                    </Show>
+                    <Show when={prompt()}>
+                      <div class="terminal-block mt-1 mb-1">
+                        <span class="text-[8px] text-text-sub uppercase tracking-wider">Prompt</span>
+                        <div class="text-text-dim mt-0.5 whitespace-pre-wrap text-[9px] max-h-[120px] overflow-y-auto">
+                          {prompt().slice(0, 500)}
+                        </div>
+                      </div>
+                    </Show>
+                    <Show when={result()}>
+                      <div class="terminal-block mt-1">
+                        <span class="text-[8px] text-text-sub uppercase tracking-wider">Result</span>
+                        <div class="text-text-dim mt-0.5 whitespace-pre-wrap text-[9px] max-h-[200px] overflow-y-auto">
+                          {result().slice(0, 800)}
+                        </div>
+                      </div>
+                    </Show>
+                  </>
+                );
+              })()}
+            </Show>
+
+            {/* Generic fallback: show tool_input keys for unknown tools */}
+            <Show
+              when={
+                !["Bash", "Edit", "Write", "Read", "Grep", "Glob", "Agent"].includes(e().tool_name || "") &&
+                Object.keys(input()).length > 0
+              }
+            >
+              <div class="terminal-block mt-1">
+                <span class="text-[8px] text-text-sub uppercase tracking-wider">Input</span>
+                <For each={Object.entries(input()).slice(0, 10)}>
+                  {([key, val]) => (
+                    <div class="text-text-dim truncate mt-0.5">
+                      <span class="text-text-label">{key}:</span>{" "}
+                      <span>{typeof val === "string" ? val.slice(0, 200) : JSON.stringify(val).slice(0, 200)}</span>
                     </div>
                   )}
                 </For>
               </div>
-            )}
-          </Show>
+            </Show>
 
-          {/* Read: show file content preview from response */}
-          <Show when={e().tool_name === "Read" && hasResponse()}>
-            {(() => {
-              const content = () => responseText();
-              const lines = () => content().split("\n").slice(0, 20);
-              const totalLines = () => content().split("\n").length;
-              return (
-                <Show when={content()}>
-                  <div class="terminal-block mt-1">
-                    <div class="flex items-center gap-2 mb-1">
-                      <span class="text-[8px] text-text-sub uppercase tracking-wider">Content</span>
-                      <span class="text-[8px] text-text-dim">{totalLines()} lines</span>
+            {/* Generic response for non-Bash tools that have response data but no specific renderer */}
+            <Show
+              when={
+                !["Bash", "Edit", "Write", "Read", "Grep", "Glob", "Agent"].includes(e().tool_name || "") &&
+                hasResponse() &&
+                Object.keys(response()).length > 0
+              }
+            >
+              <div class="terminal-block mt-1">
+                <span class="text-[8px] text-text-sub uppercase tracking-wider">Output</span>
+                <For each={Object.entries(response()).slice(0, 10)}>
+                  {([key, val]) => (
+                    <div class="text-text-dim truncate mt-0.5">
+                      <span class="text-text-label">{key}:</span>{" "}
+                      <span>{typeof val === "string" ? val.slice(0, 300) : JSON.stringify(val).slice(0, 300)}</span>
                     </div>
-                    <For each={lines()}>
-                      {(line) => <div class="text-text-dim truncate">{line || "\u00a0"}</div>}
-                    </For>
-                    <Show when={totalLines() > 20}>
-                      <div class="text-text-sub mt-1">... {totalLines() - 20} more lines</div>
-                    </Show>
-                  </div>
-                </Show>
-              );
-            })()}
-          </Show>
-
-          {/* Grep: show matched files/lines from response */}
-          <Show when={e().tool_name === "Grep" && hasResponse()}>
-            {(() => {
-              const output = () => responseText();
-              const allLines = createMemo(() => output().split("\n").filter(Boolean));
-              const visibleLines = () => allLines().slice(0, 25);
-              return (
-                <Show when={output()}>
-                  <div class="terminal-block mt-1">
-                    <div class="flex items-center gap-2 mb-1">
-                      <span class="text-[8px] text-text-sub uppercase tracking-wider">Matches</span>
-                      <span class="text-[8px] text-text-dim">{allLines().length} results</span>
-                    </div>
-                    <For each={visibleLines()}>
-                      {(line) => <div class="text-text-dim truncate">{line}</div>}
-                    </For>
-                    <Show when={allLines().length > 25}>
-                      <div class="text-text-sub mt-1">... more results</div>
-                    </Show>
-                  </div>
-                </Show>
-              );
-            })()}
-          </Show>
-
-          {/* Glob: show matched file list from response */}
-          <Show when={e().tool_name === "Glob" && hasResponse()}>
-            {(() => {
-              const output = () => responseText();
-              const allFiles = createMemo(() => output().split("\n").filter(Boolean));
-              const visibleFiles = () => allFiles().slice(0, 20);
-              return (
-                <Show when={output()}>
-                  <div class="terminal-block mt-1">
-                    <div class="flex items-center gap-2 mb-1">
-                      <span class="text-[8px] text-text-sub uppercase tracking-wider">Files</span>
-                      <span class="text-[8px] text-text-dim">{allFiles().length} matched</span>
-                    </div>
-                    <For each={visibleFiles()}>
-                      {(file) => (
-                        <div class="text-text-dim truncate">
-                          <span class="text-text-sub">{file.split("/").slice(0, -1).join("/")}/</span>
-                          <span class="text-text-label">{file.split("/").pop()}</span>
-                        </div>
-                      )}
-                    </For>
-                    <Show when={allFiles().length > 20}>
-                      <div class="text-text-sub mt-1">... {allFiles().length - 20} more files</div>
-                    </Show>
-                  </div>
-                </Show>
-              );
-            })()}
-          </Show>
-
-          {/* Agent: show prompt + result */}
-          <Show when={e().tool_name === "Agent"}>
-            {(() => {
-              const prompt = () => (input().prompt as string) || "";
-              const agentType = () => (input().subagent_type as string) || (input().type as string) || "";
-              const result = () => responseText();
-              return (
-                <>
-                  <Show when={agentType()}>
-                    <div class="flex items-center gap-2 mb-1">
-                      <span class="text-[8px] font-bold uppercase tracking-wider" style={{ color: agentColor(agentType()) }}>
-                        {agentType()}
-                      </span>
-                      <Show when={input().model}>
-                        <span class="text-[8px] text-text-dim">{input().model as string}</span>
-                      </Show>
-                    </div>
-                  </Show>
-                  <Show when={prompt()}>
-                    <div class="terminal-block mt-1 mb-1">
-                      <span class="text-[8px] text-text-sub uppercase tracking-wider">Prompt</span>
-                      <div class="text-text-dim mt-0.5 whitespace-pre-wrap text-[9px] max-h-[120px] overflow-y-auto">{prompt().slice(0, 500)}</div>
-                    </div>
-                  </Show>
-                  <Show when={result()}>
-                    <div class="terminal-block mt-1">
-                      <span class="text-[8px] text-text-sub uppercase tracking-wider">Result</span>
-                      <div class="text-text-dim mt-0.5 whitespace-pre-wrap text-[9px] max-h-[200px] overflow-y-auto">{result().slice(0, 800)}</div>
-                    </div>
-                  </Show>
-                </>
-              );
-            })()}
-          </Show>
-
-          {/* Generic fallback: show tool_input keys for unknown tools */}
-          <Show when={!["Bash", "Edit", "Write", "Read", "Grep", "Glob", "Agent"].includes(e().tool_name || "") && Object.keys(input()).length > 0}>
-            <div class="terminal-block mt-1">
-              <span class="text-[8px] text-text-sub uppercase tracking-wider">Input</span>
-              <For each={Object.entries(input()).slice(0, 10)}>
-                {([key, val]) => (
-                  <div class="text-text-dim truncate mt-0.5">
-                    <span class="text-text-label">{key}:</span>{" "}
-                    <span>{typeof val === "string" ? val.slice(0, 200) : JSON.stringify(val).slice(0, 200)}</span>
-                  </div>
-                )}
-              </For>
-            </div>
-          </Show>
-
-          {/* Generic response for non-Bash tools that have response data but no specific renderer */}
-          <Show when={!["Bash", "Edit", "Write", "Read", "Grep", "Glob", "Agent"].includes(e().tool_name || "") && hasResponse() && Object.keys(response()).length > 0}>
-            <div class="terminal-block mt-1">
-              <span class="text-[8px] text-text-sub uppercase tracking-wider">Output</span>
-              <For each={Object.entries(response()).slice(0, 10)}>
-                {([key, val]) => (
-                  <div class="text-text-dim truncate mt-0.5">
-                    <span class="text-text-label">{key}:</span>{" "}
-                    <span>{typeof val === "string" ? val.slice(0, 300) : JSON.stringify(val).slice(0, 300)}</span>
-                  </div>
-                )}
-              </For>
-            </div>
-          </Show>
+                  )}
+                </For>
+              </div>
+            </Show>
+          </div>
         </div>
       </div>
-    </div>
     </Show>
   );
 }
@@ -1136,7 +1213,11 @@ export const SessionDetail: Component<{
       if (tuid && e.hook_event_name === "PreToolUse") {
         mergedByToolUseId.set(tuid, result.length);
         result.push(e);
-      } else if (tuid && (e.hook_event_name === "PostToolUse" || e.hook_event_name === "PostToolUseFailure") && mergedByToolUseId.has(tuid)) {
+      } else if (
+        tuid &&
+        (e.hook_event_name === "PostToolUse" || e.hook_event_name === "PostToolUseFailure") &&
+        mergedByToolUseId.has(tuid)
+      ) {
         const idx = mergedByToolUseId.get(tuid)!;
         const pre = result[idx];
         result[idx] = {
@@ -1307,7 +1388,11 @@ export const SessionDetail: Component<{
         }
       }
       // Mark events in the chain (but not the failed Bash itself)
-      if (i > 0 && i <= failChainEnd && !(ev.tool_name === "Bash" && ((ev.tool_response || {}).exitCode ?? (ev.tool_response || {}).exit_code) !== 0)) {
+      if (
+        i > 0 &&
+        i <= failChainEnd &&
+        !(ev.tool_name === "Bash" && (ev.tool_response?.exitCode ?? ev.tool_response?.exit_code) !== 0)
+      ) {
         set.add(i);
       }
     }
@@ -1461,7 +1546,14 @@ export const SessionDetail: Component<{
   // ── Orbit panel: subagent data for side column ──
   const hasSubagents = createMemo(() => agentBlocks().size > 0);
   const orbitEntries = createMemo(() => {
-    const entries: { agentId: string; type: string; startTs: number; endTs: number | null; toolCount: number; events: MonitorEvent[] }[] = [];
+    const entries: {
+      agentId: string;
+      type: string;
+      startTs: number;
+      endTs: number | null;
+      toolCount: number;
+      events: MonitorEvent[];
+    }[] = [];
     const events = timeline();
     for (const [agentId, block] of agentBlocks()) {
       const childEvents = block.childIndices.map((idx) => events[idx]).filter(Boolean);
@@ -1480,7 +1572,9 @@ export const SessionDetail: Component<{
   });
 
   return (
-    <div class={`cm-content ${props.isMobile ? "w-full flex-1" : "flex-1 min-w-0"} flex flex-col overflow-hidden bg-bg`}>
+    <div
+      class={`cm-content ${props.isMobile ? "w-full flex-1" : "flex-1 min-w-0"} flex flex-col overflow-hidden bg-bg`}
+    >
       {/* Header — aligned with ACTIVITY header */}
       <div class="px-3 py-2 border-b border-panel-border flex items-center gap-2 shrink-0 h-[33px]">
         <Show when={props.showClose !== false || props.isMobile}>
@@ -1530,14 +1624,18 @@ export const SessionDetail: Component<{
               onClick={() => setTasksOpen(!tasksOpen())}
             >
               {tasksCompleted()}/{tasks().length}
-              <span class="uppercase" style={{ "font-size": "7px" }}>tasks</span>
+              <span class="uppercase" style={{ "font-size": "7px" }}>
+                tasks
+              </span>
             </button>
             <Show when={tasksOpen()}>
               <div class="absolute top-full right-0 mt-1 z-50 w-[260px] max-h-[400px] overflow-y-auto rounded border border-panel-border bg-card shadow-lg p-2 space-y-0.5">
                 <For each={tasks()}>
                   {(task) => (
                     <div class="flex items-start gap-1.5 text-[9px] py-0.5">
-                      <span class={`w-2.5 h-2.5 rounded-sm border shrink-0 flex items-center justify-center mt-px ${task.completed ? "border-safe/50 bg-safe/10" : "border-text-sub/30"}`}>
+                      <span
+                        class={`w-2.5 h-2.5 rounded-sm border shrink-0 flex items-center justify-center mt-px ${task.completed ? "border-safe/50 bg-safe/10" : "border-text-sub/30"}`}
+                      >
                         <Show when={task.completed}>
                           <Check size={8} class="text-safe" />
                         </Show>
@@ -1560,7 +1658,9 @@ export const SessionDetail: Component<{
               style={{ background: "#7b9fbf12" }}
               onClick={() => setCompactionOpen(!compactionOpen())}
             >
-              <span class="uppercase" style={{ "font-size": "7px" }}>compact</span>
+              <span class="uppercase" style={{ "font-size": "7px" }}>
+                compact
+              </span>
               x{s().compaction_count || 1}
             </button>
             <Show when={compactionOpen()}>
@@ -1614,9 +1714,7 @@ export const SessionDetail: Component<{
             </div>
           </Show>
           <Show when={props.isMobile}>
-            <div class="mt-1.5 text-[10px] text-suspicious/60">
-              Resume this session from your terminal to continue.
-            </div>
+            <div class="mt-1.5 text-[10px] text-suspicious/60">Resume this session from your terminal to continue.</div>
           </Show>
           <Show when={s().cwd && !props.isMobile}>
             <div class="text-[8px] text-text-sub mt-1">in {s().cwd}</div>
@@ -1647,754 +1745,787 @@ export const SessionDetail: Component<{
 
       {/* Timeline + Orbit panel row */}
       <div class="flex flex-1 min-h-0 overflow-hidden">
-      {/* Scrollable tool call timeline — j/k keyboard nav */}
-      <div
-        ref={scrollRef}
-        class="flex-1 overflow-y-auto smooth-scroll relative outline-none"
-        onScroll={handleScroll}
-        onKeyDown={handleKeyDown}
-        tabIndex={0}
-      >
-        <For each={timeline()}>
-          {(event, i) => (
-            <Show when={!nestedIndices().has(i()) && !batchedIndices().has(i()) && !fileGroupedIndices().has(i())}>
-              {/* Gap marker — visual break for 60s+ gaps */}
-              <Show when={gapsBefore().has(i())}>
-                <div
-                  class="flex items-center justify-center py-1"
-                  style={{
-                    "border-top": gapsBefore().get(i())! >= 60000 ? "1px dashed var(--panel-border)" : "none",
-                    "border-bottom": gapsBefore().get(i())! >= 60000 ? "1px dashed var(--panel-border)" : "none",
-                    margin: "2px 0",
-                  }}
-                >
-                  <Show when={gapsBefore().get(i())! >= 60000}
-                    fallback={
-                      <span class="text-[7px] text-text-sub/30 font-mono italic">
-                        thinking {formatGapDuration(gapsBefore().get(i())!)}
-                      </span>
-                    }
+        {/* Scrollable tool call timeline — j/k keyboard nav */}
+        <div
+          ref={scrollRef}
+          class="flex-1 overflow-y-auto smooth-scroll relative outline-none"
+          onScroll={handleScroll}
+          onKeyDown={handleKeyDown}
+        >
+          <For each={timeline()}>
+            {(event, i) => (
+              <Show when={!nestedIndices().has(i()) && !batchedIndices().has(i()) && !fileGroupedIndices().has(i())}>
+                {/* Gap marker — visual break for 60s+ gaps */}
+                <Show when={gapsBefore().has(i())}>
+                  <div
+                    class="flex items-center justify-center py-1"
+                    style={{
+                      "border-top": gapsBefore().get(i())! >= 60000 ? "1px dashed var(--panel-border)" : "none",
+                      "border-bottom": gapsBefore().get(i())! >= 60000 ? "1px dashed var(--panel-border)" : "none",
+                      margin: "2px 0",
+                    }}
                   >
-                    <span class="text-[8px] text-text-sub/40 font-mono tracking-wider">
-                      ··· {formatGapDuration(gapsBefore().get(i())!)} gap ···
-                    </span>
-                  </Show>
-                </div>
-              </Show>
-              <div data-tl-idx={i()} class={errorChainIndices().has(i()) ? "bg-attack/5" : ""}>
-                <Show
-                  when={event.tool_name}
-                  fallback={
-                    <>
-                      {/* ── UserPromptSubmit: conversation separator ──────────── */}
-                      <Show when={event.hook_event_name === "UserPromptSubmit" && event.prompt}>
-                        {(() => {
-                          const [open, setOpen] = createSignal(false);
-                          const text = event.prompt!;
-                          const firstLine = text.split("\n")[0]?.trim() || text.slice(0, 80);
-                          const isSlashCmd = text.startsWith("/");
-                          const hasMore = text.length > 120 || text.includes("\n");
-                          return (
-                            <div class="border-l-3 border-l-[#8a8478] bg-[#1a1916]">
-                              <button
-                                class="flex items-center gap-2 w-full px-3 hover:bg-[#8a847810] text-left"
-                                style={{ "min-height": "1.75rem", padding: "4px 12px" }}
-                                onClick={() => hasMore && setOpen(!open())}
-                              >
-                                <span class="text-[10px] text-[#8a8478] font-bold shrink-0 leading-none">you</span>
-                                <Show when={isSlashCmd}>
-                                  <span class="text-[8px] font-mono font-bold text-safe bg-safe/10 px-1 rounded-sm shrink-0">
-                                    {text.split(/\s/)[0]}
-                                  </span>
-                                </Show>
-                                <span class="text-[10px] text-text-primary min-w-0 truncate leading-none">
-                                  <Show when={!open()}>
-                                    <span class="truncate">
-                                      {isSlashCmd ? text.slice(text.indexOf(" ") + 1) : text.split("\n")[0]}
+                    <Show
+                      when={gapsBefore().get(i())! >= 60000}
+                      fallback={
+                        <span class="text-[7px] text-text-sub/30 font-mono italic">
+                          thinking {formatGapDuration(gapsBefore().get(i())!)}
+                        </span>
+                      }
+                    >
+                      <span class="text-[8px] text-text-sub/40 font-mono tracking-wider">
+                        ··· {formatGapDuration(gapsBefore().get(i())!)} gap ···
+                      </span>
+                    </Show>
+                  </div>
+                </Show>
+                <div data-tl-idx={i()} class={errorChainIndices().has(i()) ? "bg-attack/5" : ""}>
+                  <Show
+                    when={event.tool_name}
+                    fallback={
+                      <>
+                        {/* ── UserPromptSubmit: conversation separator ──────────── */}
+                        <Show when={event.hook_event_name === "UserPromptSubmit" && event.prompt}>
+                          {(() => {
+                            const [open, setOpen] = createSignal(false);
+                            const text = event.prompt!;
+                            const _firstLine = text.split("\n")[0]?.trim() || text.slice(0, 80);
+                            const isSlashCmd = text.startsWith("/");
+                            const hasMore = text.length > 120 || text.includes("\n");
+                            return (
+                              <div class="border-l-3 border-l-[#8a8478] bg-[#1a1916]">
+                                <button
+                                  class="flex items-center gap-2 w-full px-3 hover:bg-[#8a847810] text-left"
+                                  style={{ "min-height": "1.75rem", padding: "4px 12px" }}
+                                  onClick={() => hasMore && setOpen(!open())}
+                                >
+                                  <span class="text-[10px] text-[#8a8478] font-bold shrink-0 leading-none">you</span>
+                                  <Show when={isSlashCmd}>
+                                    <span class="text-[8px] font-mono font-bold text-safe bg-safe/10 px-1 rounded-sm shrink-0">
+                                      {text.split(/\s/)[0]}
                                     </span>
                                   </Show>
-                                  <Show when={open()}>
-                                    <span class="whitespace-pre-wrap break-words">{text}</span>
+                                  <span class="text-[10px] text-text-primary min-w-0 truncate leading-none">
+                                    <Show when={!open()}>
+                                      <span class="truncate">
+                                        {isSlashCmd ? text.slice(text.indexOf(" ") + 1) : text.split("\n")[0]}
+                                      </span>
+                                    </Show>
+                                    <Show when={open()}>
+                                      <span class="whitespace-pre-wrap break-words">{text}</span>
+                                    </Show>
+                                  </span>
+                                  <Show when={hasMore}>
+                                    <span class="text-text-sub shrink-0 ml-auto leading-none">
+                                      {open() ? <CaretDown size={9} /> : <CaretRight size={9} />}
+                                    </span>
                                   </Show>
-                                </span>
-                                <Show when={hasMore}>
-                                  <span class="text-text-sub shrink-0 ml-auto leading-none">
-                                    {open() ? <CaretDown size={9} /> : <CaretRight size={9} />}
-                                  </span>
-                                </Show>
-                              </button>
-                            </div>
-                          );
-                        })()}
-                      </Show>
-
-                      {/* ── Stop: Claude's response card ─────────────────────── */}
-                      <Show when={event.hook_event_name === "Stop"}>
-                        {(() => {
-                          const [open, setOpen] = createSignal(false);
-                          const text = event.last_assistant_message || "";
-                          const hasText = text.length > 0;
-                          const firstLine =
-                            text
-                              .split("\n")
-                              .find((l) => l.trim() && !l.startsWith("#") && !l.startsWith("-") && !l.startsWith("*"))
-                              ?.trim()
-                              ?.replace(/\*\*/g, "")
-                              ?.slice(0, 120) || "";
-                          return (
-                            <div class="border-l-3 border-l-safe/40 bg-[#161412]">
-                              <button
-                                class="flex items-center gap-2 w-full px-3 hover:bg-safe/8 text-left"
-                                style={{ "min-height": "1.75rem", padding: "4px 12px" }}
-                                onClick={() => hasText && setOpen(!open())}
-                              >
-                                <span class="text-[10px] text-safe font-bold shrink-0 leading-none">Claude</span>
-                                <Show when={event.stop_hook_active}>
-                                  <span class="text-[9px] font-bold text-suspicious bg-suspicious/10 px-1 rounded-sm uppercase shrink-0 leading-none">
-                                    verifying
-                                  </span>
-                                </Show>
-                                <Show when={hasText && !open()}>
-                                  <span class="text-[9px] text-text-dim truncate min-w-0 leading-none">
-                                    {firstLine}
-                                    {text.length > 120 ? "..." : ""}
-                                  </span>
-                                </Show>
-                                <Show when={!hasText}>
-                                  <span class="text-[9px] text-text-sub italic leading-none">Done</span>
-                                </Show>
-                                <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
-                                <Show when={hasText}>
-                                  <span class="text-text-sub shrink-0">
-                                    {open() ? <CaretDown size={9} /> : <CaretRight size={9} />}
-                                  </span>
-                                </Show>
-                              </button>
-                              <div class={`tool-call-body ${open() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
-                                <div class="px-3 pb-3 pl-3 max-h-[400px] overflow-y-auto">
-                                  <MarkdownBlock text={text} maxLength={4000} />
-                                </div>
+                                </button>
                               </div>
-                            </div>
-                          );
-                        })()}
-                      </Show>
+                            );
+                          })()}
+                        </Show>
 
-                      {/* ── StopFailure: error card ──────────────────────────── */}
-                      <Show when={event.hook_event_name === "StopFailure"}>
-                        <div class="border-l-2 border-l-attack bg-attack/5 px-3" style={{ "min-height": "1.75rem", padding: "4px 12px" }}>
-                          <div class="flex items-center gap-2">
-                            <span class="text-[10px] font-bold text-attack">Error</span>
-                            <span class="text-[9px] text-attack/80 truncate">
-                              {(event.error as string) || "API error"}
-                            </span>
-                            <CopyContextBtn session={s()} event={event} />
-                            <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
-                          </div>
-                          <Show when={event.error_details}>
-                            <div class="text-[9px] text-text-dim mt-1 font-mono">{event.error_details}</div>
-                          </Show>
-                        </div>
-                      </Show>
-
-                      {/* ── SessionStart: banner ──────────────────────────────── */}
-                      <Show when={event.hook_event_name === "SessionStart"}>
-                        <div class="border-b border-safe/20 bg-safe/5 flex items-center gap-2" style={{ "min-height": "1.75rem", padding: "4px 12px" }}>
-                          <span class="text-[10px] font-bold text-safe">
-                            Session{" "}
-                            {event.source === "resume"
-                              ? "resumed"
-                              : event.source === "clear"
-                                ? "cleared"
-                                : event.source === "compact"
-                                  ? "restarted"
-                                  : "started"}
-                          </span>
-                          <Show when={event.model}>
-                            <ModelBadge model={event.model!} />
-                          </Show>
-                          <Show when={event.permission_mode && event.permission_mode !== "default"}>
-                            <PermissionBadge mode={event.permission_mode!} compact={true} />
-                          </Show>
-                          <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
-                        </div>
-                      </Show>
-
-                      {/* ── SubagentStart: inline at chronological position ──── */}
-                      <Show when={event.hook_event_name === "SubagentStart" && event.agent_id}>
-                        {(() => {
-                          const agentId = event.agent_id!;
-                          const block = () => agentBlocks().get(agentId);
-                          const isDone = () => block()?.stopIdx !== undefined && block()!.stopIdx >= 0;
-                          const isOpen = () => getAgentOpen(agentId, !isDone());
-                          const childEvents = () =>
-                            (block()?.childIndices || []).map((idx) => timeline()[idx]).filter(Boolean);
-                          const stopEvent = () => {
-                            const b = block();
-                            return b && b.stopIdx >= 0 ? timeline()[b.stopIdx] : undefined;
-                          };
-                          const agentDuration = () => {
-                            const stop = stopEvent();
-                            if (!stop) return null;
-                            const ms = stop.timestamp - event.timestamp;
-                            if (ms < 1000) return "<1s";
-                            if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-                            const m = Math.floor(ms / 60000);
-                            const s = Math.round((ms % 60000) / 1000);
-                            return `${m}m ${s}s`;
-                          };
-                          return (
-                            <div class="border-l-2 border-l-[#b07bac]/40 bg-[#b07bac08]">
-                              <button
-                                class="flex items-center gap-2 w-full px-3 py-1.5 hover:bg-[#b07bac10] text-left"
-                                onClick={() => toggleAgentOpen(agentId)}
-                              >
-                                <span
-                                  class="text-[9px] font-bold"
-                                  style={{ color: agentColor(event.agent_type || "") }}
+                        {/* ── Stop: Claude's response card ─────────────────────── */}
+                        <Show when={event.hook_event_name === "Stop"}>
+                          {(() => {
+                            const [open, setOpen] = createSignal(false);
+                            const text = event.last_assistant_message || "";
+                            const hasText = text.length > 0;
+                            const firstLine =
+                              text
+                                .split("\n")
+                                .find((l) => l.trim() && !l.startsWith("#") && !l.startsWith("-") && !l.startsWith("*"))
+                                ?.trim()
+                                ?.replace(/\*\*/g, "")
+                                ?.slice(0, 120) || "";
+                            return (
+                              <div class="border-l-3 border-l-safe/40 bg-[#161412]">
+                                <button
+                                  class="flex items-center gap-2 w-full px-3 hover:bg-safe/8 text-left"
+                                  style={{ "min-height": "1.75rem", padding: "4px 12px" }}
+                                  onClick={() => hasText && setOpen(!open())}
                                 >
-                                  @
-                                </span>
-                                <span
-                                  class="text-[9px] font-mono font-bold px-1 rounded-sm"
-                                  style={{
-                                    color: agentColor(event.agent_type || ""),
-                                    background: agentColor(event.agent_type || "") + "18",
-                                  }}
-                                >
-                                  {event.agent_type || "general-purpose"}
-                                </span>
-                                <Show when={!isDone()}>
-                                  <span class="w-1.5 h-1.5 rounded-full bg-[#b07bac] tool-running shrink-0" />
-                                </Show>
-                                <Show when={isDone()}>
-                                  <span class="text-[9px] text-[#b07bac]/50 uppercase">done</span>
-                                </Show>
-                                <Show when={childEvents().length > 0}>
-                                  <span class="text-[9px] text-text-sub">{childEvents().length} tools</span>
-                                </Show>
-                                <Show when={agentDuration()}>
-                                  <span class="text-[9px] text-text-sub font-mono">{agentDuration()}</span>
-                                </Show>
-                                <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
-                                <Show when={!hasSubagents() || props.isMobile}>
-                                  <span class="text-text-sub shrink-0">
-                                    {isOpen() ? <CaretDown size={9} /> : <CaretRight size={9} />}
-                                  </span>
-                                </Show>
-                                <Show when={hasSubagents() && !props.isMobile}>
-                                  <span class="text-[8px] text-[#b07bac]/40 shrink-0">orbit</span>
-                                </Show>
-                              </button>
-                              {/* Only show inline children when orbit panel is NOT visible */}
-                              <Show when={!hasSubagents() || props.isMobile}>
-                              <div class={`tool-call-body ${isOpen() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
-                                <div class="ml-3 border-l border-[#b07bac]/20">
-                                  <For each={childEvents()}>
-                                    {(childEvent) => (
-                                      <Show
-                                        when={childEvent.tool_name}
-                                        fallback={
-                                          <div class="border-b border-panel-border/10 px-3 py-1 flex items-center gap-2">
-                                            <span class="text-[9px] text-text-sub">{childEvent.hook_event_name}</span>
-                                            <Timestamp
-                                              ts={childEvent.timestamp}
-                                              class="text-[9px] text-text-sub ml-auto"
-                                            />
-                                          </div>
-                                        }
-                                      >
-                                        <ToolCallBlock event={childEvent} defaultExpanded={false} compact={compactMode()} />
-                                      </Show>
-                                    )}
-                                  </For>
-                                  <Show when={stopEvent()?.last_assistant_message}>
-                                    {(() => {
-                                      const [resultOpen, setResultOpen] = createSignal(false);
-                                      const text = stopEvent()!.last_assistant_message!;
-                                      return (
-                                        <div class="border-t border-[#b07bac]/20">
-                                          <button
-                                            class="flex items-center gap-2 w-full px-3 py-1 hover:bg-[#b07bac08] text-left"
-                                            onClick={() => setResultOpen(!resultOpen())}
-                                          >
-                                            <span class="text-[9px] font-bold text-[#b07bac]/60">Result</span>
-                                            <span class="text-[9px] text-text-dim truncate">{text.slice(0, 60)}</span>
-                                            <span class="text-text-sub shrink-0 ml-auto">
-                                              {resultOpen() ? <CaretDown size={8} /> : <CaretRight size={8} />}
-                                            </span>
-                                          </button>
-                                          <div
-                                            class={`tool-call-body ${resultOpen() ? "tool-call-expanded" : "tool-call-collapsed"}`}
-                                          >
-                                            <div class="px-3 pb-2 max-h-[200px] overflow-y-auto">
-                                              <MarkdownBlock text={text} maxLength={2000} />
-                                            </div>
-                                          </div>
-                                        </div>
-                                      );
-                                    })()}
+                                  <span class="text-[10px] text-safe font-bold shrink-0 leading-none">Claude</span>
+                                  <Show when={event.stop_hook_active}>
+                                    <span class="text-[9px] font-bold text-suspicious bg-suspicious/10 px-1 rounded-sm uppercase shrink-0 leading-none">
+                                      verifying
+                                    </span>
                                   </Show>
-                                </div>
-                              </div>
-                              </Show>{/* end: only show inline children when no orbit */}
-                            </div>
-                          );
-                        })()}
-                      </Show>
-
-                      {/* ── PreCompact: still loading ─────────────────────────── */}
-                      <Show when={event.hook_event_name === "PreCompact"}>
-                        <div class="flex items-center gap-2 px-3 py-1.5 bg-[#7b9fbf08]">
-                          <span class="text-[9px] font-bold text-[#7b9fbf]">Compacting...</span>
-                          <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
-                        </div>
-                      </Show>
-
-                      {/* ── PostCompact: watermark divider ─────────────────────── */}
-                      <Show when={event.hook_event_name === "PostCompact"}>
-                        {(() => {
-                          const [open, setOpen] = createSignal(false);
-                          const summary = event.compact_summary;
-                          return (
-                            <>
-                              <div
-                                class="flex items-center gap-3 py-2 my-1 cursor-pointer"
-                                style={{
-                                  "border-top": "1px dashed #7b9fbf66",
-                                  "border-bottom": "1px dashed #7b9fbf66",
-                                }}
-                                onClick={() => summary && setOpen(!open())}
-                              >
-                                <span class="flex-1 border-t border-dashed border-[#7b9fbf]/25" />
-                                <span class="text-[8px] font-mono text-[#7b9fbf]/40 tracking-wider shrink-0">
-                                  context compacted
-                                </span>
-                                <Show when={summary}>
-                                  <span class="text-text-sub/30 shrink-0">
-                                    {open() ? <CaretDown size={8} /> : <CaretRight size={8} />}
-                                  </span>
-                                </Show>
-                                <span class="flex-1 border-t border-dashed border-[#7b9fbf]/25" />
-                              </div>
-                              <Show when={summary}>
+                                  <Show when={hasText && !open()}>
+                                    <span class="text-[9px] text-text-dim truncate min-w-0 leading-none">
+                                      {firstLine}
+                                      {text.length > 120 ? "..." : ""}
+                                    </span>
+                                  </Show>
+                                  <Show when={!hasText}>
+                                    <span class="text-[9px] text-text-sub italic leading-none">Done</span>
+                                  </Show>
+                                  <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
+                                  <Show when={hasText}>
+                                    <span class="text-text-sub shrink-0">
+                                      {open() ? <CaretDown size={9} /> : <CaretRight size={9} />}
+                                    </span>
+                                  </Show>
+                                </button>
                                 <div class={`tool-call-body ${open() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
-                                  <div class="px-3 pb-2 max-h-[200px] overflow-y-auto">
-                                    <MarkdownBlock text={summary!} maxLength={2000} />
+                                  <div class="px-3 pb-3 pl-3 max-h-[400px] overflow-y-auto">
+                                    <MarkdownBlock text={text} maxLength={4000} />
                                   </div>
                                 </div>
-                              </Show>
-                            </>
-                          );
-                        })()}
-                      </Show>
+                              </div>
+                            );
+                          })()}
+                        </Show>
 
-                      {/* ── SessionEnd: summary receipt ───────────────────────── */}
-                      <Show when={event.hook_event_name === "SessionEnd"}>
-                        <div class="border-t border-panel-border/30 bg-panel/20 px-3 py-2 mt-1">
-                          <div class="flex items-center gap-2 mb-1.5">
-                            <span class="text-[10px] font-bold text-text-sub">Session ended</span>
-                            <Show when={event.end_reason}>
-                              <span
-                                class={`text-[8px] font-mono px-1 rounded-sm ${event.end_reason === "bypass_permissions_disabled" ? "text-attack bg-attack/10" : "text-text-dim bg-panel-border/20"}`}
-                              >
-                                {event.end_reason}
+                        {/* ── StopFailure: error card ──────────────────────────── */}
+                        <Show when={event.hook_event_name === "StopFailure"}>
+                          <div
+                            class="border-l-2 border-l-attack bg-attack/5 px-3"
+                            style={{ "min-height": "1.75rem", padding: "4px 12px" }}
+                          >
+                            <div class="flex items-center gap-2">
+                              <span class="text-[10px] font-bold text-attack">Error</span>
+                              <span class="text-[9px] text-attack/80 truncate">
+                                {(event.error as string) || "API error"}
                               </span>
-                            </Show>
-                            <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
-                          </div>
-                          <div class="grid grid-cols-3 gap-x-3 gap-y-1 text-[9px]">
-                            <div>
-                              <span class="text-text-sub">Duration:</span>{" "}
-                              <span class="text-text-dim">{duration()}</span>
-                            </div>
-                            <div>
-                              <span class="text-text-sub">Edits:</span>{" "}
-                              <span class="text-text-dim">{s().edit_count}</span>
-                            </div>
-                            <div>
-                              <span class="text-text-sub">Commands:</span>{" "}
-                              <span class="text-text-dim">{s().command_count}</span>
-                            </div>
-                            <div>
-                              <span class="text-text-sub">Reads:</span>{" "}
-                              <span class="text-text-dim">{s().read_count}</span>
-                            </div>
-                            <div>
-                              <span class="text-text-sub">Files:</span>{" "}
-                              <span class="text-text-dim">{s().files_touched?.length || 0}</span>
-                            </div>
-                            <Show when={s().error_count}>
-                              <div>
-                                <span class="text-text-sub">Errors:</span>{" "}
-                                <span class="text-attack">{s().error_count}</span>
-                              </div>
-                            </Show>
-                            <Show when={s().compaction_count}>
-                              <div>
-                                <span class="text-text-sub">Compactions:</span>{" "}
-                                <span class="text-[#7b9fbf]">{s().compaction_count}</span>
-                              </div>
-                            </Show>
-                          </div>
-                        </div>
-                      </Show>
-
-                      {/* ── All other lifecycle events (generic) ─────────────── */}
-                      <Show
-                        when={
-                          event.hook_event_name !== "UserPromptSubmit" &&
-                          event.hook_event_name !== "Stop" &&
-                          event.hook_event_name !== "StopFailure" &&
-                          event.hook_event_name !== "SessionStart" &&
-                          event.hook_event_name !== "SessionEnd" &&
-                          event.hook_event_name !== "SubagentStart" &&
-                          event.hook_event_name !== "SubagentStop" &&
-                          event.hook_event_name !== "PreCompact" &&
-                          event.hook_event_name !== "PostCompact" &&
-                          !event.tool_name
-                        }
-                      >
-                        {/* ── Signal cards: Notification, Permission, Errors ── */}
-                        <Show when={event.hook_event_name === "Notification"}>
-                          <div class="mx-2 my-1 rounded border border-suspicious/30 bg-[#c9a96e08] overflow-hidden">
-                            <div class="flex items-center gap-2 px-3 py-1.5">
-                              <Warning size={11} class="text-suspicious shrink-0" />
-                              <span class="text-[9px] font-bold text-suspicious uppercase">Notification</span>
-                              <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
-                            </div>
-                            <Show when={event.notification_message}>
-                              <div class="px-3 pb-2 text-[9px] text-text-sub leading-relaxed">
-                                {event.notification_message}
-                              </div>
-                            </Show>
-                          </div>
-                        </Show>
-                        <Show when={event.hook_event_name === "PermissionRequest"}>
-                          <div class="mx-2 my-1 rounded border border-suspicious/30 bg-[#c9a96e08] overflow-hidden">
-                            <div class="flex items-center gap-2 px-3 py-1.5">
-                              <ShieldCheck size={11} class="text-suspicious shrink-0" />
-                              <span class="text-[9px] font-bold text-suspicious uppercase">Permission</span>
-                              <Show when={event.tool_name}>
-                                <span class="text-[8px] font-mono text-text-dim bg-panel-border/20 px-1 rounded-sm">{event.tool_name}</span>
-                              </Show>
-                              <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
-                            </div>
-                            <Show when={event.tool_input}>
-                              <div class="px-3 pb-2 text-[9px] text-text-dim font-mono truncate">
-                                {(event.tool_input?.command as string)?.slice(0, 100) ||
-                                 (event.tool_input?.file_path as string) ||
-                                 (event.tool_input?.description as string)?.slice(0, 80) ||
-                                 ""}
-                              </div>
-                            </Show>
-                          </div>
-                        </Show>
-                        <Show when={event.hook_event_name === "PermissionDenied"}>
-                          <div class="mx-2 my-1 rounded border border-attack/30 bg-[#b85c4a08] overflow-hidden">
-                            <div class="flex items-center gap-2 px-3 py-1.5">
-                              <X size={11} class="text-attack shrink-0" />
-                              <span class="text-[9px] font-bold text-attack uppercase">Denied</span>
-                              <Show when={event.tool_name}>
-                                <span class="text-[8px] font-mono text-text-dim bg-panel-border/20 px-1 rounded-sm">{event.tool_name}</span>
-                              </Show>
-                              <Show when={event.permission_denied_reason}>
-                                <span class="text-[8px] text-text-dim truncate">{event.permission_denied_reason!.slice(0, 60)}</span>
-                              </Show>
-                              <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
-                            </div>
-                          </div>
-                        </Show>
-                        <Show when={event.hook_event_name === "PostToolUseFailure"}>
-                          <div class="mx-2 my-1 rounded border border-attack/30 bg-[#b85c4a08] overflow-hidden">
-                            <div class="flex items-center gap-2 px-3 py-1.5">
-                              <Warning size={11} class="text-attack shrink-0" />
-                              <span class="text-[9px] font-bold text-attack uppercase">Tool Failure</span>
-                              <Show when={event.tool_name}>
-                                <span class="text-[8px] font-mono text-text-dim bg-panel-border/20 px-1 rounded-sm">{event.tool_name}</span>
-                              </Show>
-                              <span class="text-[9px] text-attack truncate">{(event.error as string)?.slice(0, 60)}</span>
                               <CopyContextBtn session={s()} event={event} />
                               <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
                             </div>
+                            <Show when={event.error_details}>
+                              <div class="text-[9px] text-text-dim mt-1 font-mono">{event.error_details}</div>
+                            </Show>
                           </div>
                         </Show>
-                        {/* Generic lifecycle events that don't match above */}
-                        <Show when={
-                          event.hook_event_name !== "Notification" &&
-                          event.hook_event_name !== "PermissionRequest" &&
-                          event.hook_event_name !== "PermissionDenied" &&
-                          event.hook_event_name !== "PostToolUseFailure"
-                        }>
-                          <div class="border-b border-panel-border/20 flex items-center gap-2" style={{ "min-height": "1.75rem", padding: "4px 12px" }}>
-                            <span class="text-[10px] font-bold uppercase text-text-sub">
-                              {event.hook_event_name}
+
+                        {/* ── SessionStart: banner ──────────────────────────────── */}
+                        <Show when={event.hook_event_name === "SessionStart"}>
+                          <div
+                            class="border-b border-safe/20 bg-safe/5 flex items-center gap-2"
+                            style={{ "min-height": "1.75rem", padding: "4px 12px" }}
+                          >
+                            <span class="text-[10px] font-bold text-safe">
+                              Session{" "}
+                              {event.source === "resume"
+                                ? "resumed"
+                                : event.source === "clear"
+                                  ? "cleared"
+                                  : event.source === "compact"
+                                    ? "restarted"
+                                    : "started"}
                             </span>
+                            <Show when={event.model}>
+                              <ModelBadge model={event.model!} />
+                            </Show>
+                            <Show when={event.permission_mode && event.permission_mode !== "default"}>
+                              <PermissionBadge mode={event.permission_mode!} compact={true} />
+                            </Show>
                             <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
                           </div>
                         </Show>
-                      </Show>
-                    </>
-                  }
-                >
-                  <Show
-                    when={questionBatches().has(i())}
-                    fallback={
-                      <Show
-                        when={fileGroups().has(i())}
-                        fallback={
-                          <ToolCallBlock
-                            event={event}
-                            defaultExpanded={i() >= timeline().length - 5}
-                            focused={focusedIdx() === i()}
-                            compact={compactMode()}
-                          />
-                        }
-                      >
-                        <FileGroupBlock
-                          events={fileGroups()
-                            .get(i())!
-                            .map((idx) => timeline()[idx])}
-                          defaultExpanded={false}
-                        />
-                      </Show>
+
+                        {/* ── SubagentStart: inline at chronological position ──── */}
+                        <Show when={event.hook_event_name === "SubagentStart" && event.agent_id}>
+                          {(() => {
+                            const agentId = event.agent_id!;
+                            const block = () => agentBlocks().get(agentId);
+                            const isDone = () => block()?.stopIdx !== undefined && block()!.stopIdx >= 0;
+                            const isOpen = () => getAgentOpen(agentId, !isDone());
+                            const childEvents = () =>
+                              (block()?.childIndices || []).map((idx) => timeline()[idx]).filter(Boolean);
+                            const stopEvent = () => {
+                              const b = block();
+                              return b && b.stopIdx >= 0 ? timeline()[b.stopIdx] : undefined;
+                            };
+                            const agentDuration = () => {
+                              const stop = stopEvent();
+                              if (!stop) return null;
+                              const ms = stop.timestamp - event.timestamp;
+                              if (ms < 1000) return "<1s";
+                              if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+                              const m = Math.floor(ms / 60000);
+                              const s = Math.round((ms % 60000) / 1000);
+                              return `${m}m ${s}s`;
+                            };
+                            return (
+                              <div class="border-l-2 border-l-[#b07bac]/40 bg-[#b07bac08]">
+                                <button
+                                  class="flex items-center gap-2 w-full px-3 py-1.5 hover:bg-[#b07bac10] text-left"
+                                  onClick={() => toggleAgentOpen(agentId)}
+                                >
+                                  <span
+                                    class="text-[9px] font-bold"
+                                    style={{ color: agentColor(event.agent_type || "") }}
+                                  >
+                                    @
+                                  </span>
+                                  <span
+                                    class="text-[9px] font-mono font-bold px-1 rounded-sm"
+                                    style={{
+                                      color: agentColor(event.agent_type || ""),
+                                      background: agentColor(event.agent_type || "") + "18",
+                                    }}
+                                  >
+                                    {event.agent_type || "general-purpose"}
+                                  </span>
+                                  <Show when={!isDone()}>
+                                    <span class="w-1.5 h-1.5 rounded-full bg-[#b07bac] tool-running shrink-0" />
+                                  </Show>
+                                  <Show when={isDone()}>
+                                    <span class="text-[9px] text-[#b07bac]/50 uppercase">done</span>
+                                  </Show>
+                                  <Show when={childEvents().length > 0}>
+                                    <span class="text-[9px] text-text-sub">{childEvents().length} tools</span>
+                                  </Show>
+                                  <Show when={agentDuration()}>
+                                    <span class="text-[9px] text-text-sub font-mono">{agentDuration()}</span>
+                                  </Show>
+                                  <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
+                                  <Show when={!hasSubagents() || props.isMobile}>
+                                    <span class="text-text-sub shrink-0">
+                                      {isOpen() ? <CaretDown size={9} /> : <CaretRight size={9} />}
+                                    </span>
+                                  </Show>
+                                  <Show when={hasSubagents() && !props.isMobile}>
+                                    <span class="text-[8px] text-[#b07bac]/40 shrink-0">orbit</span>
+                                  </Show>
+                                </button>
+                                {/* Only show inline children when orbit panel is NOT visible */}
+                                <Show when={!hasSubagents() || props.isMobile}>
+                                  <div
+                                    class={`tool-call-body ${isOpen() ? "tool-call-expanded" : "tool-call-collapsed"}`}
+                                  >
+                                    <div class="ml-3 border-l border-[#b07bac]/20">
+                                      <For each={childEvents()}>
+                                        {(childEvent) => (
+                                          <Show
+                                            when={childEvent.tool_name}
+                                            fallback={
+                                              <div class="border-b border-panel-border/10 px-3 py-1 flex items-center gap-2">
+                                                <span class="text-[9px] text-text-sub">
+                                                  {childEvent.hook_event_name}
+                                                </span>
+                                                <Timestamp
+                                                  ts={childEvent.timestamp}
+                                                  class="text-[9px] text-text-sub ml-auto"
+                                                />
+                                              </div>
+                                            }
+                                          >
+                                            <ToolCallBlock
+                                              event={childEvent}
+                                              defaultExpanded={false}
+                                              compact={compactMode()}
+                                            />
+                                          </Show>
+                                        )}
+                                      </For>
+                                      <Show when={stopEvent()?.last_assistant_message}>
+                                        {(() => {
+                                          const [resultOpen, setResultOpen] = createSignal(false);
+                                          const text = stopEvent()!.last_assistant_message!;
+                                          return (
+                                            <div class="border-t border-[#b07bac]/20">
+                                              <button
+                                                class="flex items-center gap-2 w-full px-3 py-1 hover:bg-[#b07bac08] text-left"
+                                                onClick={() => setResultOpen(!resultOpen())}
+                                              >
+                                                <span class="text-[9px] font-bold text-[#b07bac]/60">Result</span>
+                                                <span class="text-[9px] text-text-dim truncate">
+                                                  {text.slice(0, 60)}
+                                                </span>
+                                                <span class="text-text-sub shrink-0 ml-auto">
+                                                  {resultOpen() ? <CaretDown size={8} /> : <CaretRight size={8} />}
+                                                </span>
+                                              </button>
+                                              <div
+                                                class={`tool-call-body ${resultOpen() ? "tool-call-expanded" : "tool-call-collapsed"}`}
+                                              >
+                                                <div class="px-3 pb-2 max-h-[200px] overflow-y-auto">
+                                                  <MarkdownBlock text={text} maxLength={2000} />
+                                                </div>
+                                              </div>
+                                            </div>
+                                          );
+                                        })()}
+                                      </Show>
+                                    </div>
+                                  </div>
+                                </Show>
+                                {/* end: only show inline children when no orbit */}
+                              </div>
+                            );
+                          })()}
+                        </Show>
+
+                        {/* ── PreCompact: still loading ─────────────────────────── */}
+                        <Show when={event.hook_event_name === "PreCompact"}>
+                          <div class="flex items-center gap-2 px-3 py-1.5 bg-[#7b9fbf08]">
+                            <span class="text-[9px] font-bold text-[#7b9fbf]">Compacting...</span>
+                            <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
+                          </div>
+                        </Show>
+
+                        {/* ── PostCompact: watermark divider ─────────────────────── */}
+                        <Show when={event.hook_event_name === "PostCompact"}>
+                          {(() => {
+                            const [open, setOpen] = createSignal(false);
+                            const summary = event.compact_summary;
+                            return (
+                              <>
+                                <div
+                                  class="flex items-center gap-3 py-2 my-1 cursor-pointer"
+                                  style={{
+                                    "border-top": "1px dashed #7b9fbf66",
+                                    "border-bottom": "1px dashed #7b9fbf66",
+                                  }}
+                                  onClick={() => summary && setOpen(!open())}
+                                >
+                                  <span class="flex-1 border-t border-dashed border-[#7b9fbf]/25" />
+                                  <span class="text-[8px] font-mono text-[#7b9fbf]/40 tracking-wider shrink-0">
+                                    context compacted
+                                  </span>
+                                  <Show when={summary}>
+                                    <span class="text-text-sub/30 shrink-0">
+                                      {open() ? <CaretDown size={8} /> : <CaretRight size={8} />}
+                                    </span>
+                                  </Show>
+                                  <span class="flex-1 border-t border-dashed border-[#7b9fbf]/25" />
+                                </div>
+                                <Show when={summary}>
+                                  <div
+                                    class={`tool-call-body ${open() ? "tool-call-expanded" : "tool-call-collapsed"}`}
+                                  >
+                                    <div class="px-3 pb-2 max-h-[200px] overflow-y-auto">
+                                      <MarkdownBlock text={summary!} maxLength={2000} />
+                                    </div>
+                                  </div>
+                                </Show>
+                              </>
+                            );
+                          })()}
+                        </Show>
+
+                        {/* ── SessionEnd: summary receipt ───────────────────────── */}
+                        <Show when={event.hook_event_name === "SessionEnd"}>
+                          <div class="border-t border-panel-border/30 bg-panel/20 px-3 py-2 mt-1">
+                            <div class="flex items-center gap-2 mb-1.5">
+                              <span class="text-[10px] font-bold text-text-sub">Session ended</span>
+                              <Show when={event.end_reason}>
+                                <span
+                                  class={`text-[8px] font-mono px-1 rounded-sm ${event.end_reason === "bypass_permissions_disabled" ? "text-attack bg-attack/10" : "text-text-dim bg-panel-border/20"}`}
+                                >
+                                  {event.end_reason}
+                                </span>
+                              </Show>
+                              <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
+                            </div>
+                            <div class="grid grid-cols-3 gap-x-3 gap-y-1 text-[9px]">
+                              <div>
+                                <span class="text-text-sub">Duration:</span>{" "}
+                                <span class="text-text-dim">{duration()}</span>
+                              </div>
+                              <div>
+                                <span class="text-text-sub">Edits:</span>{" "}
+                                <span class="text-text-dim">{s().edit_count}</span>
+                              </div>
+                              <div>
+                                <span class="text-text-sub">Commands:</span>{" "}
+                                <span class="text-text-dim">{s().command_count}</span>
+                              </div>
+                              <div>
+                                <span class="text-text-sub">Reads:</span>{" "}
+                                <span class="text-text-dim">{s().read_count}</span>
+                              </div>
+                              <div>
+                                <span class="text-text-sub">Files:</span>{" "}
+                                <span class="text-text-dim">{s().files_touched?.length || 0}</span>
+                              </div>
+                              <Show when={s().error_count}>
+                                <div>
+                                  <span class="text-text-sub">Errors:</span>{" "}
+                                  <span class="text-attack">{s().error_count}</span>
+                                </div>
+                              </Show>
+                              <Show when={s().compaction_count}>
+                                <div>
+                                  <span class="text-text-sub">Compactions:</span>{" "}
+                                  <span class="text-[#7b9fbf]">{s().compaction_count}</span>
+                                </div>
+                              </Show>
+                            </div>
+                          </div>
+                        </Show>
+
+                        {/* ── All other lifecycle events (generic) ─────────────── */}
+                        <Show
+                          when={
+                            event.hook_event_name !== "UserPromptSubmit" &&
+                            event.hook_event_name !== "Stop" &&
+                            event.hook_event_name !== "StopFailure" &&
+                            event.hook_event_name !== "SessionStart" &&
+                            event.hook_event_name !== "SessionEnd" &&
+                            event.hook_event_name !== "SubagentStart" &&
+                            event.hook_event_name !== "SubagentStop" &&
+                            event.hook_event_name !== "PreCompact" &&
+                            event.hook_event_name !== "PostCompact" &&
+                            !event.tool_name
+                          }
+                        >
+                          {/* ── Signal cards: Notification, Permission, Errors ── */}
+                          <Show when={event.hook_event_name === "Notification"}>
+                            <div class="mx-2 my-1 rounded border border-suspicious/30 bg-[#c9a96e08] overflow-hidden">
+                              <div class="flex items-center gap-2 px-3 py-1.5">
+                                <Warning size={11} class="text-suspicious shrink-0" />
+                                <span class="text-[9px] font-bold text-suspicious uppercase">Notification</span>
+                                <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
+                              </div>
+                              <Show when={event.notification_message}>
+                                <div class="px-3 pb-2 text-[9px] text-text-sub leading-relaxed">
+                                  {event.notification_message}
+                                </div>
+                              </Show>
+                            </div>
+                          </Show>
+                          <Show when={event.hook_event_name === "PermissionRequest"}>
+                            <div class="mx-2 my-1 rounded border border-suspicious/30 bg-[#c9a96e08] overflow-hidden">
+                              <div class="flex items-center gap-2 px-3 py-1.5">
+                                <ShieldCheck size={11} class="text-suspicious shrink-0" />
+                                <span class="text-[9px] font-bold text-suspicious uppercase">Permission</span>
+                                <Show when={event.tool_name}>
+                                  <span class="text-[8px] font-mono text-text-dim bg-panel-border/20 px-1 rounded-sm">
+                                    {event.tool_name}
+                                  </span>
+                                </Show>
+                                <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
+                              </div>
+                              <Show when={event.tool_input}>
+                                <div class="px-3 pb-2 text-[9px] text-text-dim font-mono truncate">
+                                  {(event.tool_input?.command as string)?.slice(0, 100) ||
+                                    (event.tool_input?.file_path as string) ||
+                                    (event.tool_input?.description as string)?.slice(0, 80) ||
+                                    ""}
+                                </div>
+                              </Show>
+                            </div>
+                          </Show>
+                          <Show when={event.hook_event_name === "PermissionDenied"}>
+                            <div class="mx-2 my-1 rounded border border-attack/30 bg-[#b85c4a08] overflow-hidden">
+                              <div class="flex items-center gap-2 px-3 py-1.5">
+                                <X size={11} class="text-attack shrink-0" />
+                                <span class="text-[9px] font-bold text-attack uppercase">Denied</span>
+                                <Show when={event.tool_name}>
+                                  <span class="text-[8px] font-mono text-text-dim bg-panel-border/20 px-1 rounded-sm">
+                                    {event.tool_name}
+                                  </span>
+                                </Show>
+                                <Show when={event.permission_denied_reason}>
+                                  <span class="text-[8px] text-text-dim truncate">
+                                    {event.permission_denied_reason!.slice(0, 60)}
+                                  </span>
+                                </Show>
+                                <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
+                              </div>
+                            </div>
+                          </Show>
+                          <Show when={event.hook_event_name === "PostToolUseFailure"}>
+                            <div class="mx-2 my-1 rounded border border-attack/30 bg-[#b85c4a08] overflow-hidden">
+                              <div class="flex items-center gap-2 px-3 py-1.5">
+                                <Warning size={11} class="text-attack shrink-0" />
+                                <span class="text-[9px] font-bold text-attack uppercase">Tool Failure</span>
+                                <Show when={event.tool_name}>
+                                  <span class="text-[8px] font-mono text-text-dim bg-panel-border/20 px-1 rounded-sm">
+                                    {event.tool_name}
+                                  </span>
+                                </Show>
+                                <span class="text-[9px] text-attack truncate">
+                                  {(event.error as string)?.slice(0, 60)}
+                                </span>
+                                <CopyContextBtn session={s()} event={event} />
+                                <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
+                              </div>
+                            </div>
+                          </Show>
+                          {/* Generic lifecycle events that don't match above */}
+                          <Show
+                            when={
+                              event.hook_event_name !== "Notification" &&
+                              event.hook_event_name !== "PermissionRequest" &&
+                              event.hook_event_name !== "PermissionDenied" &&
+                              event.hook_event_name !== "PostToolUseFailure"
+                            }
+                          >
+                            <div
+                              class="border-b border-panel-border/20 flex items-center gap-2"
+                              style={{ "min-height": "1.75rem", padding: "4px 12px" }}
+                            >
+                              <span class="text-[10px] font-bold uppercase text-text-sub">{event.hook_event_name}</span>
+                              <Timestamp ts={event.timestamp} class="text-[9px] text-text-sub ml-auto shrink-0" />
+                            </div>
+                          </Show>
+                        </Show>
+                      </>
                     }
                   >
-                    <QuestionBatchBlock
-                      events={questionBatches()
-                        .get(i())!
-                        .map((idx) => timeline()[idx])}
-                      defaultExpanded={i() >= timeline().length - 5}
-                    />
+                    <Show
+                      when={questionBatches().has(i())}
+                      fallback={
+                        <Show
+                          when={fileGroups().has(i())}
+                          fallback={
+                            <ToolCallBlock
+                              event={event}
+                              defaultExpanded={i() >= timeline().length - 5}
+                              focused={focusedIdx() === i()}
+                              compact={compactMode()}
+                            />
+                          }
+                        >
+                          <FileGroupBlock
+                            events={fileGroups()
+                              .get(i())!
+                              .map((idx) => timeline()[idx])}
+                            defaultExpanded={false}
+                          />
+                        </Show>
+                      }
+                    >
+                      <QuestionBatchBlock
+                        events={questionBatches()
+                          .get(i())!
+                          .map((idx) => timeline()[idx])}
+                        defaultExpanded={i() >= timeline().length - 5}
+                      />
+                    </Show>
                   </Show>
-                </Show>
-              </div>
-            </Show>
-          )}
-        </For>
+                </div>
+              </Show>
+            )}
+          </For>
 
-        <Show when={props.historyLoading && timeline().length === 0}>
-          <div class="flex items-center justify-center gap-2 py-6">
-            <span class="w-2 h-2 rounded-full bg-text-sub animate-pulse" />
-            <span class="text-[10px] text-text-dim">Loading history...</span>
-          </div>
-        </Show>
-
-        <Show when={timeline().length === 0 && !props.historyLoading}>
-          <div class="p-4 space-y-3">
-            {/* Session info grid */}
-            <div class="border border-panel-border rounded-sm bg-card">
-              <div class="px-3 py-2 border-b border-panel-border/50">
-                <span class="text-[9px] text-text-sub uppercase tracking-wider">Session Details</span>
-              </div>
-              <div class="p-3 grid grid-cols-2 gap-x-4 gap-y-2 text-[10px]">
-                <div>
-                  <span class="text-text-sub block text-[8px] uppercase tracking-wider mb-0.5">Session ID</span>
-                  <span class="text-text-primary font-mono select-all">{s().session_id}</span>
-                </div>
-                <div>
-                  <span class="text-text-sub block text-[8px] uppercase tracking-wider mb-0.5">Project</span>
-                  <span class="text-text-primary">{s().project_name}</span>
-                </div>
-                <Show when={s().model}>
-                  <div>
-                    <span class="text-text-sub block text-[8px] uppercase tracking-wider mb-0.5">Model</span>
-                    <span class="text-text-dim">{s().model}</span>
-                  </div>
-                </Show>
-                <Show when={s().permission_mode}>
-                  <div>
-                    <span class="text-text-sub block text-[8px] uppercase tracking-wider mb-0.5">Permissions</span>
-                    <PermissionBadge mode={s().permission_mode!} />
-                  </div>
-                </Show>
-                <Show when={s().branch}>
-                  <div>
-                    <span class="text-text-sub block text-[8px] uppercase tracking-wider mb-0.5">Branch</span>
-                    <span class="text-text-dim flex items-center gap-1">
-                      <GitBranch size={9} /> {s().branch}
-                    </span>
-                  </div>
-                </Show>
-                <div>
-                  <span class="text-text-sub block text-[8px] uppercase tracking-wider mb-0.5">Source</span>
-                  <span class="text-text-dim">{s().source || "local"}</span>
-                </div>
-                <Show when={s().project_path}>
-                  <div class="col-span-2">
-                    <span class="text-text-sub block text-[8px] uppercase tracking-wider mb-0.5">Path</span>
-                    <span class="text-text-dim font-mono text-[9px] select-all">{s().project_path}</span>
-                  </div>
-                </Show>
-                <Show when={s().cwd && s().cwd !== s().project_path}>
-                  <div class="col-span-2">
-                    <span class="text-text-sub block text-[8px] uppercase tracking-wider mb-0.5">
-                      Working Directory
-                    </span>
-                    <span class="text-text-dim font-mono text-[9px] select-all">{s().cwd}</span>
-                  </div>
-                </Show>
-                <Show when={s().transcript_path}>
-                  <div class="col-span-2">
-                    <span class="text-text-sub block text-[8px] uppercase tracking-wider mb-0.5">Transcript</span>
-                    <span class="text-text-dim font-mono text-[9px] select-all">{s().transcript_path}</span>
-                  </div>
-                </Show>
-              </div>
+          <Show when={props.historyLoading && timeline().length === 0}>
+            <div class="flex items-center justify-center gap-2 py-6">
+              <span class="w-2 h-2 rounded-full bg-text-sub animate-pulse" />
+              <span class="text-[10px] text-text-dim">Loading history...</span>
             </div>
+          </Show>
 
-            {/* Resume/find session command */}
-            <Show when={s().status === "waiting" || s().status === "working" || s().status === "thinking"}>
+          <Show when={timeline().length === 0 && !props.historyLoading}>
+            <div class="p-4 space-y-3">
+              {/* Session info grid */}
               <div class="border border-panel-border rounded-sm bg-card">
                 <div class="px-3 py-2 border-b border-panel-border/50">
-                  <span class="text-[9px] text-text-sub uppercase tracking-wider">Find This Session</span>
+                  <span class="text-[9px] text-text-sub uppercase tracking-wider">Session Details</span>
                 </div>
-                <div class="p-3 space-y-2">
-                  <div class="text-[10px] text-text-dim">This session is running locally. Resume it with:</div>
-                  <div
-                    class="bg-[#0c0c0c] border border-panel-border rounded px-3 py-2 font-mono text-[11px] text-safe cursor-pointer hover:border-safe/30 transition-colors select-all"
-                    title="Click to copy"
-                    onClick={() => navigator.clipboard.writeText(`claude --resume ${s().session_id}`)}
-                  >
-                    claude --resume {s().session_id}
+                <div class="p-3 grid grid-cols-2 gap-x-4 gap-y-2 text-[10px]">
+                  <div>
+                    <span class="text-text-sub block text-[8px] uppercase tracking-wider mb-0.5">Session ID</span>
+                    <span class="text-text-primary font-mono select-all">{s().session_id}</span>
                   </div>
-                  <Show when={s().cwd}>
-                    <div class="text-[9px] text-text-sub">
-                      Run from: <span class="font-mono text-text-dim">{s().cwd}</span>
+                  <div>
+                    <span class="text-text-sub block text-[8px] uppercase tracking-wider mb-0.5">Project</span>
+                    <span class="text-text-primary">{s().project_name}</span>
+                  </div>
+                  <Show when={s().model}>
+                    <div>
+                      <span class="text-text-sub block text-[8px] uppercase tracking-wider mb-0.5">Model</span>
+                      <span class="text-text-dim">{s().model}</span>
+                    </div>
+                  </Show>
+                  <Show when={s().permission_mode}>
+                    <div>
+                      <span class="text-text-sub block text-[8px] uppercase tracking-wider mb-0.5">Permissions</span>
+                      <PermissionBadge mode={s().permission_mode!} />
+                    </div>
+                  </Show>
+                  <Show when={s().branch}>
+                    <div>
+                      <span class="text-text-sub block text-[8px] uppercase tracking-wider mb-0.5">Branch</span>
+                      <span class="text-text-dim flex items-center gap-1">
+                        <GitBranch size={9} /> {s().branch}
+                      </span>
+                    </div>
+                  </Show>
+                  <div>
+                    <span class="text-text-sub block text-[8px] uppercase tracking-wider mb-0.5">Source</span>
+                    <span class="text-text-dim">{s().source || "local"}</span>
+                  </div>
+                  <Show when={s().project_path}>
+                    <div class="col-span-2">
+                      <span class="text-text-sub block text-[8px] uppercase tracking-wider mb-0.5">Path</span>
+                      <span class="text-text-dim font-mono text-[9px] select-all">{s().project_path}</span>
+                    </div>
+                  </Show>
+                  <Show when={s().cwd && s().cwd !== s().project_path}>
+                    <div class="col-span-2">
+                      <span class="text-text-sub block text-[8px] uppercase tracking-wider mb-0.5">
+                        Working Directory
+                      </span>
+                      <span class="text-text-dim font-mono text-[9px] select-all">{s().cwd}</span>
+                    </div>
+                  </Show>
+                  <Show when={s().transcript_path}>
+                    <div class="col-span-2">
+                      <span class="text-text-sub block text-[8px] uppercase tracking-wider mb-0.5">Transcript</span>
+                      <span class="text-text-dim font-mono text-[9px] select-all">{s().transcript_path}</span>
                     </div>
                   </Show>
                 </div>
               </div>
-            </Show>
 
-            {/* Files touched */}
-            <Show when={s().files_touched?.length}>
-              <div class="border border-panel-border rounded-sm bg-card">
-                <div class="px-3 py-2 border-b border-panel-border/50">
-                  <span class="text-[9px] text-text-sub uppercase tracking-wider">
-                    Files Touched ({s().files_touched!.length})
-                  </span>
-                </div>
-                <div class="p-2 space-y-0.5 max-h-[150px] overflow-y-auto">
-                  <For each={s().files_touched!}>
-                    {(fp) => (
-                      <div class="px-2 py-0.5">
-                        <FileBadge path={fp} />
+              {/* Resume/find session command */}
+              <Show when={s().status === "waiting" || s().status === "working" || s().status === "thinking"}>
+                <div class="border border-panel-border rounded-sm bg-card">
+                  <div class="px-3 py-2 border-b border-panel-border/50">
+                    <span class="text-[9px] text-text-sub uppercase tracking-wider">Find This Session</span>
+                  </div>
+                  <div class="p-3 space-y-2">
+                    <div class="text-[10px] text-text-dim">This session is running locally. Resume it with:</div>
+                    <div
+                      class="bg-[#0c0c0c] border border-panel-border rounded px-3 py-2 font-mono text-[11px] text-safe cursor-pointer hover:border-safe/30 transition-colors select-all"
+                      title="Click to copy"
+                      onClick={() => navigator.clipboard.writeText(`claude --resume ${s().session_id}`)}
+                    >
+                      claude --resume {s().session_id}
+                    </div>
+                    <Show when={s().cwd}>
+                      <div class="text-[9px] text-text-sub">
+                        Run from: <span class="font-mono text-text-dim">{s().cwd}</span>
                       </div>
-                    )}
-                  </For>
+                    </Show>
+                  </div>
                 </div>
-              </div>
-            </Show>
+              </Show>
 
-            {/* Recent commands */}
-            <Show when={s().commands_run?.length}>
-              <div class="border border-panel-border rounded-sm bg-card">
-                <div class="px-3 py-2 border-b border-panel-border/50">
-                  <span class="text-[9px] text-text-sub uppercase tracking-wider">
-                    Recent Commands ({s().commands_run!.length})
-                  </span>
+              {/* Files touched */}
+              <Show when={s().files_touched?.length}>
+                <div class="border border-panel-border rounded-sm bg-card">
+                  <div class="px-3 py-2 border-b border-panel-border/50">
+                    <span class="text-[9px] text-text-sub uppercase tracking-wider">
+                      Files Touched ({s().files_touched!.length})
+                    </span>
+                  </div>
+                  <div class="p-2 space-y-0.5 max-h-[150px] overflow-y-auto">
+                    <For each={s().files_touched!}>
+                      {(fp) => (
+                        <div class="px-2 py-0.5">
+                          <FileBadge path={fp} />
+                        </div>
+                      )}
+                    </For>
+                  </div>
                 </div>
-                <div class="p-2 space-y-0.5 max-h-[120px] overflow-y-auto">
-                  <For each={s().commands_run!}>
-                    {(cmd) => (
-                      <div class="px-2 py-0.5 text-[9px] font-mono text-text-dim truncate">
-                        <span class="text-text-sub">$</span> {cmd}
+              </Show>
+
+              {/* Recent commands */}
+              <Show when={s().commands_run?.length}>
+                <div class="border border-panel-border rounded-sm bg-card">
+                  <div class="px-3 py-2 border-b border-panel-border/50">
+                    <span class="text-[9px] text-text-sub uppercase tracking-wider">
+                      Recent Commands ({s().commands_run!.length})
+                    </span>
+                  </div>
+                  <div class="p-2 space-y-0.5 max-h-[120px] overflow-y-auto">
+                    <For each={s().commands_run!}>
+                      {(cmd) => (
+                        <div class="px-2 py-0.5 text-[9px] font-mono text-text-dim truncate">
+                          <span class="text-text-sub">$</span> {cmd}
+                        </div>
+                      )}
+                    </For>
+                  </div>
+                </div>
+              </Show>
+            </div>
+          </Show>
+        </div>
+
+        {/* ── Orbit Panel: subagent satellite cards ──────────────── */}
+        <Show when={hasSubagents() && !props.isMobile}>
+          <div class="w-[200px] shrink-0 border-l border-panel-border overflow-y-auto smooth-scroll bg-bg">
+            <div class="px-2 py-1.5 border-b border-panel-border">
+              <span class="text-[8px] text-text-label uppercase tracking-[1.5px]">Subagents</span>
+              <span class="text-[9px] text-text-sub ml-1">{orbitEntries().length}</span>
+            </div>
+            <For each={orbitEntries()}>
+              {(orbit) => {
+                const [orbitOpen, setOrbitOpen] = createSignal(!orbit.endTs);
+                const isDone = () => orbit.endTs !== null;
+                const durationLabel = () => {
+                  if (!orbit.endTs) return "running";
+                  const ms = orbit.endTs - orbit.startTs;
+                  if (ms < 1000) return "<1s";
+                  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+                  const m = Math.floor(ms / 60000);
+                  const sec = Math.round((ms % 60000) / 1000);
+                  return `${m}m ${sec}s`;
+                };
+                const typeColor = () => agentColor(orbit.type);
+                return (
+                  <div class="border-b border-panel-border/30">
+                    <button
+                      class="flex items-center gap-1.5 w-full px-2 py-1.5 hover:bg-panel/20 text-left"
+                      onClick={() => setOrbitOpen(!orbitOpen())}
+                    >
+                      <span
+                        class="w-1.5 h-1.5 rounded-full shrink-0"
+                        style={{
+                          background: isDone() ? "#4a4640" : typeColor(),
+                          "box-shadow": isDone() ? "none" : `0 0 4px ${typeColor()}`,
+                        }}
+                      />
+                      <span
+                        class="text-[8px] font-mono font-bold px-1 rounded-sm truncate"
+                        style={{ color: typeColor(), background: typeColor() + "15" }}
+                      >
+                        {orbit.type || "agent"}
+                      </span>
+                      <span class="text-[8px] text-text-sub ml-auto shrink-0">{orbit.toolCount}t</span>
+                      <span class="text-[8px] text-text-dim font-mono shrink-0">{durationLabel()}</span>
+                      <span class="text-text-sub shrink-0">
+                        {orbitOpen() ? <CaretDown size={8} /> : <CaretRight size={8} />}
+                      </span>
+                    </button>
+                    <div class={`tool-call-body ${orbitOpen() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
+                      <div class="px-1">
+                        <For each={orbit.events}>
+                          {(ev) => (
+                            <div
+                              class="flex items-center gap-1 px-1.5 py-0.5 text-[8px] border-b border-panel-border/10 hover:bg-panel/10"
+                              title={(ev.tool_input?.file_path as string) || (ev.tool_input?.command as string) || ""}
+                            >
+                              <span
+                                class="w-1 h-1 rounded-full shrink-0"
+                                style={{ background: ev.hook_event_name === "PreToolUse" ? typeColor() : "#4a4640" }}
+                              />
+                              <span class="font-mono font-bold text-text-sub w-[32px] shrink-0 truncate">
+                                {ev.tool_name || ev.hook_event_name}
+                              </span>
+                              <span class="text-text-dim truncate min-w-0 flex-1">
+                                {(ev.tool_input?.file_path as string)?.split("/").pop() ||
+                                  (ev.tool_input?.command as string)?.slice(0, 30) ||
+                                  (ev.tool_input?.pattern as string)?.slice(0, 20) ||
+                                  (ev.tool_input?.description as string)?.slice(0, 25) ||
+                                  ""}
+                              </span>
+                              <Show when={ev.duration_ms}>
+                                <span class="text-text-dim font-mono shrink-0">
+                                  {ev.duration_ms! < 1000 ? "<1s" : `${(ev.duration_ms! / 1000).toFixed(1)}s`}
+                                </span>
+                              </Show>
+                            </div>
+                          )}
+                        </For>
                       </div>
-                    )}
-                  </For>
-                </div>
-              </div>
-            </Show>
+                    </div>
+                  </div>
+                );
+              }}
+            </For>
           </div>
         </Show>
       </div>
-
-      {/* ── Orbit Panel: subagent satellite cards ──────────────── */}
-      <Show when={hasSubagents() && !props.isMobile}>
-        <div class="w-[200px] shrink-0 border-l border-panel-border overflow-y-auto smooth-scroll bg-bg">
-          <div class="px-2 py-1.5 border-b border-panel-border">
-            <span class="text-[8px] text-text-label uppercase tracking-[1.5px]">Subagents</span>
-            <span class="text-[9px] text-text-sub ml-1">{orbitEntries().length}</span>
-          </div>
-          <For each={orbitEntries()}>
-            {(orbit) => {
-              const [orbitOpen, setOrbitOpen] = createSignal(!orbit.endTs);
-              const isDone = () => orbit.endTs !== null;
-              const durationLabel = () => {
-                if (!orbit.endTs) return "running";
-                const ms = orbit.endTs - orbit.startTs;
-                if (ms < 1000) return "<1s";
-                if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-                const m = Math.floor(ms / 60000);
-                const sec = Math.round((ms % 60000) / 1000);
-                return `${m}m ${sec}s`;
-              };
-              const typeColor = () => agentColor(orbit.type);
-              return (
-                <div class="border-b border-panel-border/30">
-                  <button
-                    class="flex items-center gap-1.5 w-full px-2 py-1.5 hover:bg-panel/20 text-left"
-                    onClick={() => setOrbitOpen(!orbitOpen())}
-                  >
-                    <span
-                      class="w-1.5 h-1.5 rounded-full shrink-0"
-                      style={{
-                        background: isDone() ? "#4a4640" : typeColor(),
-                        "box-shadow": isDone() ? "none" : `0 0 4px ${typeColor()}`,
-                      }}
-                    />
-                    <span
-                      class="text-[8px] font-mono font-bold px-1 rounded-sm truncate"
-                      style={{ color: typeColor(), background: typeColor() + "15" }}
-                    >
-                      {orbit.type || "agent"}
-                    </span>
-                    <span class="text-[8px] text-text-sub ml-auto shrink-0">{orbit.toolCount}t</span>
-                    <span class="text-[8px] text-text-dim font-mono shrink-0">{durationLabel()}</span>
-                    <span class="text-text-sub shrink-0">
-                      {orbitOpen() ? <CaretDown size={8} /> : <CaretRight size={8} />}
-                    </span>
-                  </button>
-                  <div class={`tool-call-body ${orbitOpen() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
-                    <div class="px-1">
-                      <For each={orbit.events}>
-                        {(ev) => (
-                          <div
-                            class="flex items-center gap-1 px-1.5 py-0.5 text-[8px] border-b border-panel-border/10 hover:bg-panel/10"
-                            title={ev.tool_input?.file_path as string || ev.tool_input?.command as string || ""}
-                          >
-                            <span
-                              class="w-1 h-1 rounded-full shrink-0"
-                              style={{ background: ev.hook_event_name === "PreToolUse" ? typeColor() : "#4a4640" }}
-                            />
-                            <span class="font-mono font-bold text-text-sub w-[32px] shrink-0 truncate">
-                              {ev.tool_name || ev.hook_event_name}
-                            </span>
-                            <span class="text-text-dim truncate min-w-0 flex-1">
-                              {(ev.tool_input?.file_path as string)?.split("/").pop() ||
-                               (ev.tool_input?.command as string)?.slice(0, 30) ||
-                               (ev.tool_input?.pattern as string)?.slice(0, 20) ||
-                               (ev.tool_input?.description as string)?.slice(0, 25) ||
-                               ""}
-                            </span>
-                            <Show when={ev.duration_ms}>
-                              <span class="text-text-dim font-mono shrink-0">
-                                {ev.duration_ms! < 1000 ? "<1s" : `${(ev.duration_ms! / 1000).toFixed(1)}s`}
-                              </span>
-                            </Show>
-                          </div>
-                        )}
-                      </For>
-                    </div>
-                  </div>
-                </div>
-              );
-            }}
-          </For>
-        </div>
-      </Show>
-      </div>{/* end timeline + orbit row */}
+      {/* end timeline + orbit row */}
 
       {/* New messages indicator / Jump to latest */}
       <Show when={!autoScroll()}>
@@ -2412,9 +2543,7 @@ export const SessionDetail: Component<{
               </span>
               <span>new</span>
             </Show>
-            <Show when={newMessageCount() === 0}>
-              Jump to latest
-            </Show>
+            <Show when={newMessageCount() === 0}>Jump to latest</Show>
           </button>
         </div>
       </Show>

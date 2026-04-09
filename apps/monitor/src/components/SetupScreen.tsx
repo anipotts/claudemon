@@ -53,7 +53,9 @@ export const SetupScreen: Component<SetupScreenProps> = (props) => {
 
         {/* Plugin install — golden path */}
         <div>
-          <div class="text-[10px] text-text-sub uppercase tracking-wider mb-1.5">In Claude Code on your computer, run:</div>
+          <div class="text-[10px] text-text-sub uppercase tracking-wider mb-1.5">
+            In Claude Code on your computer, run:
+          </div>
           <button
             onClick={copyCmd}
             class="w-full flex items-center gap-2 bg-[#0c0c0c] border border-safe/30 rounded px-3 py-2.5 font-mono text-[12px] text-safe text-left group hover:border-safe/50 transition-colors"
@@ -74,7 +76,10 @@ export const SetupScreen: Component<SetupScreenProps> = (props) => {
               type="text"
               placeholder="cm_..."
               value={keyInput()}
-              onInput={(e) => { setKeyInput(e.currentTarget.value); setKeyError(false); }}
+              onInput={(e) => {
+                setKeyInput(e.currentTarget.value);
+                setKeyError(false);
+              }}
               onKeyDown={(e) => e.key === "Enter" && submitKey()}
               class={`flex-1 bg-[#0c0c0c] border rounded px-3 py-2 font-mono text-[11px] text-text-primary placeholder:text-text-sub/40 outline-none transition-colors ${
                 keyError() ? "border-attack/50" : "border-panel-border/40 focus:border-panel-border"
@@ -98,9 +103,7 @@ export const SetupScreen: Component<SetupScreenProps> = (props) => {
             class={`w-2 h-2 rounded-full ${connected() ? "bg-safe animate-pulse" : "bg-suspicious"}`}
             style={{ "box-shadow": connected() ? "0 0 8px var(--safe)" : "0 0 4px var(--suspicious)" }}
           />
-          <span class="text-[10px] text-text-dim">
-            {connected() ? "Listening for sessions..." : "Connecting..."}
-          </span>
+          <span class="text-[10px] text-text-dim">{connected() ? "Listening for sessions..." : "Connecting..."}</span>
         </div>
 
         {/* GitHub sign-in — optional, non-blocking */}

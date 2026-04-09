@@ -537,5 +537,14 @@ export function createSessionStore() {
     }
   }
 
-  return { sessions, connectionStatus: status, persistenceReady, pendingActions, respondToAction, loadSessionHistory, historyLoading, reconnect };
+  return {
+    sessions,
+    connectionStatus: status,
+    persistenceReady,
+    pendingActions,
+    respondToAction,
+    loadSessionHistory,
+    historyLoading,
+    reconnect,
+  };
 }

@@ -2,9 +2,23 @@ import { type Component, For, Show, createSignal, createMemo } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import type { MonitorEvent, HookEventName } from "../../../../packages/types/monitor";
 import {
-  Eye, PencilSimple, Plus, Terminal, MagnifyingGlass, Folder,
-  Robot, Play, X, Pause, Warning, Bell, ArrowsClockwise,
-  Key, ShieldCheck, ChatText, Circle,
+  Eye,
+  PencilSimple,
+  Plus,
+  Terminal,
+  MagnifyingGlass,
+  Folder,
+  Robot,
+  Play,
+  X,
+  Pause,
+  Warning,
+  Bell,
+  ArrowsClockwise,
+  Key,
+  ShieldCheck,
+  ChatText,
+  Circle,
 } from "./Icons";
 import { FileBadge } from "./FileBadge";
 import { SessionBadge } from "./SessionBadge";
@@ -282,7 +296,7 @@ export const ActivityTimeline: Component<{
     }
   });
 
-  const errorCount = createMemo(() => baseEvents().filter((e) => eventSeverity(e) === "error").length);
+  const _errorCount = createMemo(() => baseEvents().filter((e) => eventSeverity(e) === "error").length);
   const signalCount = createMemo(
     () => baseEvents().filter((e) => getEventTier(e.hook_event_name as HookEventName) === 1).length,
   );

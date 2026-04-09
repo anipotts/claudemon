@@ -39,7 +39,9 @@
 }
 
 /* Text size — single zoom variable drives presets + pinch gestures */
-.cm-content { zoom: var(--cm-zoom, 1); }
+.cm-content {
+  zoom: var(--cm-zoom, 1);
+}
 
 html,
 body {
@@ -237,8 +239,12 @@ body {
   margin-top: 3px;
 }
 @keyframes tooltip-fade {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* Live event slide-in */
@@ -258,8 +264,13 @@ body {
 
 /* Tool running pulse — status dot for in-progress tools */
 @keyframes tool-running-pulse {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 .tool-running {
   animation: tool-running-pulse 1.5s ease-in-out infinite;
@@ -267,8 +278,12 @@ body {
 
 /* Tool row running shimmer — subtle left-to-right sweep */
 @keyframes tool-active-shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 .tool-row-shimmer {
   background: linear-gradient(
@@ -292,13 +307,19 @@ body {
 
 /* Status color transition */
 .status-transition {
-  transition: background-color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease, color 0.4s ease;
+  transition:
+    background-color 0.4s ease,
+    border-color 0.4s ease,
+    box-shadow 0.4s ease,
+    color 0.4s ease;
 }
 
 /* Tool call collapsible — near-instant */
 .tool-call-body {
   overflow: hidden;
-  transition: max-height 0.1s ease-out, opacity 0.08s ease-out;
+  transition:
+    max-height 0.1s ease-out,
+    opacity 0.08s ease-out;
 }
 .tool-call-collapsed {
   max-height: 0;
@@ -511,7 +532,8 @@ body {
 /* ── Mobile responsive ──────────────────────────────────────────── */
 @media (max-width: 768px) {
   /* Status bar area matches header bg exactly */
-  html, body {
+  html,
+  body {
     background: var(--item);
   }
 

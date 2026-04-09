@@ -14,12 +14,21 @@
     "url": "git+https://github.com/anipotts/claudemon.git",
     "directory": "packages/cli"
   },
-  "keywords": ["claude", "claude-code", "monitor", "hooks", "cli"],
+  "keywords": [
+    "claude",
+    "claude-code",
+    "monitor",
+    "hooks",
+    "cli"
+  ],
   "engines": {
     "node": ">=18"
   },
   "publishConfig": {
     "access": "public"
   },
-  "files": ["bin/", "README.md"]
+  "files": [
+    "bin/",
+    "README.md"
+  ]
 }

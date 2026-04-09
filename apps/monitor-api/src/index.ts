@@ -280,7 +280,8 @@ const worker = {
         headers: {
           "Content-Type": "text/html; charset=utf-8",
           "Cache-Control": "public, max-age=3600",
-          "Content-Security-Policy": "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' wss://api.claudemon.com https://api.claudemon.com; img-src 'self' data: https://avatars.githubusercontent.com",
+          "Content-Security-Policy":
+            "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' wss://api.claudemon.com https://api.claudemon.com; img-src 'self' data: https://avatars.githubusercontent.com",
           "X-Content-Type-Options": "nosniff",
           "X-Frame-Options": "DENY",
         },
