@@ -1,12 +1,20 @@
-import { createSignal } from "solid-js";
+import { createMemo, createSignal } from "solid-js";
 import { createStore, produce, reconcile } from "solid-js/store";
-import type { MonitorEvent, SessionState, WsMessage } from "../../../../packages/types/monitor";
+import type { ChannelMessage, MonitorEvent, SessionState, WsMessage } from "../../../../packages/types/monitor";
 import { TOOL_CATEGORIES } from "../../../../packages/types/monitor";
 import { createWebSocket } from "./websocket";
 import { formatDuration } from "../utils/time";
 import { openDB, saveSession, saveEvent, loadSessions, loadEvents, pruneOld } from "./persistence";
 import { decryptTransit, getTransitKey } from "../crypto/transit";
 import { normalizeEvent } from "../utils/normalize";
+
+// ── Canvas key helper ──────────────────────────────────────────────
+// Sessions are ephemeral (new ID each launch). Positions are keyed by
+// project_name/branch so canvas layout persists across sessions, machines,
+// and repo relocations.
+export function canvasKey(session: SessionState): string {
+  return `${session.project_name}/${session.branch || "main"}`;
+}
 
 const MAX_EVENTS = 100;
 const MAX_EVENTS_WITH_HISTORY = 5000;
@@ -152,6 +160,23 @@ export function createSessionStore() {
   const [historyLoading, setHistoryLoading] = createSignal<Set<string>>(new Set());
   const historyLoadedSet = new Set<string>();
 
+  // ── File index: O(1) cross-session edge detection ──
+  // file_path → Set<session_id> of sessions that have touched that file.
+  // Used by the canvas to draw file-conflict and shared-file edges without scanning.
+  const [fileIndex, setFileIndex] = createSignal<Map<string, Set<string>>>(new Map(), { equals: false });
+
+  function updateFileIndex(sessionId: string, filePath: string | undefined) {
+    if (!filePath) return;
+    const idx = fileIndex();
+    if (!idx.has(filePath)) idx.set(filePath, new Set());
+    idx.get(filePath)!.add(sessionId);
+    setFileIndex(idx); // trigger memoized edge consumers
+  }
+
+  // ── Time-travel scrubber ──
+  // null = LIVE (default). Otherwise: cap all derived state to events ≤ this timestamp.
+  const [scrubberTime, setScrubberTime] = createSignal<number | null>(null);
+
   // Live event dedup — prevents the same event from being added twice
   // (e.g., from duplicate hooks, WebSocket reconnect replays, or hook retries)
   const seenEventKeys = new Map<string, Set<string>>(); // session_id → Set<eventKey>
@@ -290,6 +315,7 @@ export function createSessionStore() {
               if (!session.files_touched?.includes(fp)) {
                 session.files_touched = [...(session.files_touched || []), fp];
               }
+              updateFileIndex(sid, fp);
             }
             break;
           case "ConfigChange":
@@ -343,6 +369,7 @@ export function createSessionStore() {
           if (!session.files_touched?.includes(fp)) {
             session.files_touched = [...(session.files_touched || []), fp];
           }
+          updateFileIndex(sid, fp);
         }
 
         // Track bash commands
@@ -426,9 +453,53 @@ export function createSessionStore() {
       case "action_resolved":
         setPendingActions(msg.action_id, undefined!);
         break;
+      case "channel_message":
+        appendChannelMessage(msg.session_id, {
+          id: crypto.randomUUID(),
+          session_id: msg.session_id,
+          content: msg.content,
+          user: msg.user,
+          source: msg.source,
+          direction: "in",
+          timestamp: Date.now(),
+        });
+        break;
+      case "channel_reply":
+        appendChannelMessage(msg.session_id, {
+          id: crypto.randomUUID(),
+          session_id: msg.session_id,
+          content: msg.content,
+          source: "claude",
+          direction: "out",
+          timestamp: Date.now(),
+        });
+        break;
+      case "channel_status":
+        setSessions(
+          produce((state) => {
+            const s = state[msg.session_id];
+            if (s) s.channel_connected = msg.connected;
+          }),
+        );
+        break;
       case "ping":
         break;
     }
+  }
+
+  function appendChannelMessage(sessionId: string, message: ChannelMessage) {
+    setSessions(
+      produce((state) => {
+        const s = state[sessionId];
+        if (!s) return;
+        if (!s.messages) s.messages = [];
+        s.messages.push(message);
+        // Cap message history in-memory (IDB holds everything)
+        if (s.messages.length > 200) {
+          s.messages = s.messages.slice(-200);
+        }
+      }),
+    );
   }
 
   const { status, send, reconnect } = createWebSocket(handleMessage);
@@ -437,6 +508,92 @@ export function createSessionStore() {
     send({ type: "action_response", action_id: actionId, hook_response: hookResponse });
     // Optimistically remove from store (server will also send action_resolved)
     setPendingActions(actionId, undefined!);
+  }
+
+  // ── Channel: send a message from dashboard to a session ──
+  function sendMessage(sessionId: string, content: string, opts?: { user?: string; source?: string }) {
+    if (!content.trim()) return;
+    send({
+      type: "channel_message",
+      session_id: sessionId,
+      content,
+      user: opts?.user || "dashboard",
+      source: opts?.source || "dashboard",
+    });
+  }
+
+  // ── Batch broadcast: send the same message to N sessions ──
+  function broadcastMessage(sessionIds: string[], content: string, opts?: { source?: string }) {
+    for (const sid of sessionIds) {
+      sendMessage(sid, content, { source: opts?.source || "broadcast" });
+    }
+  }
+
+  // Convenience wrappers: batch compact/clear
+  function batchCompact(sessionIds: string[]) {
+    broadcastMessage(sessionIds, "/compact");
+  }
+  function batchClear(sessionIds: string[]) {
+    broadcastMessage(sessionIds, "/clear");
+  }
+
+  // ── Time-travel aware derived state ──
+  // Cross-session chronological hive stream: all events from all sessions, time-ordered.
+  const hiveStream = createMemo(() => {
+    const t = scrubberTime();
+    const all: MonitorEvent[] = [];
+    for (const s of Object.values(sessions)) {
+      for (const e of s.events) {
+        if (t === null || e.timestamp <= t) all.push(e);
+      }
+    }
+    return all.sort((a, b) => b.timestamp - a.timestamp);
+  });
+
+  // Canvas file-edge derivation — O(edges in index), reactive to fileIndex changes.
+  // At scrubber=null, uses the full index. With time-travel, filters to events ≤ t.
+  const fileEdges = createMemo(() => {
+    const t = scrubberTime();
+    const idx = fileIndex();
+    type Edge = { from: string; to: string; file: string; type: "shared" | "conflict" };
+    const edges: Edge[] = [];
+    for (const [file, sids] of idx) {
+      const alive = [...sids].filter((sid) => {
+        const s = sessions[sid];
+        if (!s || s.status === "offline") return false;
+        if (t !== null && s.started_at > t) return false;
+        return true;
+      });
+      if (alive.length < 2) continue;
+      for (let i = 0; i < alive.length; i++) {
+        for (let j = i + 1; j < alive.length; j++) {
+          const a = alive[i];
+          const b = alive[j];
+          const aEdited = didSessionEditFile(a, file, t);
+          const bEdited = didSessionEditFile(b, file, t);
+          edges.push({
+            from: a,
+            to: b,
+            file,
+            type: aEdited && bEdited ? "conflict" : "shared",
+          });
+        }
+      }
+    }
+    return edges;
+  });
+
+  function didSessionEditFile(sessionId: string, filePath: string, cap: number | null): boolean {
+    const s = sessions[sessionId];
+    if (!s) return false;
+    for (const e of s.events) {
+      if (cap !== null && e.timestamp > cap) continue;
+      if (e.hook_event_name === "PostToolUse" && (e.tool_name === "Edit" || e.tool_name === "Write" || e.tool_name === "NotebookEdit")) {
+        const fp = (e.tool_input as Record<string, unknown>)?.file_path;
+        if (fp === filePath) return true;
+      }
+    }
+    return false;
   }
 
   // Load persisted sessions from IndexedDB on init, auto-stale old ones
@@ -546,5 +703,16 @@ export function createSessionStore() {
     loadSessionHistory,
     historyLoading,
     reconnect,
+    // v0.7: bidirectional channel
+    sendMessage,
+    broadcastMessage,
+    batchCompact,
+    batchClear,
+    // v0.7: time-travel scrubber
+    scrubberTime,
+    setScrubberTime,
+    // v0.7: derived state for canvas + hive stream
+    hiveStream,
+    fileEdges,
   };
 }
