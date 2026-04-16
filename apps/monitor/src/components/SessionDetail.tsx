@@ -1153,12 +1153,22 @@ export const SessionDetail: Component<{
   onActionRespond?: (actionId: string, hookResponse: Record<string, unknown>) => void;
   onRequestHistory?: (sessionId: string) => void;
   historyLoading?: boolean;
+  // v0.7: channel messaging
+  onSendMessage?: (sessionId: string, content: string) => void;
 }> = (props) => {
   const s = () => props.session;
   let scrollRef: HTMLDivElement | undefined;
   const [autoScroll, setAutoScroll] = createSignal(true);
   const [duration, setDuration] = createSignal(formatDuration(s().started_at));
   const [compactMode, setCompactMode] = createSignal(false);
+  const [messageInput, setMessageInput] = createSignal("");
+
+  function sendChannelMessage() {
+    const content = messageInput().trim();
+    if (!content || !props.onSendMessage) return;
+    props.onSendMessage(s().session_id, content);
+    setMessageInput("");
+  }
 
   // Auto-update duration
   const timer = setInterval(() => setDuration(formatDuration(s().started_at)), 5000);
@@ -2599,7 +2609,85 @@ export const SessionDetail: Component<{
             <span>{s().files_touched!.length} files</span>
           </Show>
           <span>{s().events.length} evts</span>
+          <Show when={s().messages?.length}>
+            <span class="text-safe">{s().messages!.length} msgs</span>
+          </Show>
+          <Show when={s().channel_connected === true}>
+            <span class="text-safe flex items-center gap-1" title="Channel connected — you can message this session">
+              <span class="w-1.5 h-1.5 rounded-full" style={{ background: "var(--safe)" }} />
+              ch
+            </span>
+          </Show>
         </div>
+      </div>
+
+      {/* ── v0.7: Message thread ─────────────────────────────────── */}
+      <Show when={s().messages?.length}>
+        <div class="shrink-0 border-t border-panel-border/30 max-h-[220px] overflow-y-auto smooth-scroll px-3 py-2 flex flex-col gap-1.5">
+          <div class="text-[9px] uppercase tracking-wider text-text-sub pb-1">Conversation</div>
+          <For each={s().messages}>
+            {(msg) => (
+              <div
+                class={`flex ${msg.direction === "in" ? "justify-end" : "justify-start"}`}
+                title={new Date(msg.timestamp).toLocaleString()}
+              >
+                <div
+                  class="max-w-[80%] px-2.5 py-1.5 rounded text-[11px] font-mono whitespace-pre-wrap break-words"
+                  style={{
+                    background: msg.direction === "in" ? "#2a3040" : "#1f1d18",
+                    border: msg.direction === "in" ? "1px solid #3a4050" : "1px solid var(--panel-border)",
+                    color: "var(--text-primary)",
+                  }}
+                >
+                  <div class="text-[8px] uppercase tracking-wider opacity-60 mb-0.5">
+                    {msg.source || (msg.direction === "in" ? "dashboard" : "claude")}
+                  </div>
+                  {msg.content}
+                </div>
+              </div>
+            )}
+          </For>
+        </div>
+      </Show>
+
+      {/* ── v0.7: Persistent message input ────────────────────────── */}
+      <div
+        class="shrink-0 flex items-center gap-2 px-3 py-2 border-t border-panel-border"
+        style={{ background: "var(--panel)" }}
+      >
+        <Show
+          when={s().channel_connected !== false || !props.onSendMessage}
+          fallback={
+            <div class="flex-1 text-[10px] text-text-dim italic">
+              Channel not connected — start session with{" "}
+              <code class="text-text-label">--channels plugin:claudemon@claudemon</code>
+            </div>
+          }
+        >
+          <input
+            type="text"
+            placeholder={props.onSendMessage ? "Message this session..." : "Channel messaging loading..."}
+            value={messageInput()}
+            onInput={(e) => setMessageInput(e.currentTarget.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                sendChannelMessage();
+              }
+            }}
+            disabled={!props.onSendMessage}
+            class="flex-1 bg-[#0c0c0c] border border-panel-border/40 rounded px-3 py-1.5 font-mono text-[11px] text-text-primary placeholder:text-text-sub/40 outline-none focus:border-safe/40 transition-colors disabled:opacity-50"
+          />
+          <button
+            type="button"
+            onClick={sendChannelMessage}
+            disabled={!messageInput().trim() || !props.onSendMessage}
+            class="shrink-0 px-3 py-1.5 bg-safe/15 border border-safe/30 rounded text-[10px] font-mono text-safe hover:bg-safe/25 disabled:opacity-40 disabled:cursor-default transition-colors"
+            title="Send (Enter)"
+          >
+            Send
+          </button>
+        </Show>
       </div>
     </div>
   );
