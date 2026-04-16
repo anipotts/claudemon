@@ -173,8 +173,7 @@ export const Canvas: Component<CanvasProps> = (props) => {
         overflow: "hidden",
         "touch-action": "none",
         "background-color": "var(--bg)",
-        "background-image":
-          "radial-gradient(circle at 1px 1px, var(--panel-border) 0.5px, transparent 0)",
+        "background-image": "radial-gradient(circle at 1px 1px, var(--panel-border) 0.5px, transparent 0)",
         "background-size": `${24 * canvas.viewport.scale}px ${24 * canvas.viewport.scale}px`,
         "background-position": `${canvas.viewport.x}px ${canvas.viewport.y}px`,
         cursor: canvas.interaction().mode === "panning" ? "grabbing" : "grab",

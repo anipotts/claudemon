@@ -11,7 +11,6 @@
 
 import { createSignal } from "solid-js";
 import { createStore, produce } from "solid-js/store";
-import type { SessionState } from "../../../../packages/types/monitor";
 import { canvasKey } from "./sessions";
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -191,11 +190,7 @@ export function createCanvasStore() {
 
     const contentW = maxX - minX;
     const contentH = maxY - minY;
-    const scale = Math.min(
-      (viewW - padding * 2) / contentW,
-      (viewH - padding * 2) / contentH,
-      1.5,
-    );
+    const scale = Math.min((viewW - padding * 2) / contentW, (viewH - padding * 2) / contentH, 1.5);
     const clampedScale = Math.max(0.1, Math.min(3.0, scale));
 
     setViewport(

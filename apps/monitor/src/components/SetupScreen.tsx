@@ -85,8 +85,7 @@ export const SetupScreen: Component<SetupScreenProps> = (props) => {
     }
   }
 
-  const signInUrl = () =>
-    `${props.apiUrl}/auth/login?redirect=${encodeURIComponent(window.location.href)}`;
+  const signInUrl = () => `${props.apiUrl}/auth/login?redirect=${encodeURIComponent(window.location.href)}`;
 
   function copy(text: string, block: string) {
     navigator.clipboard.writeText(text);
@@ -111,24 +110,16 @@ export const SetupScreen: Component<SetupScreenProps> = (props) => {
       <div class="w-full max-w-xl py-12 space-y-10">
         {/* ── Brand ─────────────────────────────────────────────── */}
         <div class="text-center space-y-2">
-          <div
-            class="font-mono text-[20px] font-semibold tracking-tight"
-            style={{ color: "var(--suspicious)" }}
-          >
+          <div class="font-mono text-[20px] font-semibold tracking-tight" style={{ color: "var(--suspicious)" }}>
             claudemon
           </div>
-          <div class="text-[10px] uppercase tracking-[0.22em] text-text-sub">
-            mission control · multi-session
-          </div>
+          <div class="text-[10px] uppercase tracking-[0.22em] text-text-sub">mission control · multi-session</div>
         </div>
 
         {/* ── State 1: Welcome (not signed in) ────────────────── */}
         <Show when={!props.authLoading && !props.user}>
           <div class="space-y-6">
-            <a
-              href={signInUrl()}
-              class="block w-full"
-            >
+            <a href={signInUrl()} class="block w-full">
               <div
                 class="flex items-center justify-center gap-3 px-5 py-4 rounded border font-mono text-[13px] transition-colors cursor-pointer"
                 style={{
@@ -205,16 +196,11 @@ export const SetupScreen: Component<SetupScreenProps> = (props) => {
                 />
               </Show>
               <Show when={props.user}>
-                <span class="text-[12px] text-text-primary font-mono">
-                  @{props.user!.login}
-                </span>
+                <span class="text-[12px] text-text-primary font-mono">@{props.user!.login}</span>
               </Show>
             </div>
             <div class="flex items-center gap-2">
-              <span
-                class="w-1.5 h-1.5 rounded-full animate-pulse"
-                style={{ background: "var(--suspicious)" }}
-              />
+              <span class="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "var(--suspicious)" }} />
               <span class="text-[11px] text-text-dim">
                 {minting() ? "Generating your API key..." : "Signing you in..."}
               </span>
@@ -233,9 +219,7 @@ export const SetupScreen: Component<SetupScreenProps> = (props) => {
                   class="w-7 h-7 rounded-full"
                   style={{ border: "1px solid var(--panel-border)" }}
                 />
-                <span class="text-[11px] text-text-label font-mono">
-                  Signed in as @{props.user!.login}
-                </span>
+                <span class="text-[11px] text-text-label font-mono">Signed in as @{props.user!.login}</span>
               </div>
               <a
                 href={`${props.apiUrl}/auth/logout`}
@@ -303,9 +287,7 @@ export const SetupScreen: Component<SetupScreenProps> = (props) => {
                 </div>
 
                 <div style={{ color: "var(--suspicious)" }}>
-                  <div class="text-text-sub text-[10px] mb-1">
-                    # 3. When Claude Code prompts for an API key, paste:
-                  </div>
+                  <div class="text-text-sub text-[10px] mb-1"># 3. When Claude Code prompts for an API key, paste:</div>
                   <div class="flex items-start gap-2">
                     <span class="text-text-sub shrink-0">›</span>
                     <span class="flex-1 break-all select-all">{apiKey()}</span>
@@ -382,9 +364,7 @@ export const SetupScreen: Component<SetupScreenProps> = (props) => {
                 class="w-7 h-7 rounded-full"
                 style={{ border: "1px solid var(--panel-border)" }}
               />
-              <span class="text-[11px] text-text-label font-mono">
-                Welcome back, @{props.user!.login}
-              </span>
+              <span class="text-[11px] text-text-label font-mono">Welcome back, @{props.user!.login}</span>
             </div>
             <div class="text-[10px] text-text-dim">
               You already have an API key on another device.

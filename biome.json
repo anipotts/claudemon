@@ -9,7 +9,11 @@
       "!**/dist",
       "!**/apps/desktop",
       "!**/*.d.ts",
-      "!**/package-lock.json"
+      "!**/package-lock.json",
+      "!**/.claude/worktrees",
+      "!**/package",
+      "!**/*.tgz",
+      "!claudemon-ui-designs.html"
     ]
   },
   "formatter": {

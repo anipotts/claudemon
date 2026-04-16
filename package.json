@@ -17,7 +17,7 @@
     "test": "npm run test --workspace=apps/monitor-api"
   },
   "devDependencies": {
-    "@biomejs/biome": "^1.9.0",
+    "@biomejs/biome": "^2.4.12",
     "sharp": "^0.34.5"
   }
 }

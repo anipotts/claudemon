@@ -11,5 +11,5 @@
     "isolatedModules": true,
     "jsx": "preserve"
   },
-  "exclude": ["node_modules", "dist", "*.js"]
+  "exclude": ["node_modules", "dist", "*.js", "plugin", "package"]
 }

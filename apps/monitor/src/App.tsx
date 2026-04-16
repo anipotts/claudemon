@@ -236,7 +236,9 @@ const App: Component = () => {
   const savedActive = typeof localStorage !== "undefined" ? localStorage.getItem("claudemon_active_tab") : null;
   const [activeTabId, setActiveTabId] = createSignal<string | null>(savedActive);
   const [viewMode, setViewMode] = createSignal<"tabs" | "columns" | "canvas">(
-    (typeof localStorage !== "undefined" && (localStorage.getItem("claudemon_view_mode") as "tabs" | "columns" | "canvas")) || "tabs",
+    (typeof localStorage !== "undefined" &&
+      (localStorage.getItem("claudemon_view_mode") as "tabs" | "columns" | "canvas")) ||
+      "tabs",
   );
   createEffect(() => {
     if (typeof localStorage !== "undefined") {

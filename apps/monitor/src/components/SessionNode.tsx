@@ -120,9 +120,7 @@ export const SessionNode: Component<SessionNodeProps> = (props) => {
       {/* Pending permission — approve/deny inline */}
       <Show when={props.pendingAction}>
         <div class="node-permission">
-          <div class="node-permission-label">
-            🔒 {props.pendingAction!.hook_event_name}
-          </div>
+          <div class="node-permission-label">🔒 {props.pendingAction!.hook_event_name}</div>
           <div class="node-permission-buttons">
             <button type="button" onClick={approve} class="node-btn-allow">
               Allow

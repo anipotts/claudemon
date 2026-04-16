@@ -588,7 +588,10 @@ export function createSessionStore() {
     if (!s) return false;
     for (const e of s.events) {
       if (cap !== null && e.timestamp > cap) continue;
-      if (e.hook_event_name === "PostToolUse" && (e.tool_name === "Edit" || e.tool_name === "Write" || e.tool_name === "NotebookEdit")) {
+      if (
+        e.hook_event_name === "PostToolUse" &&
+        (e.tool_name === "Edit" || e.tool_name === "Write" || e.tool_name === "NotebookEdit")
+      ) {
         const fp = (e.tool_input as Record<string, unknown>)?.file_path;
         if (fp === filePath) return true;
       }

@@ -50,8 +50,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
     {
       name: "reply",
-      description:
-        "Reply to the ClaudeMon dashboard. The text appears in the session's message thread in the browser.",
+      description: "Reply to the ClaudeMon dashboard. The text appears in the session's message thread in the browser.",
       inputSchema: {
         type: "object" as const,
         properties: {

@@ -47,10 +47,8 @@ export function autoLayout(
   let nextCol = Object.keys(existing).length === 0 ? 0 : maxX + NODE_W + GAP;
 
   // Place each group that doesn't have a position yet
-  const groups = Array.from(byKey.entries()).sort(
-    (a, b) => (a[1][0]?.started_at || 0) - (b[1][0]?.started_at || 0),
-  );
-  for (const [key, members] of groups) {
+  const groups = Array.from(byKey.entries()).sort((a, b) => (a[1][0]?.started_at || 0) - (b[1][0]?.started_at || 0));
+  for (const [key] of groups) {
     const basePos = positions[key];
     if (basePos) continue; // user-placed already, skip
 

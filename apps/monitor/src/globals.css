@@ -623,7 +623,9 @@ body {
   contain: layout style;
   transform: translateZ(0);
   cursor: grab;
-  transition: border-color 120ms ease, box-shadow 120ms ease;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
 }
 
 .session-node:hover {
@@ -840,20 +842,28 @@ body {
     border-radius: 50%;
     padding: 0;
   }
-  .session-node .node-dot { display: block; }
+  .session-node .node-dot {
+    display: block;
+  }
   .session-node .node-header,
   .session-node .node-meta,
   .session-node .node-activity,
   .session-node .node-prompt,
   .session-node .node-permission,
   .session-node .node-input,
-  .session-node .node-input-disabled { display: none; }
+  .session-node .node-input-disabled {
+    display: none;
+  }
 }
 
 @container node (min-width: 81px) and (max-width: 240px) {
   .session-node .node-prompt,
-  .session-node .node-input-disabled { display: none; }
-  .session-node .node-input input { font-size: 9px; }
+  .session-node .node-input-disabled {
+    display: none;
+  }
+  .session-node .node-input input {
+    font-size: 9px;
+  }
 }
 
 /* ── Zoom tier hints from canvas for further density tuning ───── */

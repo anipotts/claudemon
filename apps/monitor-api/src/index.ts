@@ -290,8 +290,7 @@ const worker = {
 
     // WebSocket upgrade -- bypass Hono CORS, auth via cookie or API key
     const isWsUpgrade = request.headers.get("Upgrade") === "websocket";
-    const isWsPath =
-      url.pathname === "/ws" || url.pathname === "/ws/action" || url.pathname === "/ws/channel";
+    const isWsPath = url.pathname === "/ws" || url.pathname === "/ws/action" || url.pathname === "/ws/channel";
     if (isWsPath && isWsUpgrade) {
       let userId = "anonymous";
 
@@ -323,11 +322,7 @@ const worker = {
 
       const room = getRoom(env, userId);
       const doPath =
-        url.pathname === "/ws/action"
-          ? "/ws/action"
-          : url.pathname === "/ws/channel"
-            ? "/ws/channel"
-            : "/ws";
+        url.pathname === "/ws/action" ? "/ws/action" : url.pathname === "/ws/channel" ? "/ws/channel" : "/ws";
       return room.fetch(
         new Request(`https://do${doPath}`, {
           headers: request.headers,
