@@ -6,6 +6,7 @@ import {
   PencilSimple,
   Plus,
   Terminal,
+  Pulse,
   MagnifyingGlass,
   Folder,
   Robot,
@@ -24,6 +25,7 @@ import { FileBadge } from "./FileBadge";
 import { SessionBadge } from "./SessionBadge";
 import { Timestamp } from "./Timestamp";
 import { getEventTier } from "../stores/persistence";
+import { getMonitorMetaSummary, summarizeMonitorTarget } from "../utils/monitor";
 
 // ── Icon + color maps ──────────────────────────────────────────────
 
@@ -34,6 +36,7 @@ const TOOL_ICON_MAP: Record<string, IconComp> = {
   Edit: PencilSimple,
   Write: Plus,
   Bash: Terminal,
+  Monitor: Pulse,
   Grep: MagnifyingGlass,
   Glob: Folder,
   Agent: Robot,
@@ -57,6 +60,7 @@ const ACTION_COLORS: Record<string, string> = {
   Edit: "#c9a96e",
   Write: "#a3b18a",
   Bash: "#7ea8be",
+  Monitor: "#7b9fbf",
   Grep: "#6b6560",
   Glob: "#6b6560",
   Agent: "#b07bac",
@@ -128,6 +132,9 @@ function getEventDetail(e: MonitorEvent): {
     if (stdout && stdout.length < 100) secondary = stdout.trim();
     const exitCode = response.exitCode ?? response.exit_code;
     if (exitCode !== undefined && exitCode !== 0) secondary = `exit ${exitCode}`;
+  } else if (e.tool_name === "Monitor") {
+    primary = summarizeMonitorTarget(input, 80) || "background watch";
+    secondary = getMonitorMetaSummary(input);
   } else if (e.tool_name === "Edit") {
     const oldS = input.old_string as string;
     const newS = input.new_string as string;
