@@ -191,6 +191,13 @@ export interface SessionState {
   last_prompt?: string; // last UserPromptSubmit text (first 80 chars)
   compact_summary?: string; // last compaction summary
   permission_denied_count: number;
+  // Monitor tool (Claude Code v2.1.98+) — best-effort presence derived from PreToolUse/PostToolUse
+  monitor_launch_count?: number;
+  last_monitor_description?: string;
+  last_monitor_command?: string;
+  last_monitor_persistent?: boolean;
+  last_monitor_timeout_ms?: number;
+  last_monitor_started_at?: number;
   files_touched: string[]; // unique file paths edited
   commands_run: string[]; // recent bash commands (last 20)
 
@@ -305,6 +312,7 @@ export const TOOL_CATEGORIES = {
   commands: new Set(["Bash"]),
   reads: new Set(["Read"]),
   searches: new Set(["Grep", "Glob"]),
+  monitors: new Set(["Monitor"]),
 } as const;
 
 export const STATUS_LABELS: Record<SessionStatus, string> = {
