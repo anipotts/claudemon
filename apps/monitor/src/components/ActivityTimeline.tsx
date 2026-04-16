@@ -60,7 +60,7 @@ const ACTION_COLORS: Record<string, string> = {
   Edit: "#c9a96e",
   Write: "#a3b18a",
   Bash: "#7ea8be",
-  Monitor: "#7b9fbf",
+  Monitor: "#5f9ea0",
   Grep: "#6b6560",
   Glob: "#6b6560",
   Agent: "#b07bac",

@@ -151,7 +151,7 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
         <Show when={s().last_monitor_started_at}>
           <span
             class="inline-flex items-center gap-0.5 text-[8px] font-bold uppercase px-1 py-0.5 rounded-sm shrink-0"
-            style={{ color: "#7b9fbf", background: "#7b9fbf12" }}
+            style={{ color: "#5f9ea0", background: "#5f9ea012" }}
             title={activeMonitorLabel()}
           >
             <Pulse size={8} />
