@@ -3,7 +3,6 @@ import { createStore, produce, reconcile } from "solid-js/store";
 import type { ChannelMessage, MonitorEvent, SessionState, WsMessage } from "../../../../packages/types/monitor";
 import { TOOL_CATEGORIES } from "../../../../packages/types/monitor";
 import { createWebSocket } from "./websocket";
-import { formatDuration } from "../utils/time";
 import { computeSmartStatus } from "../utils/session-status";
 import { getMonitorToolInfo } from "../utils/monitor";
 import { openDB, saveSession, saveEvent, loadSessions, loadEvents, pruneOld } from "./persistence";
