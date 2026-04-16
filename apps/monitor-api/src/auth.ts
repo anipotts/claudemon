@@ -185,7 +185,10 @@ auth.get("/auth/callback", async (c) => {
     .filter(Boolean)
     .join("; ");
 
-  const location = redirectTo.startsWith("http") ? redirectTo : `https://app.claudemon.com${redirectTo}`;
+  // Prefer an absolute redirect. If it's a path, resolve against the request origin so
+  // users who sign in from staging.claudemon.com don't get bounced to app.claudemon.com.
+  const requestOrigin = new URL(c.req.url).origin.replace("/api.", "/app.").replace("/staging-api.", "/staging.");
+  const location = redirectTo.startsWith("http") ? redirectTo : `${requestOrigin}${redirectTo}`;
   return new Response(null, {
     status: 302,
     headers: { Location: location, "Set-Cookie": cookie },

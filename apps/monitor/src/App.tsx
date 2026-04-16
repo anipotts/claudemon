@@ -498,7 +498,13 @@ const App: Component = () => {
         when={appState() === "active"}
         fallback={
           <Show when={appState() === "setup"} fallback={<div class="flex-1" />}>
-            <SetupScreen onApiKeySet={handleApiKeySet} connectionStatus={connectionStatus} apiUrl={API_URL} />
+            <SetupScreen
+              onApiKeySet={handleApiKeySet}
+              connectionStatus={connectionStatus}
+              apiUrl={API_URL}
+              user={user()}
+              authLoading={authLoading()}
+            />
           </Show>
         }
       >
