@@ -27,6 +27,10 @@ export class SessionRoom extends DurableObject {
   // Track which WebSockets are "browser" clients vs "action hook" clients
   // Action hooks attach "action:" tag; browsers have no tag or "browser:" tag
   private actionHookSockets: Map<string, WebSocket> = new Map(); // action_id → ws
+  // Channel MCP sockets — one per active session_id (sessions can have only one channel)
+  private channelSockets: Map<string, WebSocket> = new Map(); // session_id → channel ws
+  // Reverse lookup — needed on close/error (where only ws is known)
+  private socketToSession: WeakMap<WebSocket, string> = new WeakMap();
   private lastActivity: number = Date.now();
 
   async fetch(request: Request): Promise<Response> {
@@ -46,6 +50,11 @@ export class SessionRoom extends DurableObject {
     // ── Action hook WebSocket ────────────────────────────────────
     if (url.pathname === "/ws/action") {
       return this.handleActionWebSocket();
+    }
+
+    // ── Channel MCP server WebSocket ─────────────────────────────
+    if (url.pathname === "/ws/channel") {
+      return this.handleChannelWebSocket();
     }
 
     // ── Event relay ──────────────────────────────────────────────
@@ -79,6 +88,15 @@ export class SessionRoom extends DurableObject {
     return new Response(null, { status: 101, webSocket: client });
   }
 
+  // ── Channel MCP server WebSocket ───────────────────────────────
+
+  private handleChannelWebSocket(): Response {
+    const pair = new WebSocketPair();
+    const [client, server] = [pair[0], pair[1]];
+    this.ctx.acceptWebSocket(server, ["channel"]);
+    return new Response(null, { status: 101, webSocket: client });
+  }
+
   // ── Hibernation API callbacks ──────────────────────────────────
 
   async webSocketMessage(ws: WebSocket, msg: string | ArrayBuffer) {
@@ -87,10 +105,60 @@ export class SessionRoom extends DurableObject {
       const tags = this.ctx.getTags(ws);
       const isAction = tags.includes("action");
       const isBrowser = tags.includes("browser");
+      const isChannel = tags.includes("channel");
 
       // Ping/pong
       if (data.type === "ping") {
         ws.send(JSON.stringify({ type: "pong", ts: Date.now() }));
+        return;
+      }
+
+      // ── Channel MCP server registers its session_id on connect ──
+      if (isChannel && data.type === "channel_identify" && typeof data.session_id === "string") {
+        const sid = data.session_id;
+        this.channelSockets.set(sid, ws);
+        this.socketToSession.set(ws, sid);
+        // Announce connectivity to all browsers
+        this.broadcastToBrowsers({ type: "channel_status", session_id: sid, connected: true } as WsMessage);
+        return;
+      }
+
+      // ── Browser sends a message to a session (via its channel socket) ──
+      if (isBrowser && data.type === "channel_message" && typeof data.session_id === "string") {
+        const channelWs = this.channelSockets.get(data.session_id);
+        if (channelWs) {
+          try {
+            channelWs.send(
+              JSON.stringify({
+                type: "channel_message",
+                session_id: data.session_id,
+                content: data.content || "",
+                user: data.user,
+                source: data.source,
+              }),
+            );
+          } catch {
+            // Dead channel socket — will be cleaned up
+          }
+        }
+        // Echo back to all browsers so message appears in thread immediately
+        this.broadcastToBrowsers({
+          type: "channel_message",
+          session_id: data.session_id,
+          content: data.content || "",
+          user: data.user,
+          source: data.source,
+        } as WsMessage);
+        return;
+      }
+
+      // ── Channel MCP server sends Claude's reply back to browsers ──
+      if (isChannel && data.type === "channel_reply" && typeof data.session_id === "string") {
+        this.broadcastToBrowsers({
+          type: "channel_reply",
+          session_id: data.session_id,
+          content: data.content || "",
+        } as WsMessage);
         return;
       }
 
@@ -174,6 +242,14 @@ export class SessionRoom extends DurableObject {
   }
 
   async webSocketClose(ws: WebSocket) {
+    this.cleanupSocket(ws);
+  }
+
+  async webSocketError(ws: WebSocket) {
+    this.cleanupSocket(ws);
+  }
+
+  private cleanupSocket(ws: WebSocket) {
     // Clean up any pending actions for this hook socket
     for (const [id, hookWs] of this.actionHookSockets) {
       if (hookWs === ws) {
@@ -181,15 +257,12 @@ export class SessionRoom extends DurableObject {
         this.actionHookSockets.delete(id);
       }
     }
-  }
-
-  async webSocketError(ws: WebSocket) {
-    // Same cleanup
-    for (const [id, hookWs] of this.actionHookSockets) {
-      if (hookWs === ws) {
-        this.pendingActions.delete(id);
-        this.actionHookSockets.delete(id);
-      }
+    // Channel socket cleanup — O(1) via reverse lookup
+    const sessionId = this.socketToSession.get(ws);
+    if (sessionId && this.channelSockets.get(sessionId) === ws) {
+      this.channelSockets.delete(sessionId);
+      this.socketToSession.delete(ws);
+      this.broadcastToBrowsers({ type: "channel_status", session_id: sessionId, connected: false } as WsMessage);
     }
   }
 
