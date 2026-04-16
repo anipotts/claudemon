@@ -5,6 +5,7 @@ import { TOOL_CATEGORIES } from "../../../../packages/types/monitor";
 import { createWebSocket } from "./websocket";
 import { formatDuration } from "../utils/time";
 import { computeSmartStatus } from "../utils/session-status";
+import { getMonitorToolInfo } from "../utils/monitor";
 import { openDB, saveSession, saveEvent, loadSessions, loadEvents, pruneOld } from "./persistence";
 import { decryptTransit, getTransitKey } from "../crypto/transit";
 import { normalizeEvent } from "../utils/normalize";
@@ -40,6 +41,7 @@ function createSessionFromEvent(event: MonitorEvent): SessionState {
     permission_denied_count: 0,
     task_count: 0,
     instructions_loaded_count: 0,
+    monitor_launch_count: 0,
     files_touched: [],
     commands_run: [],
     events: [],
@@ -181,6 +183,12 @@ export function createSessionStore() {
             session.config_source = undefined;
             session.task_count = 0;
             session.instructions_loaded_count = 0;
+            session.monitor_launch_count = 0;
+            session.last_monitor_description = undefined;
+            session.last_monitor_command = undefined;
+            session.last_monitor_persistent = undefined;
+            session.last_monitor_timeout_ms = undefined;
+            session.last_monitor_started_at = undefined;
             session.events = [];
             session.started_at = event.timestamp;
             break;
@@ -255,6 +263,23 @@ export function createSessionStore() {
         // End reason
         if (event.hook_event_name === "SessionEnd") {
           if (event.end_reason) session.end_reason = event.end_reason;
+        }
+
+        // Monitor tool presence — best-effort derivation from successful PostToolUse.
+        // PostToolUseFailure for Monitor is intentionally ignored: we don't fake a
+        // watch that never actually started. Stop/SessionEnd clear the "actively
+        // watching" signal since we don't receive a reliable monitor-stopped event.
+        if (event.hook_event_name === "PostToolUse" && event.tool_name === "Monitor") {
+          const monitor = getMonitorToolInfo(event.tool_input);
+          session.monitor_launch_count = (session.monitor_launch_count || 0) + 1;
+          session.last_monitor_description = monitor.description;
+          session.last_monitor_command = monitor.command;
+          session.last_monitor_persistent = monitor.persistent;
+          session.last_monitor_timeout_ms = monitor.timeoutMs;
+          session.last_monitor_started_at = event.timestamp;
+        }
+        if (event.hook_event_name === "Stop" || event.hook_event_name === "SessionEnd") {
+          session.last_monitor_started_at = undefined;
         }
 
         // Track files touched
