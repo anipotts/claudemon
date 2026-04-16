@@ -147,6 +147,18 @@ export type SessionStatus = "working" | "thinking" | "waiting" | "done" | "error
 
 export type SessionSource = "local" | "cloud" | "remote-control";
 
+// ── Channel messages ────────────────────────────────────────────────────
+// Bidirectional dashboard ↔ session communication via plugin/server.ts MCP channel.
+export interface ChannelMessage {
+  id: string; // uuid
+  session_id: string;
+  content: string;
+  user?: string; // who sent it (dashboard user, iMessage sender, etc.)
+  source?: string; // "dashboard" | "imessage" | "telegram" | etc.
+  direction: "in" | "out"; // in = from dashboard to Claude, out = reply from Claude
+  timestamp: number;
+}
+
 export interface SessionState {
   session_id: string;
   machine_id: string;
@@ -194,6 +206,12 @@ export interface SessionState {
   // Recent events (ring buffer, last N)
   events: MonitorEvent[];
 
+  // Channel messages: dashboard ↔ Claude conversations via the MCP channel
+  messages?: ChannelMessage[];
+
+  // Channel connectivity: is the plugin/server.ts MCP server currently connected?
+  channel_connected?: boolean;
+
   // Agent hierarchy
   parent_session_id?: string;
   agent_type?: string;
@@ -211,14 +229,25 @@ export interface PendingAction {
   event_data: Record<string, unknown>;
 }
 
-// WebSocket message types (server → client)
+// WebSocket message types (server ↔ client)
+// Browser ↔ DO: event broadcasts, action bridge, ping, channel messaging
+// Channel MCP server ↔ DO: channel_identify on connect, channel_message (inbound), channel_reply (outbound)
 export type WsMessage =
   | { type: "event"; event: MonitorEvent }
   | { type: "session_update"; session: SessionState }
   | { type: "sessions_snapshot"; sessions: SessionState[] }
   | { type: "action_request"; action: PendingAction }
   | { type: "action_resolved"; action_id: string }
-  | { type: "ping"; ts: number };
+  | { type: "ping"; ts: number }
+  // ── Channel protocol ──
+  // Browser → DO → Channel MCP server: push a message into a running session
+  | { type: "channel_message"; session_id: string; content: string; user?: string; source?: string }
+  // Channel MCP server → DO → Browser: Claude's reply via the `reply` tool
+  | { type: "channel_reply"; session_id: string; content: string }
+  // Channel MCP server → DO: on connect, register this socket for a specific session_id
+  | { type: "channel_identify"; session_id: string }
+  // DO → Browser: channel connectivity status for a session
+  | { type: "channel_status"; session_id: string; connected: boolean };
 
 // All 27 Claude Code hook events — the type union above covers all of them.
 // The CLI and plugin only register 12 core events (marked with *) for monitoring.
