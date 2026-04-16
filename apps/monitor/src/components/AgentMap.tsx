@@ -18,6 +18,7 @@ import {
 import { SessionBadge } from "./SessionBadge";
 import { ModelBadge } from "./ModelBadge";
 import { timeAgo, formatDuration } from "../utils/time";
+import { summarizeMonitorTarget } from "../utils/monitor";
 
 // Full 6-char hex required — shorthand (#666) breaks the + "25" alpha concat pattern
 const STATUS_STYLES: Record<SessionStatus, { color: string; bg: string; border: string; pulse: boolean }> = {
@@ -66,6 +67,7 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
     const name = e.tool_name || "";
     let detail = "";
     if (name === "Bash") detail = ((input.command as string) || "").slice(0, 60);
+    else if (name === "Monitor") detail = summarizeMonitorTarget(input, 60) || "background watch";
     else if (name === "Edit" || name === "Write" || name === "Read") {
       const fp = (input.file_path as string) || "";
       detail = fp.split("/").slice(-2).join("/");
@@ -93,6 +95,8 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
   const isOffline = () => s().status === "offline" || s().status === "done";
 
   const activeAgentCount = () => s().subagents.filter((a) => a.status !== "done" && a.status !== "offline").length;
+  const activeMonitorLabel = () =>
+    s().last_monitor_description || s().last_monitor_command || "Background watch active";
 
   return (
     <div
@@ -142,6 +146,16 @@ function SessionCard(props: { session: SessionState; selected?: boolean; onSelec
         <Show when={activeAgentCount() > 0}>
           <span class="text-[8px] font-bold shrink-0" style={{ color: "#b07bac" }}>
             {activeAgentCount()} agent{activeAgentCount() > 1 ? "s" : ""}
+          </span>
+        </Show>
+        <Show when={s().last_monitor_started_at}>
+          <span
+            class="inline-flex items-center gap-0.5 text-[8px] font-bold uppercase px-1 py-0.5 rounded-sm shrink-0"
+            style={{ color: "#7b9fbf", background: "#7b9fbf12" }}
+            title={activeMonitorLabel()}
+          >
+            <Pulse size={8} />
+            watch
           </span>
         </Show>
       </div>
