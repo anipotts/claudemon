@@ -5,17 +5,27 @@ node_modules/
 
 .DS_Store
 *.HEIC
-apps/api/.wrangler/
-apps/monitor/dist/
-apps/monitor-api/.wrangler/
+
+# Cloudflare Wrangler local state (one rule covers current + future apps)
+**/.wrangler/
 
 # Build output
 dist/
+apps/monitor/dist/
 *.js.map
 *.d.ts.map
 
 # Biome
 .biome/
+
+# Claude Code local runtime state (worktrees, session locks, settings overrides)
+.claude/
+.claude/worktrees/
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+
+# Playwright MCP browser session artifacts
+.playwright-mcp/
 
 # Development mockups
 marketplace/
