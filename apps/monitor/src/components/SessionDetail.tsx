@@ -14,6 +14,7 @@ import {
   PencilSimple,
   Plus,
   Terminal,
+  Pulse,
   MagnifyingGlass,
   Folder,
   Robot,
@@ -29,6 +30,7 @@ import { Timestamp } from "./Timestamp";
 import { MarkdownBlock } from "./Markdown";
 import { formatDuration, formatGapDuration } from "../utils/time";
 import { extractErrorContext, formatAsMarkdown } from "../utils/error-context";
+import { formatMonitorTimeout, getMonitorToolInfo, summarizeMonitorTarget } from "../utils/monitor";
 
 type IconComp = Component<{ size?: number; class?: string; style?: Record<string, string> }>;
 
@@ -37,6 +39,7 @@ const TOOL_ICON_MAP: Record<string, IconComp> = {
   Edit: PencilSimple,
   Write: Plus,
   Bash: Terminal,
+  Monitor: Pulse,
   Grep: MagnifyingGlass,
   Glob: Folder,
   Agent: Robot,
@@ -47,6 +50,7 @@ const TOOL_COLORS: Record<string, string> = {
   Edit: "#c9a96e",
   Write: "#a3b18a",
   Bash: "#7ea8be",
+  Monitor: "#7b9fbf",
   Grep: "#6b6560",
   Glob: "#6b6560",
   Agent: "#b07bac",
@@ -581,6 +585,7 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean; f
   const isRunning = () => e().hook_event_name === "PreToolUse";
   const responseText = () =>
     (response().content as string) || (response().output as string) || (response().result as string) || "";
+  const monitorInfo = () => (e().tool_name === "Monitor" ? getMonitorToolInfo(input()) : null);
 
   // Determine if this row has any content worth expanding
   const hasExpandableContent = () => {
@@ -597,6 +602,8 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean; f
     if (name === "Read" || name === "Grep" || name === "Glob") return !!responseText();
     // Agent: has prompt or result
     if (name === "Agent") return !!(inp.prompt || inp.description || responseText());
+    // Monitor: has any meaningful tool_input fields
+    if (name === "Monitor") return !!(inp.command || inp.description || inp.timeout_ms !== undefined);
     // Generic: has any input keys or response keys
     return Object.keys(inp).length > 0 || Object.keys(resp).length > 0;
   };
@@ -647,6 +654,8 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean; f
     switch (e().tool_name) {
       case "Bash":
         return (inp.command as string) || "";
+      case "Monitor":
+        return null; // handled by the expanded Monitor block
       case "Read":
       case "Edit":
       case "Write":
@@ -727,6 +736,7 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean; f
   // Inline summary for collapsed header
   const headerSummary = () => {
     if (e().tool_name === "Bash") return ((input().command as string) || "").slice(0, 50);
+    if (e().tool_name === "Monitor") return summarizeMonitorTarget(input(), 50) || "background watch";
     if (e().tool_name === "Agent") return ((input().description as string) || "").slice(0, 40);
     if (e().tool_name === "Grep") return `/${input().pattern || ""}/`;
     if (e().tool_name === "Glob") return (input().pattern as string) || "";
@@ -930,6 +940,43 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean; f
         {/* Body — collapsible, aligned to content zone start */}
         <div class={`tool-call-body ${expanded() ? "tool-call-expanded" : "tool-call-collapsed"}`}>
           <div class="px-3 pt-2 pb-2" style={{ "padding-left": "68px" }}>
+            {/* Monitor details (Claude Code Monitor tool, v2.1.98+) */}
+            <Show when={monitorInfo()}>
+              {(info) => (
+                <div class="mb-1.5 space-y-1.5">
+                  <Show when={info().description}>
+                    <div>
+                      <div class="text-[8px] uppercase tracking-wider text-text-sub">Description</div>
+                      <div class="text-[10px] text-text-dim">{info().description}</div>
+                    </div>
+                  </Show>
+                  <Show when={info().command}>
+                    <div>
+                      <div class="text-[8px] uppercase tracking-wider text-text-sub">Command</div>
+                      <div class="text-[10px] text-text-dim font-mono break-all">{info().command}</div>
+                    </div>
+                  </Show>
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <Show when={info().persistent !== undefined}>
+                      <span
+                        class="text-[9px] font-bold uppercase px-1 rounded-sm"
+                        style={{ color: "#7b9fbf", background: "#7b9fbf18" }}
+                      >
+                        {info().persistent ? "persistent" : "one-shot"}
+                      </span>
+                    </Show>
+                    <Show when={formatMonitorTimeout(info().timeoutMs)}>
+                      {(timeout) => (
+                        <span class="text-[9px] text-text-sub font-mono px-1 rounded-sm bg-panel-border/20">
+                          {timeout()} timeout
+                        </span>
+                      )}
+                    </Show>
+                  </div>
+                </div>
+              )}
+            </Show>
+
             {/* Bash command (full, when expanded) */}
             <Show when={primaryDetail() && e().tool_name === "Bash"}>
               <div class="text-[10px] text-text-dim font-mono mb-1">
@@ -1604,6 +1651,16 @@ export const SessionDetail: Component<{
         />
         <Show when={s().permission_mode}>
           <PermissionBadge mode={s().permission_mode!} compact={true} />
+        </Show>
+        <Show when={s().last_monitor_started_at}>
+          <span
+            class="inline-flex items-center gap-1 text-[8px] font-mono uppercase px-1.5 py-0.5 rounded-sm"
+            style={{ color: "#7b9fbf", background: "#7b9fbf12" }}
+            title={s().last_monitor_description || s().last_monitor_command || "Background watch active"}
+          >
+            <Pulse size={8} />
+            watch
+          </span>
         </Show>
         <span class="ml-auto flex items-center gap-2 shrink-0">
           <Sparkline events={s().events} />
