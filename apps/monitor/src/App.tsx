@@ -6,6 +6,8 @@ import { ActivityTimeline } from "./components/ActivityTimeline";
 import { ConflictPanel, type ConflictData } from "./components/ConflictPanel";
 import { SessionDetail } from "./components/SessionDetail";
 import { SetupScreen } from "./components/SetupScreen";
+import { Scrubber } from "./components/Scrubber";
+import { Canvas } from "./components/Canvas";
 import { Lightning, ListBullets, Trash, GearSix, Terminal, Pulse, CaretRight } from "./components/Icons";
 import { ClaudeMonIcon } from "./components/ClaudeMonIcon";
 import type { ClaudeMonPose } from "./components/ClaudeMonIcon";
@@ -37,6 +39,10 @@ const App: Component = () => {
     historyLoading,
     persistenceReady,
     reconnect,
+    // v0.7
+    sendMessage,
+    scrubberTime,
+    setScrubberTime,
   } = createSessionStore();
   const pendingActionList = createMemo(() => Object.values(pendingActions).filter(Boolean));
   const [selectedSessionIds, setSelectedSessionIds] = createSignal<string[]>([]);
@@ -229,7 +235,14 @@ const App: Component = () => {
   const savedTabs = typeof localStorage !== "undefined" ? localStorage.getItem("claudemon_tabs") : null;
   const savedActive = typeof localStorage !== "undefined" ? localStorage.getItem("claudemon_active_tab") : null;
   const [activeTabId, setActiveTabId] = createSignal<string | null>(savedActive);
-  const [viewMode, setViewMode] = createSignal<"tabs" | "columns">("tabs");
+  const [viewMode, setViewMode] = createSignal<"tabs" | "columns" | "canvas">(
+    (typeof localStorage !== "undefined" && (localStorage.getItem("claudemon_view_mode") as "tabs" | "columns" | "canvas")) || "tabs",
+  );
+  createEffect(() => {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("claudemon_view_mode", viewMode());
+    }
+  });
   const [pinnedTabs, setPinnedTabs] = createSignal<Set<string>>(new Set());
   const [contextMenu, setContextMenu] = createSignal<{ x: number; y: number; tabId: string } | null>(null);
 
@@ -520,6 +533,7 @@ const App: Component = () => {
                 onActionRespond={respondToAction}
                 onRequestHistory={loadSessionHistory}
                 historyLoading={historyLoading().has(selectedSessions()[0].session_id)}
+                onSendMessage={sendMessage}
               />
             </div>
           </Show>
@@ -625,18 +639,35 @@ const App: Component = () => {
                       </For>
                     );
                   })()}
-                  {/* View mode toggle (only show when multiple selected) */}
-                  <Show when={selectedSessionIds().length > 1}>
-                    <div class="ml-auto flex items-center shrink-0 px-2">
+                  {/* View mode toggle */}
+                  <div class="ml-auto flex items-center shrink-0 px-2 gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setViewMode("tabs")}
+                      class={`text-[8px] uppercase tracking-wider px-2 py-1 rounded transition-colors ${viewMode() === "tabs" ? "text-suspicious bg-suspicious/10" : "text-text-sub hover:text-text-primary"}`}
+                      title="Tabs — one session at a time"
+                    >
+                      tabs
+                    </button>
+                    <Show when={selectedSessionIds().length > 1}>
                       <button
-                        onClick={() => setViewMode(viewMode() === "tabs" ? "columns" : "tabs")}
-                        class="text-[8px] text-text-sub hover:text-text-primary uppercase tracking-wider px-2 py-1 rounded transition-colors"
-                        title={viewMode() === "tabs" ? "Switch to column view" : "Switch to tab view"}
+                        type="button"
+                        onClick={() => setViewMode("columns")}
+                        class={`text-[8px] uppercase tracking-wider px-2 py-1 rounded transition-colors ${viewMode() === "columns" ? "text-suspicious bg-suspicious/10" : "text-text-sub hover:text-text-primary"}`}
+                        title="Columns — side-by-side"
                       >
-                        {viewMode() === "tabs" ? "columns" : "tabs"}
+                        cols
                       </button>
-                    </div>
-                  </Show>
+                    </Show>
+                    <button
+                      type="button"
+                      onClick={() => setViewMode("canvas")}
+                      class={`text-[8px] uppercase tracking-wider px-2 py-1 rounded transition-colors ${viewMode() === "canvas" ? "text-safe bg-safe/10" : "text-text-sub hover:text-text-primary"}`}
+                      title="Canvas — spatial multi-session view"
+                    >
+                      canvas
+                    </button>
+                  </div>
                 </div>
               </Show>
 
@@ -645,17 +676,17 @@ const App: Component = () => {
                 {/* Center content area — the ONLY part that changes */}
                 <div class="flex-1 min-w-0 flex overflow-hidden">
                   <Show
-                    when={selectedSessions().length > 0}
+                    when={selectedSessions().length > 0 || viewMode() === "canvas"}
                     fallback={
                       <div class="flex-1 flex flex-col items-center justify-center gap-3">
                         <Terminal size={28} class="text-text-sub" />
                         <span class="text-[13px] text-text-dim">Select a session to view details</span>
-                        <span class="text-[10px] text-text-sub">or wait for new activity</span>
+                        <span class="text-[10px] text-text-sub">or switch to canvas view</span>
                       </div>
                     }
                   >
                     {/* Tab view: all sessions mounted, only active visible */}
-                    <Show when={viewMode() === "tabs"}>
+                    <Show when={viewMode() === "tabs" && selectedSessions().length > 0}>
                       <For each={selectedSessions()}>
                         {(session) => (
                           <div
@@ -670,6 +701,7 @@ const App: Component = () => {
                               onActionRespond={respondToAction}
                               onRequestHistory={loadSessionHistory}
                               historyLoading={historyLoading().has(session.session_id)}
+                              onSendMessage={sendMessage}
                             />
                           </div>
                         )}
@@ -677,7 +709,7 @@ const App: Component = () => {
                     </Show>
 
                     {/* Column view: horizontal scroll, each column independently scrollable */}
-                    <Show when={viewMode() === "columns"}>
+                    <Show when={viewMode() === "columns" && selectedSessions().length > 0}>
                       <div class="flex flex-1 min-w-0 overflow-x-auto">
                         <For each={selectedSessions()}>
                           {(session) => (
@@ -690,12 +722,25 @@ const App: Component = () => {
                                 onActionRespond={respondToAction}
                                 onRequestHistory={loadSessionHistory}
                                 historyLoading={historyLoading().has(session.session_id)}
+                                onSendMessage={sendMessage}
                               />
                             </div>
                           )}
                         </For>
                       </div>
                     </Show>
+                  </Show>
+
+                  {/* v0.7: Infinite canvas — shows ALL sessions, not just selected */}
+                  <Show when={viewMode() === "canvas"}>
+                    <Canvas
+                      sessions={sessions}
+                      pendingActions={pendingActions}
+                      onActionRespond={respondToAction}
+                      onSendMessage={sendMessage}
+                      onOpenSession={handleSelectSession}
+                      selectedIds={selectedSessionIds()}
+                    />
                   </Show>
                 </div>
 
@@ -823,6 +868,11 @@ const App: Component = () => {
           connectionStatus={connectionStatus}
           onClose={() => setSettingsOpen(false)}
         />
+      </Show>
+
+      {/* v0.7: Time-travel scrubber — bottom of the app, spans full width */}
+      <Show when={hasAgents() && !isMobile()}>
+        <Scrubber sessions={sessions} scrubberTime={scrubberTime} setScrubberTime={setScrubberTime} />
       </Show>
     </div>
   );
