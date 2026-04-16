@@ -1,7 +1,7 @@
 {
   "name": "claudemon",
-  "version": "0.6.1",
-  "description": "Real-time session monitoring dashboard for Claude Code",
+  "version": "0.7.0",
+  "description": "Real-time session monitoring + bidirectional channel for Claude Code",
   "author": {
     "name": "Ani Potts",
     "url": "https://claudemon.com"
@@ -9,13 +9,33 @@
   "homepage": "https://claudemon.com",
   "repository": "https://github.com/anipotts/claudemon",
   "license": "MIT",
-  "keywords": ["monitoring", "observability", "dashboard", "sessions"],
+  "keywords": ["monitoring", "observability", "dashboard", "sessions", "channel", "orchestration"],
+  "mcpServers": {
+    "claudemon": {
+      "command": "bash",
+      "args": [
+        "-c",
+        "ln -sfn \"${CLAUDE_PLUGIN_DATA}/node_modules\" \"${CLAUDE_PLUGIN_ROOT}/node_modules\" 2>/dev/null; exec npx tsx \"${CLAUDE_PLUGIN_ROOT}/server.ts\""
+      ]
+    }
+  },
+  "channels": [{ "server": "claudemon" }],
   "userConfig": {
     "api_key": {
       "type": "string",
       "title": "ClaudeMon API Key",
       "description": "Your API key from app.claudemon.com. Go to Settings > API Keys to generate one.",
       "sensitive": true
+    },
+    "imessage_notify": {
+      "type": "boolean",
+      "title": "iMessage Notifications",
+      "description": "Send high-priority session alerts (crash, done, needs input, permission) to your iMessage self-chat. Requires macOS Full Disk Access."
+    },
+    "self_chat_guid": {
+      "type": "string",
+      "title": "iMessage Self-Chat GUID",
+      "description": "Auto-detected by /claudemon:imessage. The chat GUID that notifications are sent to."
     }
   }
 }
