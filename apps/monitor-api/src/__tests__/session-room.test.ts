@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { TOOL_CATEGORIES } from "../../../../packages/types/monitor";
 import type { MonitorEvent, SessionState } from "../../../../packages/types/monitor";
+import { getMonitorToolInfo } from "../../../../apps/monitor/src/utils/monitor";
+import { computeSmartStatus } from "../../../../apps/monitor/src/utils/session-status";
 
 // ---------------------------------------------------------------------------
 // Test harness: mirrors the processEvent logic from session-room.ts
@@ -25,6 +27,7 @@ function createTestSession(overrides?: Partial<SessionState>): SessionState {
     error_count: 0,
     compaction_count: 0,
     permission_denied_count: 0,
+    monitor_launch_count: 0,
     files_touched: [],
     commands_run: [],
     events: [],
@@ -86,6 +89,7 @@ function processEvent(sessions: Map<string, SessionState>, event: MonitorEvent):
       error_count: 0,
       compaction_count: 0,
       permission_denied_count: 0,
+      monitor_launch_count: 0,
       files_touched: [],
       commands_run: [],
       source: "local",
@@ -119,12 +123,14 @@ function processEvent(sessions: Map<string, SessionState>, event: MonitorEvent):
       break;
     case "Stop":
       session.status = "done";
+      session.last_monitor_started_at = undefined;
       break;
     case "StopFailure":
       session.status = "error";
       break;
     case "SessionEnd":
       session.status = "offline";
+      session.last_monitor_started_at = undefined;
       break;
     case "SessionStart":
       session.status = "thinking";
@@ -135,6 +141,12 @@ function processEvent(sessions: Map<string, SessionState>, event: MonitorEvent):
       session.error_count = 0;
       session.compaction_count = 0;
       session.permission_denied_count = 0;
+      session.monitor_launch_count = 0;
+      session.last_monitor_description = undefined;
+      session.last_monitor_command = undefined;
+      session.last_monitor_persistent = undefined;
+      session.last_monitor_timeout_ms = undefined;
+      session.last_monitor_started_at = undefined;
       session.files_touched = [];
       session.commands_run = [];
       session.tool_rate = undefined;
@@ -223,6 +235,17 @@ function processEvent(sessions: Map<string, SessionState>, event: MonitorEvent):
     if (event.notification_message) session.notification_message = event.notification_message;
   }
 
+  // Monitor tool presence — best-effort from successful PostToolUse only.
+  if (event.hook_event_name === "PostToolUse" && event.tool_name === "Monitor") {
+    const monitor = getMonitorToolInfo(event.tool_input);
+    session.monitor_launch_count = (session.monitor_launch_count || 0) + 1;
+    session.last_monitor_description = monitor.description;
+    session.last_monitor_command = monitor.command;
+    session.last_monitor_persistent = monitor.persistent;
+    session.last_monitor_timeout_ms = monitor.timeoutMs;
+    session.last_monitor_started_at = event.timestamp;
+  }
+
   // End reason
   if (event.hook_event_name === "SessionEnd") {
     if (event.end_reason) session.end_reason = event.end_reason;
@@ -254,6 +277,9 @@ function processEvent(sessions: Map<string, SessionState>, event: MonitorEvent):
     session.tool_rate = Math.round((totalTools / elapsed) * 10) / 10;
     session.error_rate = totalTools > 0 ? Math.round((session.error_count / totalTools) * 100) / 100 : 0;
   }
+
+  // Smart status (mirrors the frontend store derivation for round-trip testing)
+  session.smart_status = computeSmartStatus(session, event);
 
   // Deduplicate Pre/Post via tool_use_id
   if (event.hook_event_name === "PostToolUse" && event.tool_use_id) {
@@ -525,6 +551,29 @@ describe("processEvent — SessionStart reset", () => {
     expect(s.model).toBe("claude-opus-4-20250514");
     expect(s.permission_mode).toBe("auto-approve");
   });
+
+  it("clears monitor-derived fields", () => {
+    const sessions = new Map<string, SessionState>();
+    sessions.set(
+      "s1",
+      createTestSession({
+        monitor_launch_count: 3,
+        last_monitor_description: "errors in deploy.log",
+        last_monitor_command: "tail -f deploy.log",
+        last_monitor_persistent: true,
+        last_monitor_timeout_ms: 30000,
+        last_monitor_started_at: 12345,
+      }),
+    );
+    processEvent(sessions, makeEvent({ hook_event_name: "SessionStart" }));
+    const s = sessions.get("s1")!;
+    expect(s.monitor_launch_count).toBe(0);
+    expect(s.last_monitor_description).toBeUndefined();
+    expect(s.last_monitor_command).toBeUndefined();
+    expect(s.last_monitor_persistent).toBeUndefined();
+    expect(s.last_monitor_timeout_ms).toBeUndefined();
+    expect(s.last_monitor_started_at).toBeUndefined();
+  });
 });
 
 describe("processEvent — tool categorization", () => {
@@ -593,6 +642,120 @@ describe("processEvent — tool categorization", () => {
     expect(s.command_count).toBe(0);
     expect(s.read_count).toBe(0);
     expect(s.search_count).toBe(0);
+  });
+
+  it("Monitor does not increment edit, command, read, or search counters", () => {
+    const sessions = new Map<string, SessionState>();
+    sessions.set("s1", createTestSession());
+    processEvent(
+      sessions,
+      makeEvent({
+        hook_event_name: "PostToolUse",
+        tool_name: "Monitor",
+        tool_input: { command: "tail -f deploy.log", description: "errors in deploy.log" },
+      }),
+    );
+    const s = sessions.get("s1")!;
+    expect(s.edit_count).toBe(0);
+    expect(s.command_count).toBe(0);
+    expect(s.read_count).toBe(0);
+    expect(s.search_count).toBe(0);
+  });
+});
+
+describe("processEvent — Monitor awareness", () => {
+  it("records successful Monitor launches without counting them as commands", () => {
+    const sessions = new Map<string, SessionState>();
+    sessions.set("s1", createTestSession());
+    const ts = Date.now();
+    processEvent(
+      sessions,
+      makeEvent({
+        hook_event_name: "PostToolUse",
+        tool_name: "Monitor",
+        timestamp: ts,
+        tool_input: {
+          command: "tail -f deploy.log",
+          description: "errors in deploy.log",
+          persistent: true,
+          timeout_ms: 30000,
+        },
+      }),
+    );
+    const s = sessions.get("s1")!;
+    expect(s.monitor_launch_count).toBe(1);
+    expect(s.last_monitor_description).toBe("errors in deploy.log");
+    expect(s.last_monitor_command).toBe("tail -f deploy.log");
+    expect(s.last_monitor_persistent).toBe(true);
+    expect(s.last_monitor_timeout_ms).toBe(30000);
+    expect(s.last_monitor_started_at).toBe(ts);
+    expect(s.command_count).toBe(0);
+  });
+
+  it("updates smart_status when a Monitor launch succeeds", () => {
+    const sessions = new Map<string, SessionState>();
+    sessions.set("s1", createTestSession());
+    processEvent(
+      sessions,
+      makeEvent({
+        hook_event_name: "PostToolUse",
+        tool_name: "Monitor",
+        tool_input: {
+          command: "tail -f deploy.log",
+          description: "errors in deploy.log",
+        },
+      }),
+    );
+    expect(sessions.get("s1")!.smart_status).toBe("Watching: errors in deploy.log");
+  });
+
+  it("keeps Monitor failures out of monitor presence fields", () => {
+    const sessions = new Map<string, SessionState>();
+    sessions.set("s1", createTestSession());
+    processEvent(
+      sessions,
+      makeEvent({
+        hook_event_name: "PostToolUseFailure",
+        tool_name: "Monitor",
+        tool_input: {
+          command: "tail -f deploy.log",
+          description: "errors in deploy.log",
+        },
+        error: "permission denied",
+      }),
+    );
+    const s = sessions.get("s1")!;
+    expect(s.monitor_launch_count).toBe(0);
+    expect(s.last_monitor_started_at).toBeUndefined();
+    expect(s.smart_status).toBe("Error: Monitor `errors in deploy.log`");
+  });
+
+  it("clears active monitor presentation on Stop", () => {
+    const sessions = new Map<string, SessionState>();
+    sessions.set(
+      "s1",
+      createTestSession({
+        monitor_launch_count: 1,
+        last_monitor_description: "errors in deploy.log",
+        last_monitor_started_at: 12345,
+      }),
+    );
+    processEvent(sessions, makeEvent({ hook_event_name: "Stop" }));
+    expect(sessions.get("s1")!.last_monitor_started_at).toBeUndefined();
+  });
+
+  it("clears active monitor presentation on SessionEnd", () => {
+    const sessions = new Map<string, SessionState>();
+    sessions.set(
+      "s1",
+      createTestSession({
+        monitor_launch_count: 1,
+        last_monitor_description: "errors in deploy.log",
+        last_monitor_started_at: 12345,
+      }),
+    );
+    processEvent(sessions, makeEvent({ hook_event_name: "SessionEnd" }));
+    expect(sessions.get("s1")!.last_monitor_started_at).toBeUndefined();
   });
 });
 
