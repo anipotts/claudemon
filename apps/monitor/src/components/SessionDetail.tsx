@@ -50,7 +50,7 @@ const TOOL_COLORS: Record<string, string> = {
   Edit: "#c9a96e",
   Write: "#a3b18a",
   Bash: "#7ea8be",
-  Monitor: "#7b9fbf",
+  Monitor: "#5f9ea0",
   Grep: "#6b6560",
   Glob: "#6b6560",
   Agent: "#b07bac",
@@ -960,7 +960,7 @@ function ToolCallBlock(props: { event: MonitorEvent; defaultExpanded: boolean; f
                     <Show when={info().persistent !== undefined}>
                       <span
                         class="text-[9px] font-bold uppercase px-1 rounded-sm"
-                        style={{ color: "#7b9fbf", background: "#7b9fbf18" }}
+                        style={{ color: "#5f9ea0", background: "#5f9ea018" }}
                       >
                         {info().persistent ? "persistent" : "one-shot"}
                       </span>
@@ -1655,7 +1655,7 @@ export const SessionDetail: Component<{
         <Show when={s().last_monitor_started_at}>
           <span
             class="inline-flex items-center gap-1 text-[8px] font-mono uppercase px-1.5 py-0.5 rounded-sm"
-            style={{ color: "#7b9fbf", background: "#7b9fbf12" }}
+            style={{ color: "#5f9ea0", background: "#5f9ea012" }}
             title={s().last_monitor_description || s().last_monitor_command || "Background watch active"}
           >
             <Pulse size={8} />
