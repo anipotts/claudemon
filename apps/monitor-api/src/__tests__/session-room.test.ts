@@ -730,32 +730,51 @@ describe("processEvent — Monitor awareness", () => {
     expect(s.smart_status).toBe("Error: Monitor `errors in deploy.log`");
   });
 
-  it("clears active monitor presentation on Stop", () => {
+  it("clears active monitor presentation on Stop but preserves historical fields", () => {
     const sessions = new Map<string, SessionState>();
     sessions.set(
       "s1",
       createTestSession({
         monitor_launch_count: 1,
         last_monitor_description: "errors in deploy.log",
+        last_monitor_command: "tail -f deploy.log",
+        last_monitor_persistent: true,
+        last_monitor_timeout_ms: 30000,
         last_monitor_started_at: 12345,
       }),
     );
     processEvent(sessions, makeEvent({ hook_event_name: "Stop" }));
-    expect(sessions.get("s1")!.last_monitor_started_at).toBeUndefined();
+    const s = sessions.get("s1")!;
+    // Only the "actively watching" signal clears — the rest stays as history.
+    expect(s.last_monitor_started_at).toBeUndefined();
+    expect(s.monitor_launch_count).toBe(1);
+    expect(s.last_monitor_description).toBe("errors in deploy.log");
+    expect(s.last_monitor_command).toBe("tail -f deploy.log");
+    expect(s.last_monitor_persistent).toBe(true);
+    expect(s.last_monitor_timeout_ms).toBe(30000);
   });
 
-  it("clears active monitor presentation on SessionEnd", () => {
+  it("clears active monitor presentation on SessionEnd but preserves historical fields", () => {
     const sessions = new Map<string, SessionState>();
     sessions.set(
       "s1",
       createTestSession({
         monitor_launch_count: 1,
         last_monitor_description: "errors in deploy.log",
+        last_monitor_command: "tail -f deploy.log",
+        last_monitor_persistent: true,
+        last_monitor_timeout_ms: 30000,
         last_monitor_started_at: 12345,
       }),
     );
     processEvent(sessions, makeEvent({ hook_event_name: "SessionEnd" }));
-    expect(sessions.get("s1")!.last_monitor_started_at).toBeUndefined();
+    const s = sessions.get("s1")!;
+    expect(s.last_monitor_started_at).toBeUndefined();
+    expect(s.monitor_launch_count).toBe(1);
+    expect(s.last_monitor_description).toBe("errors in deploy.log");
+    expect(s.last_monitor_command).toBe("tail -f deploy.log");
+    expect(s.last_monitor_persistent).toBe(true);
+    expect(s.last_monitor_timeout_ms).toBe(30000);
   });
 });
 
