@@ -12,7 +12,7 @@
       "name": "claudemon",
       "source": "./plugin",
       "description": "Monitor your Claude Code sessions in real time at app.claudemon.com",
-      "version": "0.6.1"
+      "version": "0.7.0"
     }
   ]
 }

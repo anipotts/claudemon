@@ -2660,7 +2660,7 @@ export const SessionDetail: Component<{
           fallback={
             <div class="flex-1 text-[10px] text-text-dim italic">
               Channel not connected — start session with{" "}
-              <code class="text-text-label">--channels plugin:claudemon@claudemon</code>
+              <code class="text-text-label">--channels plugin:claudemon@anipotts</code>
             </div>
           }
         >

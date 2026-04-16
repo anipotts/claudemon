@@ -94,7 +94,7 @@ export const SetupScreen: Component<SetupScreenProps> = (props) => {
   }
 
   const marketplaceCmd = "/plugin marketplace add anipotts/claudemon";
-  const installCmd = "/plugin install claudemon@claudemon";
+  const installCmd = "/plugin install claudemon@anipotts";
   const allCmds = () => `${marketplaceCmd}\n${installCmd}\n\n# API key (paste when prompted):\n${apiKey() || ""}`;
 
   function submitManualKey() {
@@ -311,7 +311,7 @@ export const SetupScreen: Component<SetupScreenProps> = (props) => {
                   Regenerate key
                 </button>
                 <span class="text-[9px] text-text-sub">
-                  Optional: <code class="text-text-label">--channels plugin:claudemon@claudemon</code> for messaging
+                  Optional: <code class="text-text-label">--channels plugin:claudemon@anipotts</code> for messaging
                 </span>
               </div>
             </div>

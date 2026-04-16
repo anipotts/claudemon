@@ -137,7 +137,7 @@ export const SessionNode: Component<SessionNodeProps> = (props) => {
         when={s().channel_connected !== false && props.onSendMessage}
         fallback={
           <Show when={props.onSendMessage}>
-            <div class="node-input-disabled" title="Start session with --channels plugin:claudemon@claudemon">
+            <div class="node-input-disabled" title="Start session with --channels plugin:claudemon@anipotts">
               channel offline
             </div>
           </Show>

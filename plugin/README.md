@@ -6,7 +6,7 @@ Real-time session monitoring for Claude Code. Watch your sessions live at [app.c
 
 ```
 /plugin marketplace add https://github.com/anipotts/claudemon
-/plugin install claudemon@claudemon
+/plugin install claudemon@anipotts
 ```
 
 You'll be prompted for an API key. Get one at [app.claudemon.com](https://app.claudemon.com) > Settings > API Keys.
