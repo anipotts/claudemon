@@ -12,6 +12,7 @@ import { Lightning, ListBullets, Trash, GearSix, Terminal, Pulse, CaretRight } f
 import { ClaudeMonIcon } from "./components/ClaudeMonIcon";
 import type { ClaudeMonPose } from "./components/ClaudeMonIcon";
 import { SettingsPanel } from "./components/SettingsPanel";
+import { PreferencesSegments } from "./components/PreferencesSegments";
 
 const API_URL = import.meta.env.VITE_MONITOR_API_URL || "https://api.claudemon.com"; // v2
 
@@ -429,6 +430,10 @@ const App: Component = () => {
               </svg>
             </Show>
           </button>
+
+          <Show when={!isMobile()}>
+            <PreferencesSegments />
+          </Show>
 
           <button
             onClick={() => setSettingsOpen(true)}
