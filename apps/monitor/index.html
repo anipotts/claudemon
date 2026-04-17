@@ -29,6 +29,28 @@
       href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=Caveat:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
+    <script>
+      // Paint-blocking theme/density/headings initializer — prevents flash
+      // of wrong theme on first render. Mirrors defaults in stores/preferences.ts.
+      (() => {
+        try {
+          const root = document.documentElement;
+          const themePref = localStorage.getItem("cm_theme") || "system";
+          const density = localStorage.getItem("cm_density") || "compact";
+          const headings = localStorage.getItem("cm_headings") || "mono";
+          const effective =
+            themePref === "system"
+              ? window.matchMedia("(prefers-color-scheme: dark)").matches
+                ? "dark"
+                : "light"
+              : themePref;
+          root.setAttribute("data-theme", effective);
+          root.setAttribute("data-theme-pref", themePref);
+          root.setAttribute("data-density", density);
+          root.setAttribute("data-headings", headings);
+        } catch (_) {}
+      })();
+    </script>
   </head>
   <body class="min-h-full flex flex-col font-mono">
     <div id="root"></div>
