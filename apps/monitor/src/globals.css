@@ -1,7 +1,13 @@
 @import "tailwindcss";
 
-/* v2 — zero-friction onboarding rewrite */
+/* v2 — zero-friction onboarding rewrite
+ * v4 — "Command Center" design-system layer added below legacy tokens.
+ *   Legacy tokens (--bg, --panel, --safe, ...) stay as the dark-mode defaults
+ *   so existing components render unchanged until they opt into the V4 surface.
+ *   New tokens (--paper, --ink, --coral, ...) + data-theme/density/headings
+ *   are added additively — Phase-1 wiring only, no screen relayout yet. */
 :root {
+  /* legacy palette (dark-mode defaults) */
   --bg: #0a0a0a;
   --panel: #1a1916;
   --panel-border: #3d3a34;
@@ -18,6 +24,79 @@
   --suspicious: #c9a96e;
   --attack: #b85c4a;
   --blocked: #8a3a2e;
+
+  /* V4 palette — paper (light) by default; dark override below */
+  --paper: oklch(0.97 0.008 70);
+  --paper-2: oklch(0.94 0.01 70);
+  --ink: oklch(0.22 0.015 60);
+  --ink-2: oklch(0.4 0.02 60);
+  --ink-3: oklch(0.6 0.02 60);
+  --rule: oklch(0.8 0.015 60);
+  --rule-2: oklch(0.88 0.01 60);
+  --coral: oklch(0.68 0.14 40);
+  --coral-ink: oklch(0.4 0.14 40);
+  --coral-wash: oklch(0.93 0.04 40);
+  --stream: oklch(0.6 0.06 240);
+  --v4-safe: oklch(0.7 0.09 145);
+  --v4-warn: oklch(0.74 0.12 75);
+  --v4-danger: oklch(0.62 0.16 25);
+
+  /* V4 typography */
+  --font-serif: "Fraunces", "Tiempos Text", Georgia, serif;
+  --font-hand: "Caveat", "Kalam", "Comic Sans MS", cursive;
+  --font-jb-mono: "JetBrains Mono", "Geist Mono", "SF Mono", monospace;
+  --font-sans: "Inter", -apple-system, system-ui, sans-serif;
+
+  /* V4 density unit + heading selector (overridden by data-attrs) */
+  --u: 5px;
+  --heading-font: var(--font-jb-mono);
+}
+
+/* Dark theme — applies when user chose dark OR when system prefers dark
+   (the preferences store writes data-theme="dark" in either case). */
+html[data-theme="dark"] {
+  --paper: oklch(0.18 0.01 60);
+  --paper-2: oklch(0.22 0.012 60);
+  --ink: oklch(0.94 0.01 70);
+  --ink-2: oklch(0.78 0.015 60);
+  --ink-3: oklch(0.6 0.02 60);
+  --rule: oklch(0.34 0.015 60);
+  --rule-2: oklch(0.28 0.012 60);
+  --coral-wash: oklch(0.3 0.05 40);
+}
+
+/* Light theme — explicitly reassert legacy tokens too so page bg flips */
+html[data-theme="light"] {
+  --bg: var(--paper);
+  --panel: var(--paper-2);
+  --panel-border: var(--rule);
+  --card: var(--paper);
+  --item: var(--paper-2);
+  --input-bg: var(--paper);
+  --text-primary: var(--ink);
+  --text-label: var(--ink-2);
+  --text-dim: var(--ink-3);
+  --text-sub: var(--ink-3);
+}
+
+html[data-density="compact"] {
+  --u: 5px;
+}
+html[data-density="cozy"] {
+  --u: 8px;
+}
+html[data-density="spacious"] {
+  --u: 11px;
+}
+
+html[data-headings="mono"] {
+  --heading-font: var(--font-jb-mono);
+}
+html[data-headings="serif"] {
+  --heading-font: var(--font-serif);
+}
+html[data-headings="hand"] {
+  --heading-font: var(--font-hand);
 }
 
 @theme inline {
@@ -35,7 +114,22 @@
   --color-suspicious: var(--suspicious);
   --color-attack: var(--attack);
   --color-blocked: var(--blocked);
-  --font-mono: "Geist Mono", "SF Mono", "Fira Code", "Courier New", monospace;
+  --color-paper: var(--paper);
+  --color-paper-2: var(--paper-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-rule: var(--rule);
+  --color-rule-2: var(--rule-2);
+  --color-coral: var(--coral);
+  --color-coral-ink: var(--coral-ink);
+  --color-coral-wash: var(--coral-wash);
+  --color-stream: var(--stream);
+  --font-mono: "Geist Mono", "JetBrains Mono", "SF Mono", "Fira Code", "Courier New", monospace;
+  --font-jb-mono: "JetBrains Mono", "Geist Mono", "SF Mono", monospace;
+  --font-serif: "Fraunces", "Tiempos Text", Georgia, serif;
+  --font-hand: "Caveat", "Kalam", cursive;
+  --font-sans: "Inter", -apple-system, system-ui, sans-serif;
 }
 
 /* Text size — single zoom variable drives presets + pinch gestures */
