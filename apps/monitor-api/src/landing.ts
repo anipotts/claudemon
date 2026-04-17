@@ -3,11 +3,20 @@ export const LANDING_HTML = `<!DOCTYPE html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ClaudeMon -- Monitor your Claude Code sessions in real time</title>
-  <meta name="description" content="Real-time monitoring for Claude Code sessions. See what every agent is doing, detect file conflicts, know when Claude needs your input.">
+  <title>ClaudeMon -- the lightweight monitor for Claude Code</title>
+  <meta name="description" content="The lightweight monitor for Claude Code. Watch every session -- tool calls, agent trees, and permission prompts stream in real time. Zero-dependency CLI, ephemeral WebSocket relay, no database.">
+  <meta property="og:title" content="ClaudeMon -- the lightweight monitor for Claude Code">
+  <meta property="og:description" content="The lightweight monitor for Claude Code. Watch every session in real time.">
+  <meta property="og:url" content="https://claudemon.com">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://app.claudemon.com/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="ClaudeMon -- the lightweight monitor for Claude Code">
+  <meta name="twitter:description" content="The lightweight monitor for Claude Code. Watch every session in real time.">
+  <meta name="twitter:image" content="https://app.claudemon.com/og-image.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300..800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300..800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" sizes="32x32" href="https://app.claudemon.com/favicon-32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="https://app.claudemon.com/favicon-16.png">
   <style>
@@ -948,9 +957,9 @@ footer .sep { color: var(--panel-border); }
         <div class="logo-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         </div>
-        <h1>ClaudeMon</h1>
+        <h1>Claude<span style="color: var(--suspicious);">Mon</span></h1>
       </div>
-      <p class="tagline fade-in fade-in-d1">Monitor your Claude Code sessions in real time</p>
+      <p class="tagline fade-in fade-in-d1">the lightweight monitor for Claude Code</p>
       <p class="subtitle fade-in fade-in-d2">See what every agent is doing across machines and branches. Detect file conflicts before they happen. Know when Claude needs your input.</p>
       <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:24px; font-size:11px; color:#6b6560;" class="fade-in fade-in-d2">
         <span>Open source</span>
@@ -987,7 +996,7 @@ footer .sep { color: var(--panel-border); }
                 ClaudeMon
               </span>
               <span class="mock-header-sep">|</span>
-              <span class="mock-header-tagline">Monitor your Claude Code sessions in real time</span>
+              <span class="mock-header-tagline">the lightweight monitor for Claude Code</span>
             </div>
             <div class="mock-header-right">
               <span class="mock-status-count" style="color:var(--safe);">
