@@ -13,6 +13,7 @@ import { ClaudeMonIcon } from "./components/ClaudeMonIcon";
 import type { ClaudeMonPose } from "./components/ClaudeMonIcon";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { PreferencesSegments } from "./components/PreferencesSegments";
+import { PulseBar } from "./components/PulseBar";
 
 const API_URL = import.meta.env.VITE_MONITOR_API_URL || "https://api.claudemon.com"; // v2
 
@@ -357,11 +358,12 @@ const App: Component = () => {
       <header class="h-11 shrink-0 flex items-center justify-between px-5 bg-item border-b border-panel-border shadow-[0_1px_3px_rgba(0,0,0,0.4)] mobile-header">
         <div class="flex items-center gap-3">
           <span class="text-lg font-bold tracking-wider flex items-center gap-1.5">
-            <ClaudeMonIcon pose={headerPose()} size={22} /> ClaudeMon
+            <ClaudeMonIcon pose={headerPose()} size={22} />
+            Claude<span style={{ color: "var(--coral)" }}>Mon</span>
           </span>
           <Show when={hasAgents() && !isMobile()}>
             <span class="text-text-sub">|</span>
-            <span class="text-[11px] text-text-dim tracking-wider">Monitor your Claude Code sessions in real time</span>
+            <span class="text-[11px] text-text-dim tracking-wider">the lightweight monitor for Claude Code</span>
           </Show>
         </div>
         <div class="flex items-center gap-4">
@@ -528,7 +530,7 @@ const App: Component = () => {
 
           {/* Sessions sidebar */}
           <div
-            class={`flex flex-col ${isMobile() ? "flex-1 min-w-0" : "w-[280px] shrink-0 border-r border-panel-border"}`}
+            class={`flex flex-col ${isMobile() ? "flex-1 min-w-0" : "w-[220px] shrink-0 border-r border-panel-border"}`}
           >
             <div class="flex-1 overflow-y-auto smooth-scroll p-2">
               <AgentMap sessions={sessions} selectedIds={selectedSessionIds()} onSelect={handleSelectSession} />
@@ -760,7 +762,7 @@ const App: Component = () => {
                 {/* Activity sidebar — collapsible, persisted to localStorage */}
                 <div
                   class="activity-sidebar shrink-0 flex flex-col border-l border-panel-border"
-                  style={{ width: activityCollapsed() ? "36px" : "280px" }}
+                  style={{ width: activityCollapsed() ? "36px" : "260px" }}
                 >
                   <Show
                     when={!activityCollapsed()}
@@ -779,7 +781,9 @@ const App: Component = () => {
                     <div class="flex-1 flex flex-col min-h-0">
                       <div class="px-3 py-2 border-b border-panel-border flex items-center gap-2 shrink-0 h-[33px]">
                         <ListBullets size={14} class="text-text-label" />
-                        <span class="text-[10px] text-text-label uppercase tracking-[2px]">Activity</span>
+                        <span class="text-[13px] font-semibold" style={{ "font-family": "var(--heading-font)" }}>
+                          Pings
+                        </span>
                         <span class="text-[9px] text-text-sub ml-auto">{allEvents().length}</span>
                         <button
                           class="text-text-sub hover:text-text-primary transition-colors p-0.5"
@@ -789,6 +793,11 @@ const App: Component = () => {
                           <CaretRight size={10} />
                         </button>
                       </div>
+                      <Show when={hasAgents()}>
+                        <div class="px-3 py-2 border-b border-panel-border shrink-0">
+                          <PulseBar bars={28} height={14} />
+                        </div>
+                      </Show>
                       <div class="cm-content flex-1 overflow-y-auto smooth-scroll">
                         <ActivityTimeline events={allEvents()} onSelectSession={handleSelectSession} />
                       </div>
