@@ -116,12 +116,13 @@ export const SetupScreen: Component<SetupScreenProps> = (props) => {
       <div class="w-full max-w-[520px] py-10 space-y-8">
         {/* ── Brand ──────────────────────────────────────────────── */}
         <div class="text-center space-y-1.5">
-          <h1 class="font-mono text-[22px] font-medium tracking-tight" style={{ color: "var(--suspicious)" }}>
-            claudemon
+          <h1
+            class="text-[28px] font-semibold tracking-tight"
+            style={{ "font-family": "var(--heading-font)", color: "var(--text-primary)" }}
+          >
+            Claude<span style={{ color: "var(--coral)" }}>Mon</span>
           </h1>
-          <div class="text-[10px] uppercase tracking-[0.22em] text-text-sub">
-            live monitor for claude code · mission control
-          </div>
+          <div class="text-[11px] tracking-wider text-text-dim">the lightweight monitor for Claude Code</div>
         </div>
 
         {/* ═══════════════════════════════════════════════════════ */}
